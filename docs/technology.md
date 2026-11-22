@@ -44,10 +44,10 @@ Research turns gold into advances: caps, upgrades, cheaper attacks.
   touch never hovers; the tree lays advances by depth (`TechTreeLayout`).
 - **Phone sheet (DR-20261120-03):** the college budgets its plate; the window
   yields (`ResearchSheetFit`).
-- **Court's picks (DR-20261121-01, DR-20261121-20):** the idle slot prints in
-  gold the study policy would open (`MapPlayResearchPick`); the chart prints
-  the same line and marks the advance `▸`; an unfundable door is not named
-  (`#484`); nothing assigned or spent.
+- **Court's picks (DR-20261121-01, DR-20261121-20, DR-20261122-19):** the idle
+  slot prints in gold the study policy would open (`MapPlayResearchPick`); the
+  chart and the AVAILABLE row mark that advance `▸`; an unfundable door is
+  never named (`#484`); nothing assigned or spent.
 
 ## Deferred (REQ-P2-02)
 

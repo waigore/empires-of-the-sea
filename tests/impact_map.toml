@@ -504,11 +504,14 @@ domain = "hostility"
 match = "scripts/ai/ai_naval_planner.gd*"
 domain = "hostility"
 
-# Rival economy pass: stay on ai with the other MapPlay*Ai files so a court-
-# reader fan-out does not union blockade/economy boots past the tier-1 budget.
+# The rival economy pass (its walk), the one court's turn and book, and the
+# ledger side (yield, food, reservation rows) are one turn split by owner: all
+# stay on the ai_economy slice, because the full AI fan-out overruns the tier-1
+# 5 min budget. `map_play_economy_larder.gd` is the crown's pick reads too
+# (`MapPlayCivilianPick`, `MapPlayHirePick`), which the same suites prove.
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
-domain = "ai"
+domain = "ai_economy"
 
 # One court's economy turn (and its research/trade book), split out of the pass
 # above: market + AI + civilian turn prove the plan (manufacture around the
@@ -516,6 +519,10 @@ domain = "ai"
 # tier-1 5 min budget.
 [[rules]]
 match = "scripts/map/map_play_economy_court*.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_larder.gd*"
 domain = "ai_economy"
 
 [[rules]]
@@ -1134,6 +1141,12 @@ domain = "eyes"
 match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
+# The network's own row wears the counsel's mark (DR-20261122-18): the same
+# slice as the sheet that sets it, never the ui glob's wider set.
+[[rules]]
+match = "scripts/ui/spy_ledger_row.gd*"
+domain = "eyes"
+
 # The reading the eyes print (DR-20261121-11): its own small slice, so the
 # shaping of one gold line never pulls the espionage domain's seven suites.
 [[rules]]
@@ -1625,6 +1638,19 @@ suites = [
   "test_generated_world_rules.gd",
 ]
 
+# Purse words (REQ-P3-01): MoneyText and the pages that print ducats. Kept off
+# battle/map boots so a formatting PR stays inside the tier-1 5 min budget.
+[domains.money_text]
+suites = [
+  "test_generated_world_rules.gd",
+  "test_panel_parts_rules.gd",
+  "test_economy_screen.gd",
+  "test_market_economy_rules.gd",
+  "test_research_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_diplomacy_rules.gd",
+]
+
 # Chart roster / province totals (wiki: naming § default ruleset, advanced-starts
 # § locked full-init). Kept small so a six-minor / 60/30 change stays in tier 1.
 [domains.world]
@@ -1876,6 +1902,12 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_workers.gd*"
 domain = "economy_ui"
 
+# Larder, tier rows and order-queue paint for the WORKERS tab (REQ-P3-01 split);
+# same suites as the sheet it paints so a row change stays tier-1 sized.
+[[rules]]
+match = "scripts/ui/ledger_workers_rows.gd*"
+domain = "economy_ui"
+
 # The production row's workshop copy (tag, long form, allowance) lives beside
 # the ledger text so a copy change runs the same economy_ui rows.
 [[rules]]
@@ -1893,6 +1925,12 @@ domain = "economy_ui"
 # sized instead of remounting the setup and hub pages.
 [[rules]]
 match = "scripts/ui/ledger_production.gd*"
+domain = "economy_ui"
+
+# Column and row paint for the PRODUCTION tab (REQ-P3-01 split); same suites as
+# the sheet it paints so a row change stays tier-1 sized.
+[[rules]]
+match = "scripts/ui/ledger_production_rows.gd*"
 domain = "economy_ui"
 
 # The tier medallions are the WORKERS tab's art table, and its by-hand shot
@@ -2572,6 +2610,22 @@ domain = "fleet_pick"
 # scripts/ui/** catch-all so a line change runs the pick's own slice.
 [[rules]]
 match = "scripts/ui/fleet_mission_section.gd*"
+domain = "fleet_pick"
+
+# The court's own expedition reading (DR-20261122-20): the step the published
+# invasion policy would take with a squadron that carries a host, and the mark it
+# puts on the coast row. The same slice proves it — the fleet orders suite reads
+# the planner and the dossier, the panel parts suite the block's mark.
+[[rules]]
+match = "scripts/map/map_play_expedition_pick*.gd*"
+domain = "fleet_pick"
+
+[[rules]]
+match = "scripts/ui/fleet_dossier_opening.gd*"
+domain = "fleet_pick"
+
+[[rules]]
+match = "scripts/ui/fleet_dossier_section.gd*"
 domain = "fleet_pick"
 
 [domains.fleet_pick]
@@ -3598,18 +3652,18 @@ domain = "ai"
 
 # Presentation catalogs and the shared purse formatter. Declared before the
 # civilian_*/diplomacy_*/ship_*/regiment_* globs so a MoneyText extract does not
-# steal *_catalog → misc and pull the screen/lens suites past the tier-1 budget.
+# steal *_catalog → misc and pull battle/screen suites past the tier-1 budget.
 [[rules]]
 match = "scripts/rules/money_text.gd*"
-domain = "misc"
+domain = "money_text"
 
 [[rules]]
 match = "scripts/rules/civilian_catalog.gd*"
-domain = "misc"
+domain = "money_text"
 
 [[rules]]
 match = "scripts/rules/diplomacy_catalog.gd*"
-domain = "misc"
+domain = "money_text"
 
 # What a civilian hire buys and the one study it waits on, printed on the muster
 # rail (DR-20261118-09): its own small slice proves the words and the rail that
@@ -3964,12 +4018,6 @@ domain = "campaign"
 # Fog grid, coast tables and end-of-turn decay: one domain (REQ-P3-01).
 [[rules]]
 match = "scripts/rules/visibility*.gd*"
-domain = "fog"
-
-# The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
-# § Spy timer expiry), so it travels with the fog domain.
-[[rules]]
-match = "scripts/rules/spy_charter.gd*"
 domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
@@ -4361,6 +4409,12 @@ domain = "despatch"
 [[rules]]
 match = "scripts/ui/hud_despatch_cover.gd*"
 domain = "despatch"
+
+# Treasury chip copy only: the purse tooltip prints through MoneyText, so keep
+# it off the ui domain's battle boot when stacked on a ducats formatting PR.
+[[rules]]
+match = "scripts/ui/hud_stat_chips.gd*"
+domain = "money_text"
 
 # HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
 # off the menu domain so a dossier wiring change stays inside the tier-1 5 min

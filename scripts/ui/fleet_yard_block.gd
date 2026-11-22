@@ -14,12 +14,18 @@ extends FleetDrawer
 ## Breaking up a paid-for hull asks once: the guard holds the hull the crown
 ## armed and lets the window run out on its own (DR-20261109-01).
 
+## The mark the counsel reads by: the hull the court's own yard would lay wears
+## it before her name, the mark the muster's forces and the realm's provinces
+## wear (DR-20261122-12).
+const COURT_MARK: String = "▸"
+
 var _arm: ArmGuard = null
 var _fleet: FleetState = null
 var _is_player: bool = false
-## The hull the court's own yard means to lay, in gold under the launch heading —
-## the published claim's reading, never an order (DR-20261121-02).
-var _pick: String = ""
+## The pick the court's own yard printed, in gold under the launch heading — the
+## published claim's reading, never an order (DR-20261121-02). Kept whole so the
+## line and the launch row's mark come off one read (DR-20261122-12).
+var _pick: Dictionary = {}
 ## The one press under the slip; it owns the arm, its timeout and its words.
 var _batch: RaiseBatchPress = null
 
@@ -53,26 +59,33 @@ func _make_batch() -> void:
 
 
 ## A fresh fleet: the yard closes unless it may stay, and the rows are redrawn.
-## `pick` is the hull the court's own yard means to lay, already worded
-## (DR-20261121-02); a rival answers to her own court and carries none.
+## `pick` is the court's own claim, kept whole so the line under the heading and
+## the hull's mark come off one read (DR-20261121-02, DR-20261122-12); a rival
+## answers to her own court and carries none.
 func show_rows(
 	fleet: FleetState, rows: Array[Dictionary], is_player: bool, keep_open: bool,
-	pick: String = ""
+	pick: Dictionary = {}
 ) -> void:
 	_fleet = fleet
 	_is_player = is_player
-	_pick = pick if is_player else ""
+	_pick = pick if is_player and pick != null else {}
 	offer(rows, is_player, not rows.is_empty(), "", keep_open, false)
 
 
 ## The capital slip: no squadron afloat, but the yard still lists what to launch.
-func show_slip(rows: Array[Dictionary], is_player: bool, pick: String = "") -> void:
+func show_slip(rows: Array[Dictionary], is_player: bool, pick: Dictionary = {}) -> void:
 	show_rows(null, rows, is_player, true, pick)
 
 
 ## The pick the drawer is printing, for tests and the mobile audit (REQ-P3-02).
 func pick_line() -> String:
-	return _pick
+	return MapPlayPickProse.sentence_of(_pick)
+
+
+## The hull the slip's launch rows mark, for tests and the mobile audit
+## (REQ-P3-02).
+func mark_type() -> String:
+	return String(_pick.get("type", ""))
 
 
 ## The break-up drawer takes the yard's place while a join is on offer, so the
@@ -103,9 +116,10 @@ func _fill() -> void:
 	# The court's own yard would lay one hull and not the list: the pick stands
 	# under the heading, in the gold the crew's and the squadron's picks use, so
 	# the advice reads before the rows' prices do (REQ-P5-03; DR-20261121-02).
-	if not _pick.is_empty():
+	var advice_text: String = MapPlayPickProse.sentence_of(_pick)
+	if not advice_text.is_empty():
 		var advice := UiRowBuilder.line(12, Palette.GOLD)
-		advice.text = _pick
+		advice.text = advice_text
 		advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_box.add_child(advice)
 	var ready: int = 0
@@ -151,9 +165,15 @@ func _build_row(row: Dictionary) -> Control:
 	var pending: int = int(row.get("pending", 0))
 	if pending > 0:
 		detail += "  ·  %d under orders" % pending
+	# The counsel's mark leads the hull the line would lay, so the crown finds
+	# that row among the slip's whole list (DR-20261122-12).
+	var hull_name: String = String(row["name"])
+	var mark: String = mark_type()
+	if not mark.is_empty() and type_id == mark:
+		hull_name = "%s %s" % [COURT_MARK, hull_name]
 	var entry: VBoxContainer = super({
 		"type": type_id,
-		"name": String(row["name"]),
+		"name": hull_name,
 		"ok": ok,
 		"reason": reason,
 		"label": "Launch",

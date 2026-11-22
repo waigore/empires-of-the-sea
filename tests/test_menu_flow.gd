@@ -7,8 +7,8 @@ extends GdToolsTest
 ## of walking title → setup → capital → charge each time. Auto-start, observer
 ## and the charge gate call the shared shell's start helpers — no second `Main`
 ## boot under coverage (docs/testing.md § Speed rules). Pure charge /
-## key-catalogue cases never touch the shell or chart. The shared Main shell
-## resets to the title between flow cases.
+## key-catalogue cases never touch the shell or chart, and never pay a world
+## restore or title reset. Flow / chart cases bind those lazily on first ask.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
@@ -29,6 +29,12 @@ var chart_mounted: MapScreen = null
 var chart_pristine: Dictionary = {}
 ## Set when this case has paid for a chart re-seat; cleared in `before_each`.
 var _chart_bound: bool = false
+## Set when this case restored the shared chart / seated the shell; pure charge
+## cases that never ask never pay. Cleared in `before_each`.
+var _flow_bound: bool = false
+## Set when this case seated the shared shell at the title; cleared in
+## `before_each`.
+var _shell_bound: bool = false
 
 
 func before_all() -> void:
@@ -38,15 +44,17 @@ func before_all() -> void:
 	flow_snapshot = Fixture.snapshot(flow_world)
 	chart_mounted = _mount_chart()
 	chart_pristine = Fixture.suite_capture(chart_mounted)
+	Fixture.park_screen(chart_mounted)
 	shell = _new_shell()
 	add_child(shell)
 
 
 func before_each() -> void:
 	_clean_dir()
-	Fixture.restore(flow_world, flow_snapshot)
 	_chart_bound = false
-	_reset_shell_to_title()
+	_flow_bound = false
+	_shell_bound = false
+	Fixture.park_screen(chart_mounted)
 
 
 func after_all() -> void:
@@ -59,13 +67,27 @@ func after_all() -> void:
 	shell = null
 
 
+## Restores the shared chart once per case that reads the shell or pause chart.
+## Pure charge / key-catalogue cases never ask and never pay.
+func _bind_flow() -> void:
+	if _flow_bound:
+		return
+	Fixture.restore(flow_world, flow_snapshot)
+	_flow_bound = true
+
+
 ## Flow cases ask for the shell; charge / key-catalogue cases that never ask
-## never pay a `Main` instantiate under coverage.
+## never pay a title reset or a second `Main` instantiate under coverage.
 func _ensure_shell() -> Node:
-	if is_instance_valid(shell):
+	_bind_flow()
+	if not is_instance_valid(shell):
+		shell = _new_shell()
+		add_child(shell)
+		_shell_bound = true
 		return shell
-	shell = _new_shell()
-	add_child(shell)
+	if not _shell_bound:
+		_reset_shell_to_title()
+		_shell_bound = true
 	return shell
 
 
@@ -110,7 +132,7 @@ func _mount_chart() -> MapScreen:
 func _attach_chart() -> MapScreen:
 	if _chart_bound and is_instance_valid(chart_mounted):
 		return chart_mounted
-	Fixture.restore(flow_world, flow_snapshot)
+	_bind_flow()
 	Fixture.suite_reset(chart_mounted, chart_pristine, flow_world)
 	chart_mounted.save_dir = DIR
 	if chart_mounted.game_menu != null and chart_mounted.game_menu.is_open():
@@ -137,7 +159,11 @@ func after_each() -> void:
 		if is_instance_valid(holder):
 			holder.free()
 	_mounted.clear()
-	Fixture.restore(flow_world, flow_snapshot)
+	if _flow_bound:
+		Fixture.restore(flow_world, flow_snapshot)
+		_flow_bound = false
+	_shell_bound = false
+	_chart_bound = false
 	_clean_dir()
 
 
@@ -713,11 +739,11 @@ func _row_for(rows: Array[Control], label: String) -> Control:
 ## an auto-start goes straight to the chart, and the debug door seats an all-AI
 ## observer. Auto-start and observer call the shared shell's start helpers so
 ## coverage never pays a second `Main` instantiate (docs/testing.md § Speed
-## rules); `before_each` returns the shell to the title.
+## rules); the next flow case that asks for `main` returns the shell to the title.
 
 
-## The shell `before_each` mounted is the title screen: read it in place instead
-## of paying a second `Main` boot for the same assertion.
+## The shared shell rests at the title between flow cases: read it in place
+## instead of paying a second `Main` boot for the same assertion.
 func test_main_shell_boots_the_title_screen() -> void:
 	assert_true(main.current_page is MainMenu, "title screen is the entry point")
 	assert_null(main.current_screen)

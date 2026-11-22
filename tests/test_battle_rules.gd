@@ -2479,9 +2479,11 @@ func test_a_besiegers_pikes_do_not_break_the_wall() -> void:
 		_wall_losses(mixed) < _wall_losses(ten),
 		"the eight pikes add nothing to the wall the two muskets break"
 	)
+	## With the retuned wall the muskets alone still open every gate in time,
+	## so the pikes' share reads as "no gate sooner, no gate extra".
 	assert_true(
-		_breaches(mixed) < _breaches(ten),
-		"nor do they beat a gate down beside them"
+		_breaches(mixed) <= _breaches(ten),
+		"nor do the pikes beat a gate down the muskets would not"
 	)
 
 
@@ -2512,9 +2514,9 @@ func test_only_firearms_weigh_against_a_wall() -> void:
 ## soak the wall takes off an attack and the share of a blow it spares the
 ## garrison, level by level, in one set of words.
 func test_the_wall_read_names_the_figures_the_exchange_reads() -> void:
-	var levels: Array[int] = [1, 2, 3]
-	var hp: Array[int] = [10, 20, 30]
-	var spared: Array[int] = [25, 45, 60]
+	var levels: Array[int] = [1, 2, 3, 4, 5]
+	var hp: Array[int] = [40, 80, 120, 160, 200]
+	var spared: Array[int] = [10, 20, 30, 40, 50]
 	for index in levels.size():
 		var level: int = levels[index]
 		assert_eq(
@@ -2545,15 +2547,15 @@ func test_a_march_reads_the_wall_that_stands_there() -> void:
 	assert_eq(
 		WallRead.march_line("Badajoz", 1),
 		"The army marches on Badajoz — a wood fort stands: "
-		+ "10 wall hp, 1 emplaced gun, 25% off a blow."
+		+ "40 wall hp, 1 emplaced gun, 10% off a blow."
 	)
 	assert_true(
 		WallRead.march_line("Badajoz", 2).contains("2 emplaced guns"),
 		WallRead.march_line("Badajoz", 2)
 	)
 	assert_true(
-		WallRead.march_line("Badajoz", 3).contains("30 wall hp"),
-		WallRead.march_line("Badajoz", 3)
+		WallRead.march_line("Badajoz", 5).contains("200 wall hp"),
+		WallRead.march_line("Badajoz", 5)
 	)
 
 
@@ -3035,13 +3037,14 @@ func test_melee_only_besiegers_cannot_touch_a_wall() -> void:
 
 
 func test_firearms_hit_the_wall_and_the_fort_blunts_the_blow() -> void:
-	var open_field: int = _struck_lane_losses(2 - 2, 4)
-	var stone: int = _struck_lane_losses(2, 4)
+	var open_field: int = _struck_lane_losses(2 - 2, 5)
+	var stone: int = _struck_lane_losses(2, 5)
 
-	assert_eq(open_field, 4, "an open field takes the whole blow")
-	assert_eq(stone, ceili(4.0 * FortRules.loss_scale(2)), "the wall spares a share")
-	assert_true(stone < open_field)
-
+	assert_eq(open_field, 5, "an open field takes the whole blow")
+	assert_eq(stone, ceili(5.0 * FortRules.loss_scale(2)), "the wall spares a share")
+	# A blunted blow still falls: the 20% reduction at Stone no longer swallows
+	# a light one whole (issue #1314).
+	assert_true(ceili(5.0 * FortRules.loss_scale(2)) < 5)
 
 func test_only_artillery_reaches_behind_the_wall() -> void:
 	var muskets: Array[ArmyState] = _lane_side(["musketeers", "musketeers"], 2)
@@ -3593,13 +3596,13 @@ func test_terrain_scales_the_action_tables() -> void:
 func test_three_gates_open_one_at_a_time() -> void:
 	var gates: Dictionary = SiegeGates.gates_for(2)
 	assert_eq(int(gates["max"]), 3)
-	assert_eq(int(gates["threshold"]), 7, "20 wall HP shared by three gates")
+	assert_eq(int(gates["threshold"]), 27, "80 wall HP shared by three gates")
 	assert_false(SiegeGates.breached(gates))
-	assert_eq(SiegeGates.batter(gates, 6), 0, "six casualties do not open a gate")
-	assert_eq(SiegeGates.batter(gates, 1), 1, "the seventh does")
+	assert_eq(SiegeGates.batter(gates, 26), 0, "twenty-six casualties do not open a gate")
+	assert_eq(SiegeGates.batter(gates, 1), 1, "the twenty-seventh does")
 	assert_true(SiegeGates.breached(gates))
 	assert_almost_eq(SiegeGates.breach_share(gates), 1.0 / 3.0, 0.001)
-	assert_eq(SiegeGates.batter(gates, 20), 2, "the rest fall in one blow")
+	assert_eq(SiegeGates.batter(gates, 54), 2, "the rest fall in one blow")
 	assert_eq(int(gates["broken"]), 3, "three gates and no more")
 	assert_eq(SiegeGates.batter(gates, 20), 0)
 	assert_true(SiegeGates.gates_for(0).is_empty(), "no fort, no gates")
@@ -5209,26 +5212,50 @@ func _setup_army_field_rules() -> void:
 
 func test_fort_tables_follow_the_wiki() -> void:
 	_setup_fort_rules()
-	assert_eq(FortRules.MAX_LEVEL, 3)
+	assert_eq(FortRules.MAX_LEVEL, 5)
 	assert_eq(FortRules.guns(1), 1)
 	assert_eq(FortRules.guns(2), 2)
 	assert_eq(FortRules.guns(3), 3)
-	assert_almost_eq(FortRules.wall_hp(1), 10.0, 0.001)
-	assert_almost_eq(FortRules.wall_hp(3), 30.0, 0.001)
-	assert_almost_eq(FortRules.damage_reduction(3), 0.6, 0.001)
+	assert_eq(FortRules.guns(5), 5)
+	assert_almost_eq(FortRules.wall_hp(1), 40.0, 0.001)
+	assert_almost_eq(FortRules.wall_hp(3), 120.0, 0.001)
+	assert_almost_eq(FortRules.wall_hp(5), 200.0, 0.001)
+	# One ladder: ten points of cover a level (issue #1314).
+	assert_almost_eq(FortRules.damage_reduction(3), 0.30, 0.001)
+	assert_almost_eq(FortRules.damage_reduction(5), 0.50, 0.001)
 	assert_eq(FortRules.cost(1), {"lumber": 3, "bronze": 3})
 	assert_eq(FortRules.cost(3), {"steel": 5, "lumber": 5})
+	assert_eq(FortRules.cost(4), {"steel": 5, "lumber": 4, "bronze": 3})
+	assert_eq(FortRules.cost(5), {"steel": 6, "lumber": 6})
 	assert_eq(FortRules.tech_gate(1), "")
 	assert_eq(FortRules.tech_gate(2), "mine_engineering")
 	assert_eq(FortRules.tech_gate(3), "modern_forts")
+	assert_eq(FortRules.tech_gate(4), "bastion_forts")
+	assert_eq(FortRules.tech_gate(5), "star_forts")
+
+
+## The gates are the wall's own thirds (wiki: siege-mechanics § Quick Battle
+## lanes — "each gate opens once ceil(wall HP / 3) casualties have been drawn
+## from the wall lane"): 14 wall casualties at Wood, 27 at Stone, 40 at Modern.
+## The old 4 / 7 / 10 read the pre-#1314 10-HP ladder and mislead a plan.
+func test_each_gate_opens_at_a_third_of_the_wall() -> void:
+	_setup_fort_rules()
+	assert_eq(SiegeGates.breach_threshold(1), 14)
+	assert_eq(SiegeGates.breach_threshold(2), 27)
+	assert_eq(SiegeGates.breach_threshold(3), 40)
+	assert_eq(SiegeGates.breach_threshold(5), 67)
+
 
 func test_fort_levels_are_multi_turn_and_capped() -> void:
 	_setup_fort_rules()
 	assert_eq(FortRules.turns(1), 1)
 	assert_eq(FortRules.turns(3), 3)
+	assert_eq(FortRules.turns(4), 3)
+	assert_eq(FortRules.turns(5), 4)
 	assert_eq(FortRules.next_level(0), 1)
 	assert_eq(FortRules.next_level(2), 3)
-	assert_eq(FortRules.next_level(3), 3)
+	assert_eq(FortRules.next_level(4), 5)
+	assert_eq(FortRules.next_level(5), 5)
 
 ## A finished project names the wall it actually left standing: the raise when
 ## the level went up, and no claim at all when a second project finished after
@@ -5237,7 +5264,7 @@ func test_a_fort_receipt_names_only_the_level_it_raised() -> void:
 	_setup_fort_rules()
 	assert_eq(
 		FortRules.raise_line(1, 2),
-		"stone fort raised · 20 wall hp · 2 emplaced guns"
+		"stone fort raised · 80 wall hp · 2 emplaced guns"
 	)
 	assert_eq(
 		FortRules.raise_line(2, 2),
@@ -5265,11 +5292,13 @@ func test_emplaced_battery_follows_the_researched_line() -> void:
 
 func test_walls_soak_strength_and_spare_the_defenders() -> void:
 	_setup_fort_rules()
-	assert_almost_eq(FortRules.wall_soak(30.0, 0), 30.0, 0.001)
-	assert_almost_eq(FortRules.wall_soak(30.0, 2), 10.0, 0.001)
-	assert_almost_eq(FortRules.wall_soak(5.0, 3), 0.0, 0.001)
+	assert_almost_eq(FortRules.wall_soak(120.0, 0), 120.0, 0.001)
+	assert_almost_eq(FortRules.wall_soak(120.0, 2), 40.0, 0.001)
+	assert_almost_eq(FortRules.wall_soak(20.0, 3), 0.0, 0.001)
 	assert_almost_eq(FortRules.loss_scale(0), 1.0, 0.001)
-	assert_almost_eq(FortRules.loss_scale(1), 0.75, 0.001)
+	# The retuned ladder shares 10% a level, not the old deep profile
+	# (issue #1314): the era ration scale, not a hard soak, prices the crack.
+	assert_almost_eq(FortRules.loss_scale(1), 0.90, 0.001)
 
 func test_open_field_provinces_stay_field_battles() -> void:
 	_setup_fort_rules()
@@ -5451,7 +5480,7 @@ func test_the_fort_order_names_its_level_and_its_raise() -> void:
 	var reports: Array[Dictionary] = CivilianWork.resolve_turn(model, units, works)
 	assert_eq(int(reports[0].get("fort_level", 0)), 1, "the report carries the level raised")
 	assert_eq(
-		FortRules.raise_text(1), "wood fort raised · 10 wall hp · 1 emplaced gun",
+		FortRules.raise_text(1), "wood fort raised · 40 wall hp · 1 emplaced gun",
 		"the despatch names the wall, not just the order"
 	)
 
@@ -5495,12 +5524,12 @@ func test_upgrades_need_their_tech_and_stop_at_the_ceiling() -> void:
 	assert_true(bool(allowed["ok"]), String(allowed.get("reason", "")))
 	assert_eq(int(allowed["duration"]), 2)
 
-	province.fort_level = 3
+	province.fort_level = FortRules.MAX_LEVEL
 	var ceiling: Dictionary = CivilianWork.validate(
 		model, engineer, "build_fort", works, units, stock
 	)
 	assert_false(bool(ceiling["ok"]))
-	assert_true(String(ceiling["reason"]).contains("modern fort"))
+	assert_true(String(ceiling["reason"]).contains("star fort"))
 
 func test_only_owned_land_can_be_fortified() -> void:
 	_setup_fort_rules()
@@ -5692,13 +5721,13 @@ func test_land_terrain_scales_the_action_tables() -> void:
 func test_land_three_gates_open_one_at_a_time() -> void:
 	var gates: Dictionary = SiegeGates.gates_for(2)
 	assert_eq(int(gates["max"]), 3)
-	assert_eq(int(gates["threshold"]), 7, "20 wall HP shared by three gates")
+	assert_eq(int(gates["threshold"]), 27, "80 wall HP shared by three gates")
 	assert_false(SiegeGates.breached(gates))
-	assert_eq(SiegeGates.batter(gates, 6), 0, "six casualties do not open a gate")
-	assert_eq(SiegeGates.batter(gates, 1), 1, "the seventh does")
+	assert_eq(SiegeGates.batter(gates, 26), 0, "twenty-six casualties do not open a gate")
+	assert_eq(SiegeGates.batter(gates, 1), 1, "the twenty-seventh does")
 	assert_true(SiegeGates.breached(gates))
 	assert_almost_eq(SiegeGates.breach_share(gates), 1.0 / 3.0, 0.001)
-	assert_eq(SiegeGates.batter(gates, 20), 2, "the rest fall in one blow")
+	assert_eq(SiegeGates.batter(gates, 54), 2, "the rest fall in one blow")
 	assert_eq(int(gates["broken"]), 3, "three gates and no more")
 	assert_eq(SiegeGates.batter(gates, 20), 0)
 	assert_true(SiegeGates.gates_for(0).is_empty(), "no fort, no gates")
@@ -6683,6 +6712,98 @@ func test_unopposed_capture_flips_the_province() -> void:
 	assert_true(bool(reports[0]["captured"]))
 	assert_eq(_army_field_rules_model.province_owner(2), 0)
 	assert_eq(attacker.count(), 2)
+
+
+## A wall blocks the walk-in (issue #1314): a march into an empty walled
+## province is a storm, never an unopposed flip. A host under the ladder
+## (wall HP plus the standing battery) is repelled and the province keeps its
+## owner; a host over it takes the ground and pays the ladder in regiments.
+func test_an_empty_walled_province_is_stormed_not_flipped() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	# 40 wall hp + 1 Royal gun (11) = 51: a two-regiment host is thrown back.
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	thin.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [thin])
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_false(bool(reports[0]["captured"]))
+	assert_eq(model.province_owner(2), 1, "the wall stands and the ground keeps its owner")
+	assert_eq((reports[0]["storm"] as Dictionary)["fort"], 1, "the report names the storm")
+	assert_eq(thin.count(), 2, "a host under the wall loses nobody")
+
+	# A great host crosses the ladder: 10 halberdiers (10 × 7 = 70) pay the
+	# ladder; 19 strength past the 51 threshold is one lost regiment a step.
+	var host := army_field_rules_Fixture.army(2, 0, 2, _regiment_types("halberdiers", 10))
+	host.moved = true
+	model.province_data(2).owner = 1
+	var stormed: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	assert_eq(int(stormed[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_true(bool(stormed[0]["captured"]))
+	assert_eq(model.province_owner(2), 0)
+	var lost_count: int = (stormed[0]["attacker_lost"] as Array).size()
+	assert_eq(
+		lost_count, 1,
+		"19 strength past the 51 ladder costs one of the ten"
+	)
+
+
+## The storm prices the wall's own battery (wiki: siege-mechanics § Storming an
+## empty walled province — "wall HP + the standing battery's strength"), and the
+## battery's line is the **defender's** studies (wiki: § Emplaced Artillery —
+## Royal → Heavy → Siege). A defender who studied Heavy Emplaced Artillery makes
+## a Wood wall 40 + 15 = 55, which a 54-strength host cannot cross; and the
+## storming court's own siege guns never thicken a wall it is not manning.
+func test_a_storm_prices_the_defenders_battery_not_the_stormers() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var tech := {0: {"emplaced_siege_guns": true}, 1: {"heavy_emplaced_artillery": true}}
+	# Nine arquebusiers: 9 × 6 = 54 — over a Royal wall (51), under this one (55).
+	var nine := army_field_rules_Fixture.army(1, 0, 2, _regiment_types("arquebusiers", 9))
+	nine.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [nine], {"tech": tech})
+	var storm: Dictionary = reports[0]["storm"] as Dictionary
+	assert_almost_eq(float(storm["threshold"]), 55.0, 0.001,
+		"40 wall hp + one Heavy emplaced gun (15) is the defender's wall")
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_false(bool(reports[0]["captured"]))
+	assert_eq(model.province_owner(2), 1)
+	assert_eq(nine.count(), 9, "a host under the wall loses nobody")
+	# The report names the battle the wall mode: a storm is a siege, so the
+	# despatch, the soundtrack and the dialogue record read siege, not field
+	# (wiki: siege-mechanics § Battle Type and Forts — fort ≥ 1 is the switch).
+	assert_eq(String(reports[0]["battle_mode"]), "siege", "a storm is a siege battle")
+	assert_eq(int(reports[0]["fort_level"]), 1, "the report carries the wall it met")
+
+	# The same host against a Royal battery takes the wall: the stormer's own
+	# siege guns (19) price the defender's wall at 40 + 19 = 59 in the old read.
+	model.province_data(4).fort_level = 1
+	var royal_guard := {0: {"emplaced_siege_guns": true}, 1: {}}
+	var again := army_field_rules_Fixture.army(2, 0, 4, _regiment_types("arquebusiers", 9))
+	again.moved = true
+	var taken: Array[Dictionary] = ArmyCombat.resolve_turn(model, [again], {"tech": royal_guard})
+	assert_almost_eq(float((taken[0]["storm"] as Dictionary)["threshold"]), 51.0, 0.001,
+		"a Royal battery is 40 wall hp + 11, whatever the stormer studied")
+	assert_eq(int(taken[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(model.province_owner(4), 0)
+
+
+## The calibration anchor (issue #1314): the opening Great Power muster —
+## 2 levies, pikes, arquebusiers, squires, 21 strength — fails to take a Wood
+## fort held by nobody. Deterministic: the same match-up always holds.
+func test_the_opening_gp_muster_cannot_storm_a_wood_fort() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var muster := army_field_rules_Fixture.army(
+		1, 0, 2, ArmyMuster.GREAT_POWER_ROSTER
+	)
+	muster.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [muster])
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_false(bool(reports[0]["captured"]), "the Wood wall holds the opening host")
+	assert_eq(model.province_owner(2), 1)
 
 func test_a_third_faction_blocks_an_unopposed_capture() -> void:
 	_setup_army_field_rules()
@@ -8364,12 +8485,20 @@ func test_a_siege_blow_never_bleeds_the_reserves_foot() -> void:
 		armies, attacker, defended, 5, limit, 1, false, SiegeGates.gates_for(1)
 	)
 
-	assert_eq((split["wall"] as Array).size(), 4, "a wood wall spares a share of the blow")
+	assert_eq(
+		(split["wall"] as Array).size(), ceili(5.0 * FortRules.loss_scale(1)),
+		"a wood wall spares a share of the blow"
+	)
 	for raw: Variant in split["wall"]:
 		assert_true((line["wall"] as Array).has(String(raw)), "only the line's foot falls")
 	for regiment_id: String in reserve:
-		assert_true(defended[0].regiments.has(regiment_id), "a reserve never falls")
-	assert_eq(defended[0].count(), 20, "the garrison keeps every reserve")
+		assert_true(
+			defended[0].regiments.has(regiment_id), "a reserve never falls"
+		)
+	assert_eq(
+		defended[0].count(), 24 - ceili(5.0 * FortRules.loss_scale(1)),
+		"the garrison keeps every reserve"
+	)
 
 
 ## The behind lane is the line's horse and guns too: an artillery blow cannot
@@ -8399,7 +8528,11 @@ func test_the_behind_lane_bleeds_the_lines_horse_not_the_reserve() -> void:
 		assert_true(
 			(line["behind"] as Array).has(String(raw)), "only the line's horse is struck"
 		)
-	assert_eq(defended[0].count(), 15, "the twelve reserve squadrons stand")
+	assert_eq(
+		defended[0].count(),
+		22 - mini(ceili(12.0 * FortRules.loss_scale(2)), limit - 2),
+		"the twelve reserve squadrons stand"
+	)
 
 
 ## The deployment slice is read before a lane's type filter tells: the strongest
@@ -8466,12 +8599,14 @@ func test_land_melee_only_besiegers_cannot_touch_a_wall() -> void:
 	assert_eq(defender[0].count(), 1, "nobody on the wall is hurt")
 
 func test_land_firearms_hit_the_wall_and_the_fort_blunts_the_blow() -> void:
-	var open_field: int = land__struck_lane_losses(2 - 2, 4)
-	var stone: int = land__struck_lane_losses(2, 4)
+	var open_field: int = land__struck_lane_losses(2 - 2, 5)
+	var stone: int = land__struck_lane_losses(2, 5)
 
-	assert_eq(open_field, 4, "an open field takes the whole blow")
-	assert_eq(stone, ceili(4.0 * FortRules.loss_scale(2)), "the wall spares a share")
-	assert_true(stone < open_field)
+	assert_eq(open_field, 5, "an open field takes the whole blow")
+	assert_eq(stone, ceili(5.0 * FortRules.loss_scale(2)), "the wall spares a share")
+	# A blunted blow still falls: the 20% reduction at Stone no longer swallows
+	# a light one whole (issue #1314).
+	assert_true(ceili(5.0 * FortRules.loss_scale(2)) < 5)
 
 func test_land_only_artillery_reaches_behind_the_wall() -> void:
 	var muskets: Array[ArmyState] = land__lane_side(["musketeers", "musketeers"], 2)
@@ -9063,7 +9198,7 @@ func test_the_plate_opens_with_the_wall_it_is_fought_over() -> void:
 	assert_true(overlay._wall_label.visible, "a siege plate shows its wall")
 	var wall: String = overlay._wall_label.text
 	assert_true(wall.contains("Stone fort"), wall)
-	assert_true(wall.contains("45%"), wall)
+	assert_true(wall.contains("20%"), wall)
 	assert_true(wall.contains("4 on the wall, 2 behind"), wall)
 	assert_true(wall.contains("3 gates hold"), wall)
 	assert_false(wall.contains("falls to"), "the opening must not hand over the result")
@@ -9102,7 +9237,7 @@ func test_the_siege_despatch_names_the_lanes_and_the_breach() -> void:
 	var line: String = QuickBattleSiegeCopy.siege_line(battle)
 
 	assert_true(line.contains("Stone fort"), line)
-	assert_true(line.contains("45%"), "the wall's damage reduction is told")
+	assert_true(line.contains("20%"), "the wall's damage reduction is told")
 	assert_true(line.contains("4 on the wall, 2 behind"), line)
 	assert_true(line.contains("1 sortie"), line)
 	assert_true(line.contains("falls to Wood"), line)
@@ -10414,21 +10549,31 @@ func _fort_capital_world(model: MapModel) -> WorldMap:
 # --- start grant -------------------------------------------------------------
 
 
-## Both kinds of Old World seat — Great Power and Minor — open behind a Wood
-## wall, and the bootstrap reports what it raised.
+## Every owned Old World province — seat or not — opens behind a Wood wall, and
+## every capital at Stone (#1314). The bootstrap reports what it raised.
 func test_every_old_world_capital_opens_behind_a_wood_wall() -> void:
 	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power, other_power, minor])
+	# A second province of the crown's own: same grant, lower wall.
+	var extra := ProvinceState.create(
+		model.provinces.size(), "Province %d" % model.provinces.size(),
+		[] as Array[Vector2i], Vector2.ZERO, 1, great_power, false
+	)
+	model.provinces.append(extra)
 	var report: Dictionary = WorldBootstrap.apply(model, LandWorks.new())
-	assert_eq(int(report["capital_forts"]), 3, "every capital was walled")
+	assert_eq(int(report["capital_forts"]), 4, "every capital was walled")
 	for province: ProvinceState in model.provinces:
-		assert_eq(
-			province.fort_level, FortCapital.START_LEVEL,
-			"capital of %d is Wood" % province.owner
-		)
-		assert_eq(
-			FortRules.level_name(province.fort_level), "Wood",
-			"the start level is the Wood tier"
-		)
+		if province.capital:
+			assert_eq(
+				province.fort_level, FortCapital.CAPITAL_START_LEVEL,
+				"the seat of %d opens at Stone" % province.owner
+			)
+			assert_eq(FortRules.level_name(province.fort_level), "Stone")
+		else:
+			assert_eq(
+				province.fort_level, FortCapital.START_LEVEL,
+				"non-capital %s opens at Wood" % province.name
+			)
+			assert_eq(FortRules.level_name(province.fort_level), "Wood")
 
 
 ## A New World chart keeps its tribe seats open: the grant is an Old World rule.
@@ -10452,29 +10597,36 @@ func test_the_grant_never_lowers_a_wall() -> void:
 # --- the free bump -----------------------------------------------------------
 
 
-## Mine Engineering lifts the crown's own capital to Stone and Modern Forts to
-## Modern, each at its own unlock; a repeat read of the same study moves nothing.
+## The fort line carries the crown's own capital to the top tier, each at its
+## own unlock; a repeat read of the same study moves nothing (#1314: the capital
+## already opens at Stone, so the line is Modern → Bastion → Star).
 func test_a_great_power_fort_tech_lifts_its_capital_once() -> void:
 	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
 	var world: WorldMap = _fort_capital_world(model)
 	FortCapital.seed(model)
 	assert_eq(
 		FortCapital.apply_research(world, great_power, {"researched": ["mine_engineering"]}),
-		FortCapital.LEVELS["mine_engineering"],
-		"the crown's capital reaches Stone"
-	)
-	assert_eq(model.provinces[0].fort_level, 2)
-	assert_eq(
-		FortCapital.apply_research(world, great_power, {"researched": ["mine_engineering"]}),
-		0, "the same study never bumps twice"
+		0, "the capital already opens at Stone — no bump is owed"
 	)
 	assert_eq(model.provinces[0].fort_level, 2)
 	assert_eq(
 		FortCapital.apply_research(world, great_power, {"researched": ["modern_forts"]}),
 		FortCapital.LEVELS["modern_forts"],
-		"Modern Forts carries the capital to the top tier"
+		"Modern Forts carries the capital on"
 	)
 	assert_eq(model.provinces[0].fort_level, 3)
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["bastion_forts"]}),
+		FortCapital.LEVELS["bastion_forts"],
+		"Bastion Forts carries the capital on"
+	)
+	assert_eq(model.provinces[0].fort_level, 4)
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["star_forts"]}),
+		FortCapital.LEVELS["star_forts"],
+		"Star Forts carries the capital to the top tier"
+	)
+	assert_eq(model.provinces[0].fort_level, 5)
 
 
 ## A court that finishes a study without a wall in it keeps its wall as it was.
@@ -10484,7 +10636,7 @@ func test_a_study_with_no_fort_in_it_moves_nothing() -> void:
 	FortCapital.seed(model)
 	assert_eq(FortCapital.apply_research(world, great_power, {"researched": ["navigation"]}), 0)
 	assert_eq(FortCapital.apply_research(world, great_power, {}), 0)
-	assert_eq(model.provinces[0].fort_level, 1)
+	assert_eq(model.provinces[0].fort_level, 2, "the capital keeps its start wall")
 
 
 ## Minors never take the free bump: their walls are what an Engineer builds
@@ -10494,8 +10646,8 @@ func test_a_minor_keeps_only_the_wall_it_built() -> void:
 	var world: WorldMap = _fort_capital_world(model)
 	FortCapital.seed(model)
 	assert_eq(model.provinces[0].owner, minor)
-	assert_eq(FortCapital.apply_research(world, minor, {"researched": ["modern_forts"]}), 0)
-	assert_eq(model.provinces[0].fort_level, 1, "a Minor stays at its Wood wall")
+	assert_eq(FortCapital.apply_research(world, minor, {"researched": ["star_forts"]}), 0)
+	assert_eq(model.provinces[0].fort_level, 2, "a Minor keeps its Stone start wall")
 
 
 ## The bump is a moment, not a floor: a capital taken down by a siege is not
@@ -10514,10 +10666,10 @@ func test_a_siege_downgrade_is_not_restored() -> void:
 	)
 	assert_eq(model.provinces[0].fort_level, 0, "the wall stays down until rebuilt")
 	assert_eq(
-		FortCapital.apply_research(world, great_power, {"researched": ["modern_forts"]}),
-		FortCapital.LEVELS["modern_forts"], "only its own fort study lifts it again"
+		FortCapital.apply_research(world, great_power, {"researched": ["star_forts"]}),
+		FortCapital.LEVELS["star_forts"], "only its own fort study lifts it again"
 	)
-	assert_eq(model.provinces[0].fort_level, 3)
+	assert_eq(model.provinces[0].fort_level, 5)
 
 
 ## A capital already above the unlock's level is left where it stands.
@@ -10547,15 +10699,15 @@ func test_the_turn_close_lifts_each_courts_own_capital() -> void:
 	play.world = _fort_capital_world(model)
 	play.player_faction = great_power
 	var book := MapPlayTurnFinish.TurnBook.new()
-	book.crown_report = {"research": {"researched": ["modern_forts"]}}
+	book.crown_report = {"research": {"researched": ["star_forts"]}}
 	book.economy_report = {"factions": {
 		other_power: {"resolved": {"research": {"researched": ["mine_engineering"]}}},
-		minor: {"resolved": {"research": {"researched": ["modern_forts"]}}},
+		minor: {"resolved": {"research": {"researched": ["star_forts"]}}},
 	}}
 	MapPlayTurnFinish._fort_upgrades(play, book)
-	assert_eq(model.provinces[0].fort_level, 3, "the crown's capital reached Modern")
+	assert_eq(model.provinces[0].fort_level, 5, "the crown's capital reached Star")
 	assert_eq(model.provinces[1].fort_level, 2, "the rival's capital reached Stone")
-	assert_eq(model.provinces[2].fort_level, 1, "the Minor keeps its Wood wall")
+	assert_eq(model.provinces[2].fort_level, 2, "the Minor keeps its Stone start wall")
 
 
 ## A rival's row is the economy report, not the research report: the step reads
@@ -10575,15 +10727,15 @@ func test_the_turn_close_reads_the_nested_research_report() -> void:
 	}}
 	MapPlayTurnFinish._fort_upgrades(play, book)
 	assert_eq(
-		model.provinces[1].fort_level, 1,
+		model.provinces[1].fort_level, 2,
 		"a study filed outside the research phase lifts no wall"
 	)
 	book.economy_report = {"factions": {other_power: {"resolved": null}}}
 	MapPlayTurnFinish._fort_upgrades(play, book)
-	assert_eq(model.provinces[1].fort_level, 1, "a row with no report is skipped")
+	assert_eq(model.provinces[1].fort_level, 2, "a row with no report is skipped")
 	book.economy_report = {"factions": {other_power: {"resolved": {"research": null}}}}
 	MapPlayTurnFinish._fort_upgrades(play, book)
-	assert_eq(model.provinces[1].fort_level, 1, "a row with no research phase is skipped")
+	assert_eq(model.provinces[1].fort_level, 2, "a row with no research phase is skipped")
 
 
 # --- the plan scripts' cohesion (wiki: quick-battle § Turn structure and actions)

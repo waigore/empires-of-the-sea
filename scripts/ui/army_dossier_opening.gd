@@ -20,8 +20,10 @@ var plan: String = "balanced"
 var hospital: Dictionary = {}
 ## The march the court would order from this dossier (DR-20261121-03).
 var pick: String = ""
-## The line the court's muster would raise (DR-20261121-03).
-var muster_pick: String = ""
+## The line the court's muster would raise (DR-20261121-03). The pick travels,
+## not the sentence it words, so the yard marks its rows off the same reading
+## (DR-20261122-12).
+var muster_pick: Dictionary = {}
 
 
 ## A standard's dossier at its plainest: the caller adds the blocks it has.

@@ -233,6 +233,42 @@ func test_a_sealed_cove_never_leaves_a_minor_oversized() -> void:
 	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
 
 
+## The band is one province either side of the region's even Minor share:
+## five provinces against a 3.33 share is out, and an unowned province is
+## nobody's land (wiki: game-setup § Minor Nation assignment — "within ±1").
+func test_the_minor_band_allows_one_province_either_side() -> void:
+	var model: MapModel = _grid_model(6, 1, [10, 10, 10, 10, 11, 12])
+	assert_eq(
+		MinorShare.out_of_band(model, _grid_ids(model), [10, 11, 12]), 10,
+		"five against a 3.33 share is over the band"
+	)
+	model = _grid_model(6, 1, [10, 10, 10, 10, 11, 11])
+	assert_eq(
+		MinorShare.out_of_band(model, _grid_ids(model), [10, 11]), MapModel.NO_ID,
+		"four and two against a share of three sit inside the band"
+	)
+	model = _grid_model(6, 1, [10, 10, 10, 10, 11, MapModel.NO_ID])
+	assert_eq(
+		MinorShare.out_of_band(model, _grid_ids(model), [10, 11]), 10,
+		"an unowned province is not counted in the share"
+	)
+
+
+## The band is enforced by the assigner, not only by the seeds a test happens to
+## sample: Large seed 11729 used to open the age with Poland holding five against
+## a 3.33 Minor share and no setup error at all, so the world was never retried
+## (wiki: game-setup § Minor Nation assignment — "within ±1"; § Feasibility).
+## The chart is now called infeasible and `generate_world` bumps the seed.
+func test_a_large_chart_with_a_lopsided_minor_split_is_infeasible() -> void:
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		11729, FactionCatalog.OLD_WORLD, 128, 84
+	)
+	assert_eq(
+		old_world.setup_errors, ["unfair_split"] as Array[String],
+		"the chart is rejected with the wiki's own code"
+	)
+
+
 ## A landmass too small to seat both rosters is infeasible, and the wiki wants a
 ## clear failure rather than a half-painted chart (wiki: game-setup
 ## § Feasibility). Seed 103's Old World holds 20 provinces: the six Minor
@@ -1793,12 +1829,16 @@ func _is_contiguous(tiles: Array) -> bool:
 
 func before_each() -> void:
 	_adv_bound = false
+	Fixture.park_screen(tier50_screen)
+	Fixture.park_screen(tier100_screen)
 
 
 func after_each() -> void:
 	if _adv_bound:
 		Fixture.restore(Fixture.world(), adv_saved)
 		_adv_bound = false
+	Fixture.park_screen(tier50_screen)
+	Fixture.park_screen(tier100_screen)
 	_setup_page_after_each()
 
 
@@ -2874,8 +2914,8 @@ func test_affordability_needs_cash_and_paper() -> void:
 	assert_false(CivilianCatalog.can_afford("merchant", 1999, 4))
 
 func test_training_cost_text_reads_as_a_purse_line() -> void:
-	assert_eq(CivilianCatalog.training_cost_text("explorer"), "1,000 cash + 2 paper")
-	assert_eq(CivilianCatalog.training_cost_text("merchant"), "2,000 cash + 4 paper")
+	assert_eq(CivilianCatalog.training_cost_text("explorer"), "1,000 ducats + 2 paper")
+	assert_eq(CivilianCatalog.training_cost_text("merchant"), "2,000 ducats + 4 paper")
 
 func test_money_text_groups_and_signs_one_way() -> void:
 	assert_eq(MoneyText.thousands(0), "0")
@@ -2884,9 +2924,31 @@ func test_money_text_groups_and_signs_one_way() -> void:
 	assert_eq(MoneyText.thousands(1234567), "1,234,567")
 	assert_eq(MoneyText.thousands(-1234), "-1,234")
 	assert_eq(MoneyText.thousands(-100), "-100")
-	assert_eq(MoneyText.money(500), "£500")
-	assert_eq(MoneyText.money(12500), "£12,500")
+	assert_eq(MoneyText.signed(500), "+500")
+	assert_eq(MoneyText.signed(12500), "+12,500")
+	assert_eq(MoneyText.signed(-1234), "-1,234")
+	assert_eq(MoneyText.signed(0), "0")
 	assert_eq(MoneyText.ducats(8000), "8,000 ducats")
+
+
+## Issue #1305: the crown's money has one word and one grouping, so a purse the
+## bar counts as `40,000` reads `40,000 ducats` on every other page — no `cash`,
+## no `£`, and never a raw integer.
+func test_the_crowns_money_reads_one_way_everywhere() -> void:
+	assert_eq(DiplomacyCatalog.money(40000), "40,000 ducats", "the court header")
+	assert_eq(MoneyText.ducats(1000), "1,000 ducats", "the purse, grouped")
+	assert_false(CivilianCatalog.training_cost_text("explorer").contains("cash"), "no cash")
+	assert_false(DiplomacyCatalog.money(500).contains("£"), "no pound mark")
+	for text: String in [
+		CivilianCatalog.training_cost_text("explorer"),
+		DiplomacyCatalog.money(40000),
+		MoneyText.cost_line(19500, {}, 1),
+		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER),
+	]:
+		assert_false(text.contains(" £") or text.begins_with("£"), text)
+		assert_true(text.contains("ducats"), text)
+	assert_eq(MoneyText.ducats(1000).split(" ").size(), 2, "the word follows the number")
+	assert_eq(DiplomacyGift.face(2000), "Grant Aid · 2,000 ducats", "the gift press, grouped")
 
 func test_money_text_cost_line_names_gold_materials_and_the_worker() -> void:
 	assert_eq(
@@ -3759,6 +3821,9 @@ func _mount_advanced_tiers() -> void:
 	tier100_screen = _instantiate_tier(AdvancedStart.TURNS100)
 	tier100_pristine = Fixture.suite_capture(tier100_screen)
 	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+	# Idle mounts must not keep processing under every later case (coverage).
+	Fixture.park_screen(tier50_screen)
+	Fixture.park_screen(tier100_screen)
 
 
 func _instantiate_tier(tier: String) -> MapScreen:
@@ -3807,10 +3872,10 @@ func test_a_new_campaign_opens_on_the_preset() -> void:
 	assert_eq(_civilian_count(roster, play.player_faction, "spy"), 1)
 
 
-## Old World capitals open behind a Wood wall on an advanced start too, and the
+## Old World capitals open behind a Stone wall on an advanced start too, and the
 ## tier's granted fort studies do not pre-bump it: the free upgrade is a research
 ## unlock's moment, not an inherited tech (wiki: siege-mechanics § Fort Levels;
-## issue #919).
+## issue #919; issue #1314 raised the start walls — the capital at Stone).
 func test_capitals_open_walled_and_a_tier_does_not_pre_bump_them() -> void:
 	var screen: MapScreen = _open(AdvancedStart.TURNS50)
 	var play: PlaySession = screen.play
@@ -3823,8 +3888,8 @@ func test_capitals_open_walled_and_a_tier_does_not_pre_bump_them() -> void:
 		if not province.capital:
 			continue
 		assert_eq(
-			province.fort_level, FortCapital.START_LEVEL,
-			"capital of %d opens at Wood" % province.owner,
+			province.fort_level, FortCapital.CAPITAL_START_LEVEL,
+			"capital of %d opens at Stone" % province.owner,
 		)
 
 

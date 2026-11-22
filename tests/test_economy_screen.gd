@@ -366,7 +366,7 @@ func test_every_worker_row_names_its_price_and_ration() -> void:
 	var master: Label = lines.get(WorkerPool.Tier.MASTER) as Label
 	assert_eq(
 		master.text,
-		"Recruit 1000 ducats · Paper ×10 — needs Master Artisans and Hat Production",
+		"Recruit 1,000 ducats · Paper ×10 — needs Master Artisans and Hat Production",
 		"a locked row names the research"
 	)
 	assert_eq(master.get_theme_color("font_color"), Palette.CRIMSON, "a blocked line reads aloud")
@@ -503,9 +503,8 @@ func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
 	var read: Dictionary = LarderRead.forecast(
 		economy, {"army": 0, "ships": 0, "hospital": 4, "wards": [4]}
 	)
-	var page := LedgerWorkers.new()
 	assert_eq(
-		page._shortfall_copy(read),
+		LedgerWorkersText.larder_shortfall(read),
 		"Short 3 food — the wards go unfed.",
 		"the pool ate, the ward did not"
 	)
@@ -516,11 +515,10 @@ func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
 		economy, {"army": 5, "ships": 0, "hospital": 0}
 	)
 	assert_eq(
-		page._shortfall_copy(army),
+		LedgerWorkersText.larder_shortfall(army),
 		"Short 3 food — the army goes short.",
 		"no striker, and still short"
 	)
-	page.free()
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.
@@ -1994,7 +1992,7 @@ func test_the_workers_counsel_reads_the_crowns_own_ledger() -> void:
 	# A pool the crown has grown past the target it keeps, in its own ledger only.
 	economy.workers = WorkerPool.make(12)
 	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
-		play, play.player_faction, MapPlayEconomyAi._market(play)
+		play, play.player_faction, MapPlayEconomyLarder.market(play)
 	)
 	assert_true(court.economy == economy, "the draft turns the crown's own ledger")
 	var pick: Dictionary = MapPlayRecruitPick.pick(play)

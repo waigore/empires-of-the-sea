@@ -230,6 +230,10 @@ static func _best_order(
 ) -> Dictionary:
 	var best: Dictionary = {}
 	var distances: Dictionary = _own_distances(model, army.province, army.owner)
+	# Home defence first (issue #1259): a host marching toward the lost seat
+	# outranks the foreign adventure staging would price. The storm onto the
+	# invader's ground is the march home, and carries the defence premium.
+	var home_defence: bool = AiHomeDefence.active(model, army.owner, hostile)
 	for province: int in ArmyMovement.destinations(model, army):
 		var owner: int = model.province_owner(province)
 		var score: int = 0
@@ -251,17 +255,30 @@ static func _best_order(
 			if not _can_storm(config, model, armies, army, province):
 				continue
 			score = province_score(config, model, province)
-			kind = "attack"
+			if home_defence:
+				score += config.parameter("military.defence_weight")
+				kind = "defend"
+			else:
+				kind = "attack"
 		else:
 			continue
 		if best.is_empty() or score > int(best["score"]):
 			best = {"province": province, "score": score, "kind": kind}
-		elif score == int(best["score"]) and province < int(best["province"]):
+		elif score == int(best["score"]) \
+			and AiHomeDefence.outranks(model, army, province, kind, best):
 			best = {"province": province, "score": score, "kind": kind}
 	return best
 
 
-## Walls soak incoming strength, so a storm needs a margin over the defenders.
+## Walls soak incoming strength, and an empty walled province still prices its
+## standing battery (issue #1314), so the gate must beat the wall the palisade
+## could carry: the battery follows the **defender's** studies (wiki:
+## siege-mechanics § Emplaced Artillery — Royal → Heavy → Siege), and this
+## planner cannot read another court's ledger, so it prices the top of the line
+## ([method FortRules.storm_ceiling]). A host the gate admits clears whatever
+## battery the province mounts; pricing the Royal floor instead admitted hosts
+## the ladder repelled. A host over open ground needs the same margin over the
+## defenders it always did.
 static func _can_storm(
 	config: AiConfig,
 	model: MapModel,
@@ -272,9 +289,10 @@ static func _can_storm(
 	var defenders: Array[ArmyState] = ArmyForce.armies_of(
 		armies, province, model.province_owner(province)
 	)
+	var level: int = FortRules.level_at(model, province)
 	if defenders.is_empty():
-		return true
-	var wall: float = FortRules.wall_hp(FortRules.level_at(model, province))
+		return level < 1 or army.strength() > FortRules.storm_ceiling(level)
+	var wall: float = FortRules.wall_hp(level)
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
 	return attack > ArmyForce.side_strength(defenders) * margin

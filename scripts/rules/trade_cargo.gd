@@ -33,6 +33,13 @@ static func fleet_holds(fleet: FleetState) -> int:
 ## crossing spends: "the home squadron's merchant hulls are the only holds", so a
 ## court with no merchant hull lands nothing abroad. No harbour allowance here;
 ## the allowance is [method capacity]'s, and it only buys trade.
+##
+## The seat is the **capital**, read through the one home-fleet predicate the
+## dossier, the merge and the yard use. A squadron moored in a colony port is not
+## the home fleet even when the crown holds no capital on that chart, so the
+## hulls that carried a garrison across carry nothing for the crown's ports
+## (wiki: ships-and-naval § Home Fleet — "ships at sea or in port at non-capital
+## owned provinces" are sea-going).
 static func home_holds(
 	world: WorldMap, fleets_by_region: Dictionary, owner: int
 ) -> int:
@@ -40,14 +47,14 @@ static func home_holds(
 		return 0
 	var total: int = 0
 	for region_index in world.region_count():
-		var seat: int = world.seat_province(region_index, owner)
-		if seat == MapModel.NO_ID:
+		var model: MapModel = world.region(region_index)
+		if model == null:
 			continue
 		var stored: Array = fleets_by_region.get(region_index, [])
 		for fleet: FleetState in stored:
-			if fleet == null or fleet.owner != owner or not fleet.is_in_port():
+			if fleet == null or fleet.owner != owner:
 				continue
-			if fleet.province != seat:
+			if not NavalMovement.is_home_fleet(model, fleet):
 				continue
 			total += fleet_holds(fleet)
 	return total
@@ -87,16 +94,17 @@ static func _owns_merchant_hull(fleets_by_region: Dictionary, owner: int) -> boo
 	return false
 
 
-## True when the crown's seat in any region still has a harbour to trade from.
-## The seat is `WorldMap.seat_province` (capital, else any holding), so the
-## allowance follows the same province the holds are counted at.
+## True when the crown's seat — its **capital** in some region — still has a
+## harbour to trade from. A holding that carries no seat grants no allowance: the
+## harbour the wiki counts is the capital's own ("a crown with no seat ... has 0
+## holds"), and a colony port the crown took is not that harbour.
 static func _seat_has_harbour(world: WorldMap, owner: int) -> bool:
 	for region_index in world.region_count():
-		var seat: int = world.seat_province(region_index, owner)
-		if seat == MapModel.NO_ID:
+		var capital: int = world.capital_province_of(region_index, owner)
+		if capital == MapModel.NO_ID:
 			continue
 		var model: MapModel = world.region(region_index)
-		if model != null and NavalMovement.has_harbour(model, seat):
+		if model != null and NavalMovement.has_harbour(model, capital):
 			return true
 	return false
 

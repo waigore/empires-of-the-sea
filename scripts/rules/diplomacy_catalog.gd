@@ -37,8 +37,8 @@ const EMBASSY_COST: int = 1000
 const JOIN_EMPIRE_BASE_COST: int = 5000
 const JOIN_EMPIRE_PER_PROVINCE: int = 2000
 
-## Grant Aid is a positive multiple of £1,000; the relation modifier is fixed
-## and does not scale with the amount (wiki: diplomacy § GP–Minor Rules).
+## Grant Aid is a positive multiple of 1,000 ducats; the relation modifier is
+## fixed and does not scale with the amount (wiki: diplomacy § GP–Minor Rules).
 const GRANT_AID_STEP: int = 1000
 const GRANT_AID_RELATION: float = 5.0
 
@@ -268,6 +268,6 @@ static func state_label(at_war: bool) -> String:
 	return "At War" if at_war else "At Peace"
 
 
-## "£1,234": the diplomacy pages' purse, read from the one money formatter.
+## "1,234 ducats": the diplomacy pages' purse, read from the one money formatter.
 static func money(value: int) -> String:
-	return MoneyText.money(value)
+	return MoneyText.ducats(value)

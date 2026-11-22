@@ -238,17 +238,26 @@ func open_panel() -> void:
 func open_research() -> void:
 	if hud == null:
 		return
+	var pick: Dictionary = _research_pick()
 	hud.panels.show_research(
-		economy.research, economy.treasury, research_boost, leader_key, _research_pick()
+		economy.research, economy.treasury, research_boost, leader_key,
+		String(pick.get("line", "")), String(pick.get("tech", ""))
 	)
 
 
 ## The study the published research policy would open in the crown's first free
-## slot, in the sheet's own voice (wiki: tech-tree § Research model;
-## DR-20261121-01). Empty when there is no free slot, no study left to open, or
-## no planner behind the seat — the reading, never an order.
-func _research_pick() -> String:
-	return MapPlayResearchPick.line(play)
+## slot: the sheet's line and the advance it names, so the AVAILABLE row the
+## crown would press can wear the court's mark (wiki: tech-tree § Research model;
+## DR-20261121-01, DR-20261122-19). Empty when there is no free slot, no study
+## left to open, or no planner behind the seat — the reading, never an order.
+func _research_pick() -> Dictionary:
+	var pick: Dictionary = MapPlayResearchPick.pick(play)
+	if pick.is_empty():
+		return {}
+	return {
+		"tech": String(pick.get("tech", "")),
+		"line": MapPlayPickProse.sentence_of(pick),
+	}
 
 
 ## The runs the published economy pass would book for the crown's workshop this
@@ -319,8 +328,10 @@ func refresh_research_panel() -> void:
 	if hud == null:
 		return
 	if hud.panels.is_research_open():
+		var pick: Dictionary = _research_pick()
 		hud.panels.show_research(
-			economy.research, economy.treasury, research_boost, leader_key, _research_pick()
+			economy.research, economy.treasury, research_boost, leader_key,
+			String(pick.get("line", "")), String(pick.get("tech", ""))
 		)
 
 
