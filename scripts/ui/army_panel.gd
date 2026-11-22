@@ -239,7 +239,9 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 	if off_ground:
 		off_ground = not ArmyMovement.on_own_ground(model, army)
 	var over_sea: bool = is_player and ArmyMovement.seat_elsewhere(model, army)
-	ArmyPanelStatus.apply(_status, _hint, army, is_player, _stranded, off_ground, over_sea)
+	ArmyPanelStatus.apply(
+		_status, _hint, army, is_player, _stranded, off_ground, over_sea, model
+	)
 
 
 ## The dossier names the crown's commanders in one line; what a medal buys in

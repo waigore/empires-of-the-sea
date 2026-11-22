@@ -19,7 +19,8 @@
   its capital, never deleted; split/combine needs one province and owner; one
   march a turn, foreign land must border. **Dismiss** sheds a regiment (or all),
   a peasant each, no refund; an emptied army retires (DR-20261109-01).
-  A stranded host walks home (DR-20261121-15).
+  A stranded host walks home (DR-20261121-15); across the sea it names the
+  harbour for the squadron (DR-20261122-07/-09).
 - **Upkeep:** 1–3 food a regiment, by era.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
   citation weight; DEF/9; ratio bands; elimination precedes a flip; mutual ruin
@@ -33,17 +34,16 @@
   eight despatches, a mauled win being a **citation** (`cited` +5%,
   `laurelled` +10%); decorated colours lead and fall last.
 - **The crown's army** (`ArmyLedger`, DR-20261116-16): the muster roll reads
-  every regiment, standard by standard.
+  every regiment.
 - **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
   DR-20261121-14; `MapPlayForceCounsel`, DR-20261121-17/22-03): the standard's
   order — split, storm, relief, frontier, road home — prints on its dossier,
   THE CROWN'S ARMY and the muster roll, or the gate when none is given;
-  named headings and rows wear `▸` (DR-20261122-05). Reads only.
+  named headings and rows wear `▸` (DR-20261122-05).
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03): the muster
   block prints, in gold, the line the published muster would raise, or the
-  target, purse, stores or gate that holds it. A reading; nothing is spent.
-- **Named commanders** (`GeneralNames`, DR-20261112-03): one pooled name each,
-  saved.
+  target, purse, stores or gate that holds it. Reads only.
+- **Named commanders** (`GeneralNames`, DR-20261112-03): one pooled name each.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on
   town tiles; rest 40%/55%, wear 80%/65%; wards eat 2 food a level, unfed 25%
   (DR-20261112-04).
