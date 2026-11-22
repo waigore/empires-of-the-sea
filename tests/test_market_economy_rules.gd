@@ -1102,6 +1102,40 @@ func test_a_carried_bid_drops_when_the_trade_capacity_is_short() -> void:
 	assert_true(codes.has("carry_forward_dropped_cargo_insufficient"))
 
 
+## A purse that cannot pay for every ton the matcher filled leaves the unpaid
+## tons on the book: they are not a fill, so both arms carry them into the next
+## turn (wiki: world-market § Treasury budget for bids — treasury-truncated bid
+## residuals are preserved as carry-forwards; § Order persistence).
+func test_the_tons_a_purse_cannot_pay_still_carry() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	# 71 at 95% is 67.45: a ton rounds to 67, three tons to 202, so a purse of
+	# 201 pays two tons of the three the matcher fills.
+	market.prices["wool"] = 71
+	market.set_terms(0, {"buy": {"*": 0.95}, "sell": {"*": 1.0}})
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	var before: int = buyer.quantity("wool")
+	buyer.treasury = 201
+	var staged: Dictionary = MarketOrders.submit(
+		market,
+		0, "wool", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 10, "treasury": 201, "buy_price": 67}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 10, 1: 10}
+	)
+	assert_eq(buyer.quantity("wool"), before + 2, "the purse pays two tons")
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_true(codes.has("bid_partial_fill_treasury_insufficient"))
+	var carry: Array = report["carry"]
+	assert_eq(carry.size(), 1, "the unpaid ton carries")
+	assert_eq((carry[0] as MarketOrder).commodity, "wool")
+	assert_eq((carry[0] as MarketOrder).quantity, 1)
+
 func test_settlement_buy_unit_and_subsidy_read_the_pair() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	assert_eq(
@@ -1310,6 +1344,27 @@ func test_a_cancelled_offer_gives_its_supply_back_and_never_below_zero() -> void
 	assert_eq(market.offer_volume("timber"), 0)
 	market.book.volumes.withdraw_offer("timber", 5)
 	assert_eq(market.offer_volume("timber"), 0)
+
+## A carried offer was not submitted this turn, so its tons never entered this
+## turn's supply: a withdrawal the book refuses must leave the spread whole
+## (wiki: world-market § Price discovery — only this turn's submitted offers
+## price the spread; § Order persistence — carry-forward orders are not
+## cancelable).
+func test_a_refused_withdrawal_leaves_the_turns_supply_whole() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	MarketOrders.submit(
+		market, 3, "timber", MarketOrder.SIDE_OFFER, 2, {"stock": 4}
+	)
+	var carried: MarketOrder = market.book.submitted[0]
+	market.book.close_turn()
+	market.book.set_carry([carried])
+	market.advance_prices()
+	MarketOrders.submit(
+		market, 3, "timber", MarketOrder.SIDE_OFFER, 3, {"stock": 9}
+	)
+	assert_eq(market.offer_volume("timber"), 3, "only this turn's offer prices the spread")
+	assert_false(MarketOrders.cancel(market, 3, carried.id), "a carried order cannot be withdrawn")
+	assert_eq(market.offer_volume("timber"), 3, "the refused withdrawal takes no supply")
 
 func test_one_court_holding_both_sides_is_dropped_by_pair() -> void:
 	var rows: Array[MarketOrder] = [
