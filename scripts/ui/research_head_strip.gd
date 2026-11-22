@@ -33,11 +33,11 @@ func set_slots(state: ResearchState, treasury: int) -> void:
 		return
 	var slots: int = state.slots.size()
 	var known: int = state.unlocked_ids().size()
-	_summary.text = "%d slot%s · %d at study · %d ducats · %d tech%s known" % [
+	_summary.text = "%d slot%s · %d at study · %s · %d tech%s known" % [
 		slots,
 		"" if slots == 1 else "s",
 		state.researching().size(),
-		treasury,
+		MoneyText.ducats(treasury),
 		known,
 		"" if known == 1 else "s",
 	]

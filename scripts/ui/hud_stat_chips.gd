@@ -158,7 +158,7 @@ func _kill_flash_tween() -> void:
 func _refresh_treasury_tooltip() -> void:
 	if treasury_chip == null:
 		return
-	treasury_chip.tooltip_text = "Treasury %s%s · %s per turn before the auction — open the ledger" % [
+	treasury_chip.tooltip_text = "Treasury %s ducats%s · %s per turn before the auction — open the ledger" % [
 		TextFormat.thousands(_treasury_value),
 		" (in debt)" if _treasury_value < 0 else "",
 		TextFormat.delta(_income_value),

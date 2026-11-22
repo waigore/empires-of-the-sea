@@ -3970,8 +3970,12 @@ func test_the_capital_rail_names_the_hire_the_court_would_take() -> void:
 		"the rail marks the craft the reading names"
 	)
 	assert_true(
-		rail.contains("hire order") or rail.contains("taste") or rail == MapPlayHirePick.FULL_LINE,
+		rail.contains("hire pass") or rail.contains("taste") or rail == MapPlayHirePick.FULL_LINE,
 		"the line says whose pick it is: %s" % rail
+	)
+	assert_false(
+		rail.to_lower().contains("your"),
+		"the rail speaks for the court's own pass, never for the crown's press: %s" % rail
 	)
 	assert_true(
 		play.economy.economy.recruits.is_empty(),
@@ -4019,4 +4023,38 @@ func test_the_capital_rail_prints_the_bank_that_holds_the_hire() -> void:
 	assert_true(
 		_screen.hud.panels.panel.hire_line_text() != MapPlayHirePick.BANK_LINE,
 		"a funded court names its hire again"
+	)
+
+
+## A war shuts the court's own hire pass, never the crown's press: the Train rows
+## stay live and priced, and a hire the crown orders at war musters for the price
+## its row prints (wiki: civilian-units § Training; issue #1306).
+func test_a_hire_ordered_at_war_musters_for_its_price() -> void:
+	var play: PlaySession = _screen.play
+	DiplomacyRules.declare_war(play.diplomacy, MapScreen.PLAYER_FACTION, 2)
+	assert_true(MapPlayCourt.at_war(play, play.player_faction), "the crown is at war")
+	play.economy.economy.treasury = 60000
+	play.economy.economy.stockpile["paper"] = 20
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	var row: Dictionary = _screen.hud.panels.panel._orders.training_row("explorer")
+	assert_false(
+		(row["button"] as Button).disabled,
+		"the Train Explorer press stays live at war"
+	)
+	var before: int = _screen.civilian_layer.units.size()
+	var treasury_before: int = play.economy.economy.treasury
+	var paper_before: int = play.economy.economy.quantity("paper")
+	MapPlayInput.on_panel_action(play, "train_explorer")
+	MapPlayRecruits.complete(play)
+	assert_eq(_screen.civilian_layer.units.size(), before + 1, "the crew musters")
+	assert_eq(_screen.civilian_layer.units.back().type_id, "explorer")
+	assert_eq(
+		play.economy.economy.treasury,
+		treasury_before - CivilianCatalog.treasury_cost("explorer"),
+		"the hire pays the cash its row prints"
+	)
+	assert_eq(
+		play.economy.economy.quantity("paper"),
+		paper_before - CivilianCatalog.paper_cost("explorer"),
+		"the hire pays the paper its row prints"
 	)

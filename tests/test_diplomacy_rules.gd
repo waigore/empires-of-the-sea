@@ -2229,6 +2229,10 @@ func test_grant_aid_needs_embassy_step_and_fixed_relation_gain() -> void:
 	assert_eq(diplomacy_orders_state.relation(0, 6).score, 55.0)
 	var odd: Dictionary = _apply("grant_aid", 6, "", null, 1500)
 	assert_false(odd["ok"])
+	assert_true(
+		String(odd.get("reason", "")).contains("1,000 ducats"),
+		"the refusal names the step in ducats (issue #1305)"
+	)
 
 ## The gift the court's sheet steps: the published £1,000 floor and step, the
 ## purse's own ceiling, and a redraw that clamps a sum the turn has made
@@ -2242,7 +2246,7 @@ func test_the_gift_steps_inside_its_floor_and_the_purse() -> void:
 	assert_eq(DiplomacyGift.stepped(1000, -1, 2500), 1000, "the published floor holds the step")
 	assert_eq(DiplomacyGift.stepped(5000, 0, 2500), 2000, "a redraw clamps to the purse")
 	assert_eq(DiplomacyGift.stepped(1000, 0, 400), 1000, "a short purse keeps the floor")
-	assert_eq(DiplomacyGift.face(2000), "Grant Aid · £2,000")
+	assert_eq(DiplomacyGift.face(2000), "Grant Aid · 2,000 ducats")
 	assert_true(
 		DiplomacyGift.pledge().contains("fixed, whatever the sum"),
 		"the sheet names that the regard does not grow with the sum"
@@ -2289,7 +2293,7 @@ func test_options_offer_war_overture_and_aid_with_reasons() -> void:
 	var minor_options: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 6)
 	var consulate: Dictionary = _diplomacy_orders_first(minor_options, "overture")
 	assert_eq(String(consulate["arg"]), DiplomacyCatalog.STAGE_CONSULATE)
-	assert_eq(String(consulate["cost_text"]), "£500")
+	assert_eq(String(consulate["cost_text"]), "500 ducats")
 	assert_false(bool(_diplomacy_orders_first(minor_options, "grant_aid")["ok"]))
 
 func _apply(

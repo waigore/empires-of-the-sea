@@ -101,8 +101,8 @@ func next_tip() -> String:
 func spend_tip() -> String:
 	if silent():
 		return "This slot buys no research points this turn"
-	return "%s ducats buys %s research points each turn" % [
-		TextFormat.thousands(gold), TextFormat.thousands(rp),
+	return "%s buys %s research points each turn" % [
+		MoneyText.ducats(gold), TextFormat.thousands(rp),
 	]
 
 

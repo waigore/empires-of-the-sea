@@ -1383,7 +1383,7 @@ func test_the_court_steps_the_gift_before_it_sends() -> void:
 	)
 	var press: Button = _find_button(panel._detail, "Grant Aid")
 	assert_not_null(press)
-	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_eq(press.text, "Grant Aid · 1,000 ducats")
 	assert_false(press.disabled, "an auto-embassy and a purse that covers the floor")
 	assert_true(
 		_has_text(panel._detail, "The regard a gift earns is fixed"),
@@ -1393,7 +1393,7 @@ func test_the_court_steps_the_gift_before_it_sends() -> void:
 	assert_not_null(up)
 	assert_false(up.disabled)
 	up.pressed.emit()
-	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £2,000")
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · 2,000 ducats")
 	assert_true(_find_button(panel._detail, "+").disabled, "the 2,500 purse covers no step further")
 	_find_button(panel._detail, "Grant Aid").pressed.emit()
 	assert_eq(seen.size(), 1)
@@ -1410,7 +1410,7 @@ func test_the_stepped_gift_belongs_to_the_court_it_was_stepped_for() -> void:
 	assert_eq(panel._detail.gift_amount, 2000)
 	panel.select_faction(6)
 	assert_eq(panel._detail.gift_amount, DiplomacyCatalog.GRANT_AID_STEP)
-	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £1,000")
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · 1,000 ducats")
 
 ## A purse that no longer covers the sum the crown had stepped to reads the
 ## validator's reason under the dead press, and the step falls back to the floor.
@@ -1420,7 +1420,7 @@ func test_a_gift_the_purse_cannot_cover_reads_its_reason() -> void:
 	_find_button(panel._detail, "+").pressed.emit()
 	panel.refresh(state, null, 0, 500)
 	var press: Button = _find_button(panel._detail, "Grant Aid")
-	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_eq(press.text, "Grant Aid · 1,000 ducats")
 	assert_true(press.disabled)
 	assert_true(_has_text(panel._detail, "The treasury cannot cover that aid."))
 
@@ -5016,7 +5016,7 @@ func test_the_workers_row_names_its_price_and_its_clause() -> void:
 	var three: Array[String] = ["apprentice_workers", "sugar_refining", "university"]
 	assert_eq(LedgerWorkersText.recruit_price(WorkerPool.Tier.PEASANT), "Recruit Fabric ×2")
 	assert_eq(
-		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1000 ducats · Paper ×10"
+		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1,000 ducats · Paper ×10"
 	)
 	assert_eq(
 		LedgerWorkersText.ration_line(WorkerPool.Tier.PEASANT), "eats 1 grain or meat a turn"
