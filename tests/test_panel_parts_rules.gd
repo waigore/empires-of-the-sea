@@ -6458,6 +6458,39 @@ func test_the_mission_block_prints_the_courts_pick_under_its_station() -> void:
 	block.queue_free()
 
 
+## The mission row the court's own expedition would mark leads with the counsel's
+## mark and the caption prints the legend; a block with no reading prints neither
+## (DR-20261122-20).
+func test_the_mission_block_marks_the_coast_the_court_would_mark() -> void:
+	var block := FleetMissionSection.new()
+	add_child(block)
+	var rows: Array[Dictionary] = [
+		{"province": 0, "name": "Coro"},
+		{"province": 1, "name": "Cartagena"},
+	]
+	block.set_data(
+		"", rows, "The court would mark a beachhead on the coast of Cartagena.", 1
+	)
+	var presses: Array = block._rows_box.get_children()
+	assert_eq((presses[0] as Button).text, "Mark Coro", "a coast the reading left alone")
+	assert_eq(
+		(presses[1] as Button).text,
+		"%s Mark Cartagena" % FleetDossierSection.COURT_MARK,
+		"the coast the line names leads with the mark"
+	)
+	assert_eq(
+		block._title.text, "MISSIONS · %s court" % FleetDossierSection.COURT_MARK,
+		"the caption prints the legend while a row wears the mark"
+	)
+	block.set_data("", rows, "", -1)
+	assert_eq(
+		(block._rows_box.get_child(1) as Button).text, "Mark Cartagena",
+		"no reading, no mark"
+	)
+	assert_eq(block._title.text, "MISSIONS", "nor a legend")
+	block.queue_free()
+
+
 ## The passenger block's voyage line: the step the court's own colonisation pass
 ## would take prints in gold under the note, and hides when the court would sail
 ## nothing — a block never shows an empty gold row (wiki: civilian-units

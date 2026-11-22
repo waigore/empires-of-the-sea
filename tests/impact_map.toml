@@ -2606,6 +2606,22 @@ domain = "fleet_pick"
 match = "scripts/ui/fleet_mission_section.gd*"
 domain = "fleet_pick"
 
+# The court's own expedition reading (DR-20261122-20): the step the published
+# invasion policy would take with a squadron that carries a host, and the mark it
+# puts on the coast row. The same slice proves it — the fleet orders suite reads
+# the planner and the dossier, the panel parts suite the block's mark.
+[[rules]]
+match = "scripts/map/map_play_expedition_pick*.gd*"
+domain = "fleet_pick"
+
+[[rules]]
+match = "scripts/ui/fleet_dossier_opening.gd*"
+domain = "fleet_pick"
+
+[[rules]]
+match = "scripts/ui/fleet_dossier_section.gd*"
+domain = "fleet_pick"
+
 [domains.fleet_pick]
 suites = [
   "test_fleet_orders.gd",
