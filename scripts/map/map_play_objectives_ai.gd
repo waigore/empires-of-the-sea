@@ -36,7 +36,11 @@ static func run(play: PlaySession) -> Dictionary:
 ## One court's ranked, allocated ledger plus the readings that made it.
 static func court(play: PlaySession, faction: int) -> Dictionary:
 	var economy: PlayerEconomy = play.ai.economy_for(faction)
-	var config: AiConfig = AiProfile.for_court(faction, play.map_seed, play.ensure_ai().profiles)
+	# The court's shared run config (issue #1356): the ledger reads the same
+	# storm reading the muster pass notes, not a fresh build of its own.
+	var config: AiConfig = play.ensure_ai().court_config(
+		AiControl.KIND_SUBJECT, faction, play.map_seed, play.ensure_ai().profiles
+	) as AiConfig
 	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
 	# The footing, the leader's weights and the court's distance to the bar
 	# scale the rank without deleting an aim: a voyage at war is cheaper, not

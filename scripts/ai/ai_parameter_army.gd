@@ -49,6 +49,8 @@ const PARAMETERS: Array[Dictionary] = [
 		# threshold. The old floor of 3 spare hands permanently blocked the levy
 		# when the pool sat at 3, so the court armed nothing and banked forever;
 		# floor 1 lets the levy draw one hand while the fields keep the rest.
+		# The floor names the hands the levy may draw (issue #1355): the gate
+		# reads the pool as it stands, the levy's own hand included.
 		"default": 1,
 	},
 ]
