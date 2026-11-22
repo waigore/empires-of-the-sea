@@ -108,10 +108,7 @@ static func resolve(play: PlaySession) -> void:
 			var held: Array = CivilianMovement.held_provinces(
 				play.world.region(index), _civilians(play, index), faction
 			)
-			var spies: Array = CivilianMovement.spy_provinces(
-				play.world.region(index), _civilians(play, index), faction
-			)
-			view.end_of_turn(at_sea, held, spies)
+			view.end_of_turn(at_sea, held)
 
 
 ## The human court's fog is painted by the map own passes; a rival's reveal only

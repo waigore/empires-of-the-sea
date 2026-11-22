@@ -23,9 +23,6 @@ var province_sea_zones: Dictionary = {}
 var sea_zone_provinces: Dictionary = {}
 ## Bumped whenever a tile changes level; baked views (the minimap) watch it.
 var revision: int = 0
-## The charted grace a departed Spy leaves behind, one clock per province
-## (wiki: fog-and-exploration § Spy timer expiry). Saved with the grid.
-var spy_charter: SpyCharter = SpyCharter.new()
 
 
 ## Allocates the region baseline: the Old World starts fogged, the New World
@@ -164,10 +161,11 @@ func reveal_landing(tile: Vector2i) -> Array:
 
 
 ## End-of-turn resolution (wiki: fog-and-exploration). See [VisibilityFog].
-func end_of_turn(
-	at_sea_zones: Array, held_provinces: Array = [], spy_provinces: Array = []
-) -> Array:
-	return VisibilityFog.end_of_turn(self, at_sea_zones, held_provinces, spy_provinces)
+## A departed Spy gets no grace: the province it left decays in the same pass
+## because no holder remains there (wiki: civilian-units § Spy (1);
+## DR-20261110-03).
+func end_of_turn(at_sea_zones: Array, held_provinces: Array = []) -> Array:
+	return VisibilityFog.end_of_turn(self, at_sea_zones, held_provinces)
 
 
 ## Explorer presence holds only what the player already charted
@@ -226,13 +224,13 @@ func to_dict() -> Dictionary:
 	return {
 		"player_id": player_id,
 		"levels": levels.duplicate(),
-		"spy_hold": spy_charter.to_dict(),
 	}
 
 
 ## Restores the grid onto an already-set-up model (coast links stay derived).
-## A save written before the Spy charter existed carries no clocks, and its
-## provinces simply start with none.
+## A save written while departed-Spy clocks existed carries a `spy_hold` key the
+## grid no longer keeps: the last Spy's province fogs at once (wiki: civilian-units
+## § Spy (1)), so the extra key reads and holds nothing.
 func apply_dict(data: Dictionary) -> bool:
 	player_id = int(data.get("player_id", player_id))
 	var raw: Variant = data.get("levels", PackedByteArray())
@@ -240,5 +238,4 @@ func apply_dict(data: Dictionary) -> bool:
 	if model == null or restored.size() != model.width * model.height:
 		return false
 	levels = restored
-	spy_charter.apply_dict(data.get("spy_hold", {}))
 	return true

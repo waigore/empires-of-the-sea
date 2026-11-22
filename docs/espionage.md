@@ -13,7 +13,8 @@ P5 hidden spies leave no trace.
   Minors and Tribes included.
 - **Presence reveal** (`SpyNetworks`, `CivilianMovement`): a spy on non-owner
   ground holds its charted tiles visible; it never reveals terrain or mineral
-  kind, and a lapsed charter fogs after five turns (wiki: fog-and-exploration).
+  kind, and the province fogs at the end-of-turn the last spy leaves — no grace
+  timer (wiki: civilian-units § Spy (1); DR-20261110-03).
 - **Invisibility:** rival spies are never drawn, hovered or selectable
   (`CivilianLayer.viewer_faction`); the AI never sees human spies.
 - **Counter-espionage** (`counter_spy`): an ongoing order on an owned province.
@@ -55,7 +56,6 @@ Rival research is live, so AI spies earn the same +15% boost.
 |------|------|
 | `scripts/rules/spy_networks.gd` | presence hosts, qualifying rivals, RP boost |
 | `scripts/rules/spy_rules.gd` | screen, dice, kills, defections |
-| `scripts/rules/spy_charter.gd` | the departed spy's charter |
 | `scripts/rules/spy_ledger.gd` | the crown's eyes: duties, courts, screen |
 | `scripts/rules/civilian_movement.gd`, `civilian_work.gd` | entry and order |
 | `scripts/ai/ai_spy_planner.gd` | rival work and march policy |
