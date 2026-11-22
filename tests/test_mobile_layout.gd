@@ -872,7 +872,7 @@ func test_phone_passengers_window_a_port_s_whole_land() -> void:
 		var coasts: Array[Node] = block.find_children("", "Button", true, false)
 		(coasts[0] as Button).pressed.emit()
 		await get_tree().process_frame
-		var window: ScrollContainer = block._ground_scroll
+		var window: ScrollContainer = block.grounds_window()
 		var compact: bool = HudLayout.is_compact(size)
 		assert_eq(
 			window.custom_minimum_size.y, GroundsWindow.height(32, compact),
