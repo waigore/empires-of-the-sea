@@ -14,6 +14,10 @@ signal order_pressed(kind: String, target: int, arg: String)
 ## the HUD's door key.
 signal door_pressed(key: String)
 
+## The mark the counsel reads by: the court the envoy's one order is bound for
+## wears it before its name (DR-20261122-11).
+const COURT_MARK: String = "▸"
+
 var _state: DiplomacyState = null
 var _world: WorldMap = null
 var _player: int = FactionCatalog.PLAYER_FACTION
@@ -33,9 +37,10 @@ var _body: HBoxContainer = null
 ## Last resolved turn's spy despatch (wiki: civilian-units § Spy — court
 ## reports). Read-only here; the session keeps it.
 var _court_reports: Dictionary = {}
-## The court's own envoy reading, one sentence per crown id: the order the
-## crown's staff would spend this turn (`MapPlayDiplomacyPick`). Advice only —
-## the panel prints it and presses nothing (DR-20261121-05; REQ-P5-06).
+## The court's own envoy reading, one pick per crown id: the order the crown's
+## staff would spend this turn (`MapPlayDiplomacyPick.picks`). Advice only — the
+## panel prints it and presses nothing (DR-20261121-05; REQ-P5-06). The list
+## marks the court that pick is bound for (DR-20261122-11).
 var _counsel: Dictionary = {}
 ## The full dossier sheet this summary opens, set by the HUD that builds both.
 var dossier_screen: CourtDossierScreen = null
@@ -158,14 +163,27 @@ func refresh(
 	_fill_list(ids)
 	_detail.fill(
 		_state, _world, _player, _selected, _treasury, _tech, _court_reports, _power,
-		String(_counsel.get(_selected, ""))
+		counsel_text()
 	)
 
 
 ## The counsel line the open court's sheet last printed, or "" — the reading a
 ## test checks instead of walking the rebuilt children (REQ-P3-02).
 func counsel_text() -> String:
-	return String(_counsel.get(_selected, ""))
+	return MapPlayPickProse.sentence_of(_pick(_selected))
+
+
+## One crown's envoy pick, or {} when the court has no reading for it.
+func _pick(faction_id: int) -> Dictionary:
+	var raw: Variant = _counsel.get(faction_id, {})
+	return raw as Dictionary if raw is Dictionary else {}
+
+
+## Whether the envoy's one order is bound for this crown: the row the list marks
+## so the target is found among twenty without opening each sheet
+## (DR-20261122-11).
+func _is_marked(faction_id: int) -> bool:
+	return String(_pick(faction_id).get("kind", "")) == MapPlayDiplomacyPick.KIND_ORDER
 
 
 func selected_faction() -> int:
@@ -211,7 +229,13 @@ func _fill_list(ids: Array[int]) -> void:
 		row.add_child(column)
 		var button := Button.new()
 		var stand: String = CourtDetailBlock.status_line(_state, _player, faction_id, record)
-		button.text = "%s\n%s" % [FactionCatalog.name_of(faction_id), stand]
+		var name_text: String = FactionCatalog.name_of(faction_id)
+		# The counsel's mark leads the name of the court the envoy's one order is
+		# bound for, so the target is found among twenty rows instead of scanned
+		# for (DR-20261122-11).
+		if _is_marked(faction_id):
+			name_text = "%s %s" % [COURT_MARK, name_text]
+		button.text = "%s\n%s" % [name_text, stand]
 		button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		button.custom_minimum_size = Vector2(0, 46)
 		button.add_theme_font_size_override("font_size", 13)

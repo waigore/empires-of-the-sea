@@ -2478,6 +2478,69 @@ func test_the_turn_close_reads_every_deck() -> void:
 	ships.free()
 
 
+## A raid's prize sinks a merchant hull under the colonist she carries: the turn
+## close takes the drowned hand out of play then and there, so the crown counts
+## no passenger the sea has taken and the next naval watch has no second loss to
+## announce (wiki: ships-and-naval § Naval transport — a hull sent down by a raid
+## takes her colonist with her, the last hand aboard first; § Civilian
+## passengers; § Losses).
+func test_a_raid_drowns_her_colonist_out_of_the_roster() -> void:
+	var world: WorldMap = naval_transport_AiFixture.land_world([0])
+	var fleet := FleetState.in_port(7, 0, 0, ["ship_9", "ship_10"])
+	var first := CivilianState.create(21, 0, "colonist", CivilianState.NO_TILE)
+	first.embarked_fleet = fleet.id
+	fleet.add_civilian(first.id)
+	var last := CivilianState.create(22, 0, "colonist", CivilianState.NO_TILE)
+	last.embarked_fleet = fleet.id
+	fleet.add_civilian(last.id)
+	var civilians := CivilianLayer.new()
+	var roster: Array[CivilianState] = [first, last]
+	civilians.regions.set_region(0, roster)
+	var ships := ShipLayer.new()
+	ships.regions.set_region(0, [fleet] as Array[FleetState])
+	var play := PlaySession.new()
+	play.world = world
+	play.player_faction = 0
+	play.army_layer = ArmyLayer.new()
+	play.ship_layer = ships
+	play.civilian_layer = civilians
+	# The raid: one hull of two goes down.
+	fleet.remove_hull("ship_10")
+	var rows: Array[Dictionary] = MapPlayNavalTurn.reconcile_decks(play)
+	assert_eq(rows.size(), 1, "the squadron that drowned a colonist is named")
+	assert_eq(int((rows[0]["civilians"] as Array)[0]), 22, "the last hand aboard drowns first")
+	assert_eq(fleet.civilian_count(), 1, "the deck keeps the hand it still holds")
+	assert_true(
+		CivilianVoyageMap.by_id(civilians, 22) == null,
+		"the drowned colonist leaves the roster at once"
+	)
+	assert_eq(civilians.regions.value(0, []).size(), 1, "one hand still musters")
+	assert_true(
+		CivilianVoyageMap.drop_lost(civilians, FleetRosters.carried_civilians(ships.regions)).is_empty(),
+		"the next naval watch has no drowned hand left to announce"
+	)
+	# No ids and no layer take nobody, and a hand the trim did not name is never
+	# taken: the roster answers only the loss it was told.
+	assert_true(CivilianVoyageMap.drown(civilians, []).is_empty(), "an empty loss takes nobody")
+	assert_true(CivilianVoyageMap.drown(null, [22]).is_empty(), "a court with no roster drowns nobody")
+	# The shown region's own list answers the same way, and its marker leaves
+	# with the hand (wiki: ships-and-naval § Losses).
+	var shown := CivilianLayer.new()
+	shown.model = world.region(0)
+	var crew: Array[CivilianState] = [
+		CivilianState.create(31, 0, "colonist", Vector2i(0, 0)),
+	]
+	shown.units = crew
+	shown.regions.set_region(0, crew)
+	assert_true(CivilianVoyageMap.drown(shown, [32]).is_empty(), "a stranger is no loss")
+	assert_eq(CivilianVoyageMap.drown(shown, [31]).size(), 1, "the drowned hand leaves the shown list")
+	assert_true(shown.units.is_empty(), "the map keeps no marker for a drowned hand")
+	shown.free()
+	play.army_layer.free()
+	ships.free()
+	civilians.free()
+
+
 ## A marked beachhead opens the hostile coast on the following turn only, and
 ## the landing consumes it (wiki: ships-and-naval § Missions and Movement).
 func test_beachhead_opens_a_hostile_coast_on_the_following_turn() -> void:

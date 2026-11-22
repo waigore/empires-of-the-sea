@@ -105,10 +105,11 @@ static func _cargo(
 	var launch: Dictionary = cargo.get("launch", {})
 	var warship: Dictionary = cargo.get("warship", {})
 	var refused: Dictionary = cargo.get("warship_refused", {})
+	var scrapped: Dictionary = cargo.get("scrap", {})
 	# A fleet launch with no merchant routes must still print — the early empty
 	# guard used to drop the yard event entirely (issue #484).
 	if routes.is_empty() and launch.is_empty() and warship.is_empty() \
-			and refused.is_empty():
+			and refused.is_empty() and scrapped.is_empty():
 		return
 	var who: String = FactionCatalog.name_of(faction)
 	if not routes.is_empty():
@@ -135,6 +136,14 @@ static func _cargo(
 		# (issue #1126).
 		AiTurnLog.event(merged, bucket, faction, "%s funds a hull but the yard refuses: %s." % [
 			who, String(refused.get("refused", "")),
+		])
+	if not scrapped.is_empty():
+		# The larder's own reading: the court breaks up an idle home hull so the
+		# rations its fleet ate go back to the levy the muster needs (issue
+		# #1233).
+		AiTurnLog.event(merged, bucket, faction, "%s breaks up a %s — %d rations freed for the levy." % [
+			who, ShipStats.display_name(String(scrapped.get("type_id", ""))),
+			int(scrapped.get("rations", 0)),
 		])
 
 
