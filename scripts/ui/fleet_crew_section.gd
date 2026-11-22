@@ -12,9 +12,8 @@ extends FleetDossierSection
 ## rows of their own, so a port province's whole land never grows the sheet
 ## (DR-20261119-03).
 
-## The mark the counsel reads by: the press the block's own gold line names leads
-## with it, the glyph every counsel sheet wears (DR-20261122-21).
-const COURT_MARK: String = "▸"
+## The mark the counsel reads by lives on the block (FleetDossierSection), so every
+## subclass of the dossier prints one glyph (DR-20261122-21).
 
 ## The coast whose grounds are open, or -1 for the coast list, and the crew kind
 ## whose grounds they are. They live on the block, not in the rebuilt rows, so a
