@@ -332,6 +332,21 @@ func _texts(panel: ProvinceLedgerPanel) -> String:
 	return " · ".join(parts)
 
 
+## Every word the spy sheet's rows carry, joined: one string a case can search.
+func _spy_texts(panel: SpyLedgerPanel) -> String:
+	var parts: PackedStringArray = []
+	_collect_labels(panel._rows, parts)
+	return " · ".join(parts)
+
+
+func _collect_labels(node: Node, parts: PackedStringArray) -> void:
+	var label := node as Label
+	if label != null:
+		parts.append(label.text)
+	for child: Node in node.get_children():
+		_collect_labels(child, parts)
+
+
 func test_the_realm_door_opens_the_ledger_and_its_rows_visit_a_province() -> void:
 	_attach()
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
@@ -767,6 +782,10 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 	panel.open()
 	assert_true(
 		panel._subtitle.text.begins_with("No spy"), "an empty network says so"
+	)
+	assert_true(
+		_spy_texts(panel).contains("2,000 ducats and 4 paper"),
+		"the empty network prices the hire in ducats (issue #1305)"
 	)
 	var model: MapModel = play.model
 	var home: ProvinceState = model.provinces[0]
