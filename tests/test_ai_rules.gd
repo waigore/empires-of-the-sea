@@ -18337,14 +18337,18 @@ func test_the_courts_config_is_one_instance_for_every_reader() -> void:
 
 ## The court read opens the same shared config the pass reads (issue #1356): a
 ## second `AiControl.court` in one turn reads the storm reading the muster pass
-## set, so the counsel and the pass cannot name two hosts. The frozen mainline
-## keeps its own fresh builds — nothing to share.
+## set, so the counsel and the pass cannot name two hosts.
+##
+## Without a materialized `scripts/ai_mainline/` (CI and a plain checkout) the
+## bind falls back to the submission profile builder, so a baseline court gets
+## the same shared host as any other. The frozen mainline path is exercised by
+## the bench, not here: asserting it would only pass on a synced tree.
 func test_a_court_read_back_hands_the_same_config() -> void:
 	var state := AiState.new()
 	var mainline: Variant = state.court_config(
 		AiControl.KIND_BASELINE, 1, 1500, AiProfile.roster()
 	)
-	assert_false(mainline is AiConfig, "the mainline builder keeps its own config")
-	assert_false(mainline == state.court_config(
+	assert_true(mainline is AiConfig, "the bind falls back to the profile builder")
+	assert_true(mainline == state.court_config(
 		AiControl.KIND_BASELINE, 1, 1500, AiProfile.roster()
-	), "a baseline build is fresh every call, as the frozen mainline ships")
+	), "a baseline court hands back the one config it built")
