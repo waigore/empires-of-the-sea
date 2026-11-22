@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
-  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:e8ac83812bca6813c067cf9324ff77cca4b632cc9fbca8610231ce1aa2c36fb5",
-  "submission_git": "fix/cargo-holds-at-the-seat@a3679eba",
+  "tree_hash": null,
+  "commit": null,
+  "submission_hash": "sha256:53515741a7d084ca2cf2bdee05a2f7a4783e6a48bfc2da9a7fad73bcf95ce69f",
+  "submission_git": "feat/ow-fort-retune@2cc56898+dirty",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 4055.7937799043066,
+      "value": 999.4947456914671,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 31.0,
+      "value": 7.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 4.0,
+      "value": 8.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 50.733560090702944,
+      "value": 88.36071428571428,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0aee7bf4e684a96cb02676ce58dc39388687ed9e13c87b880b40db315beb4622",
+    "ai_surface_hash": "sha256:1f9319a4ef0530e44b54e63d8a43422331833998c4588674c0f82b1b4eb9bc65",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
-      "provinces_old": 31,
+      "provinces_old": 7,
       "provinces_new": 0,
-      "regiments": 3,
+      "regiments": 7,
       "ships": 1,
-      "workers": 4,
-      "extraction_per_turn": 19.436363636363637,
-      "income_per_turn": 356.92105263157896,
-      "funded_pct": 50.733560090702944
+      "workers": 3,
+      "extraction_per_turn": 38.978142076502735,
+      "income_per_turn": 126.53846153846153,
+      "funded_pct": 88.36071428571428
     },
-    "early_win": true,
+    "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
-    "turn": 70,
-    "resolved_turns": 70,
-    "funded_pct": 50.733560090702944
+    "turn": 201,
+    "resolved_turns": 200,
+    "funded_pct": 88.36071428571428
   },
   "params": {
     "turns": 200,
@@ -81,14 +81,14 @@
     "size": 1
   },
   "final": false,
-  "official": true,
-  "official_reason": null,
+  "official": false,
+  "official_reason": "dirty-tree",
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T12:42:53Z",
+  "timestamp": "2026-11-22T13:59:26Z",
   "report_version": 1,
-  "signature": "hmac-sha256:25222890a1409b4b0be95a76e339917eca2978d1d8708cd05b5a9d503beddc26"
+  "signature": "hmac-sha256:43c3add533cbf52a13c8e2c9ff33ad982c4ad041b36e7eb14bd428af726f56ad"
 }

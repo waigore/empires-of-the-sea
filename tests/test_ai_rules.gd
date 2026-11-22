@@ -18017,3 +18017,77 @@ func test_idle_hull_gates_refuse_what_the_larder_cannot_claim() -> void:
 	packed.embarked_civilians = [7]
 	packed.embarked_army = 3
 	assert_eq(AiNavy._idle_hull_id(packed), "")
+
+
+## Storm sizing (issue #1314): every Old World province starts behind a wall,
+## and the storm ladder prices wall + battery, so the muster has to read the
+## wall it faces — never a host that ties the threshold, never one the court
+## already fields.
+func test_the_storm_host_clears_the_wall_it_faces() -> void:
+	assert_eq(
+		AiStormGate.regiments_for(FortRules.storm_threshold({}, 1), 6.0), 11,
+		"a 40+11 wall wants eleven 6-strength men: ten clear it, one spare"
+	)
+	assert_eq(AiStormGate.regiments_for(0.0, 6.0), 0, "open ground asks for no host")
+	assert_eq(AiStormGate.regiments_for(51.0, 0.0), 0, "a line of no strength weighs nothing")
+	var model: MapModel = _walk_chart(
+		[[0, 1], [2, 3]], {1: 2, 2: 1, 3: 1}, {1: 1}
+	)
+	model.provinces[0].fort_level = 1
+	model.provinces[2].fort_level = 2
+	model.provinces[3].fort_level = 0
+	assert_eq(
+		MapPlayArmyMusterAi.thinnest_wall(model, 1, {}),
+		FortRules.storm_threshold({}, 1),
+		"the court reads the lowest wall it must cross, not its own L2 one"
+	)
+	var strength: float = float(RegimentCatalog.strength(
+		AiArmyReinforceLine.strongest_line({})
+	))
+	assert_true(strength > 0.0, "the opening techs open a line")
+	var want: int = AiStormGate.regiments_for(FortRules.storm_threshold({}, 2), strength)
+	assert_eq(
+		int(AiStormGate.extra(FortRules.storm_threshold({}, 2), strength, 1, 1)["extra"]),
+		want - 1,
+		"the gate asks for the host between the court's guard and the wall"
+	)
+	assert_eq(
+		int(AiStormGate.extra(FortRules.storm_threshold({}, 2), strength, want, want)["extra"]), 0,
+		"a court already at the wall's host asks for nothing"
+	)
+	assert_eq(int(AiStormGate.extra(0.0, strength, 1, 1)["extra"]), 0, "open ground asks for no host")
+	var open: MapModel = _walk_chart([[0], [1]], {1: 2, 2: 1})
+	open.provinces[0].fort_level = 0
+	open.provinces[1].fort_level = 0
+	assert_eq(
+		MapPlayArmyMusterAi.thinnest_wall(open, 1, {}), 0.0,
+		"open ground in front of the court reads no wall"
+	)
+
+
+## The wall reading rides the court's own target (issue #1314): the muster, its
+## labour floor and the chest all ask for the same host, and a court with no
+## reading keeps the published target.
+func test_the_wall_raises_the_musters_own_target() -> void:
+	var config := AiConfig.build(0, 1500)
+	var guard: int = AiArmyReinforce.guard_regiments(config, true)
+	assert_eq(AiArmyReinforce.desired_regiments(config, true), guard, "no reading keeps the target")
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, false),
+		AiArmyReinforce.guard_regiments(config, false),
+		"peace keeps the published peace target"
+	)
+	config.storm_read = {"want": guard + 3, "extra": 3}
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, true), guard + 3,
+		"at war the court arms for the wall in front of it"
+	)
+	assert_true(
+		config.storm_read.get("extra", 0) > 0,
+		"the reading is the one the target raised the guard by"
+	)
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, false),
+		AiArmyReinforce.guard_regiments(config, false),
+		"peace musters the published target"
+	)
