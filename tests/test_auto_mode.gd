@@ -154,12 +154,14 @@ func _clear_auto(play: PlaySession) -> void:
 	_refresh_auto_chrome()
 
 
-## The plaque mirrors from a signature of the seat; clear it so a re-seat shows
-## the restored armed/active/log state instead of the previous case's chrome.
+## The plaque mirrors from a signature of the seat; clear it and the last painted
+## face so a re-seat shows the restored armed/active/log state instead of the
+## previous case's chrome.
 func _refresh_auto_chrome() -> void:
 	if mounted == null or mounted.hud == null or mounted.hud.auto_bar == null:
 		return
 	mounted.hud.auto_bar._signature = ""
+	mounted.hud.auto_bar._was_live = null
 	mounted.hud.auto_bar._mirror()
 
 
@@ -515,7 +517,7 @@ func test_the_log_seal_names_what_the_plate_holds_back() -> void:
 	bar._mirror()
 	assert_true(bar._log_seal.visible, "the seat's chrome offers the log door")
 	assert_eq(
-		bar._log_caption.text,
+		bar._log_seal.caption().text,
 		"LOG +%d" % bar._log.held_back(),
 		"the caption counts the lines the plate holds back"
 	)
@@ -578,6 +580,61 @@ func test_the_plaque_names_the_seat_state() -> void:
 	MapPlayAuto.disarm(play)
 	assert_eq(bar._state_text(), "ends with this turn", "a discharged seat says when it ends")
 	assert_true(bar.is_showing(), "the chrome stays up while the seat changes")
+
+
+## The three seals share one face (AutoSeal): the plaque warms while Auto holds
+## the turn, and the caption and the pace door follow the seat, so the bar's
+## chrome never spells a stylebox per seal.
+func test_the_seals_wear_the_face_the_seat_earns() -> void:
+	var bar: AutoBar = screen.hud.auto_bar
+	var play: PlaySession = screen.play
+	assert_true(bar.toggle is AutoSeal, "the plaque is a seal, not a bare button")
+	assert_true(bar._speed_seal is AutoSeal, "the pace is a seal too")
+	assert_true(bar._log_seal is AutoSeal, "and so is the log door")
+	_sync_chrome(bar)
+	assert_face(bar, AutoSeal.FILL, "an idle seat wears the quiet face")
+	assert_eq(bar.toggle._detail.text, "hand the seat to the AI", "the idle plaque offers it")
+	play.auto_active = true
+	MapPlayAuto.arm(play)
+	_sync_chrome(bar)
+	assert_face(bar, AutoSeal.FILL_LIVE, "a held seat wears the warm face")
+	assert_eq(bar.toggle._detail.text, "the AI holds your seat", "the plaque names the seat")
+	play.auto_armed = false
+	_sync_chrome(bar)
+	assert_eq(
+		bar.toggle._detail.text, "ends with this turn", "a discharged seat says when"
+	)
+	play.auto_armed = true
+	_sync_chrome(bar)
+	assert_eq(
+		bar.toggle._detail.text, "the AI holds your seat", "and a live seat says who plays"
+	)
+	assert_eq(
+		bar.toggle._detail.get_theme_color("font_color"), Palette.GOLD_PALE,
+		"and its second line brightens with it"
+	)
+	assert_true(bar._speed_seal.visible, "the pace is offered while the seat runs")
+	assert_true(bar._speed_seal.caption().visible, "a live pace prints its rate")
+	bar._on_speed_pressed()
+	bar._on_speed_pressed()
+	bar._on_speed_pressed()
+	_sync_chrome(bar)
+	assert_false(bar._speed_seal.caption().visible, "a paused seat prints no rate")
+	assert_true(bar._speed_seal.is_visible_in_tree(), "the pace seal still stands")
+	assert_eq(bar._speed_seal._icon.kind, "pause", "and its icon names the pause")
+
+
+## Mirrors the seat's chrome regardless of the last frame's signature, so a case
+## that sets Auto's fields directly reads the face it just asked for.
+func _sync_chrome(bar: AutoBar) -> void:
+	bar._signature = ""
+	bar._mirror()
+
+
+## The plaque's rest face, as the seal painted it.
+func assert_face(bar: AutoBar, fill: Color, why: String) -> void:
+	var face: StyleBoxFlat = bar.toggle.get_theme_stylebox("normal") as StyleBoxFlat
+	assert_eq(face.bg_color, fill, why)
 
 
 func test_the_driver_holds_the_clock_for_a_prompt_and_a_pause() -> void:
