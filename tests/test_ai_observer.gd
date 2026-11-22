@@ -75,7 +75,9 @@ func _mount() -> MapScreen:
 ## pure cases that never ask never pay `suite_reset`.
 func _seat(after_turns: int = 1) -> void:
 	Fixture.restore(Fixture.world(), world_snapshot)
-	Fixture.suite_reset(mounted, pristine if after_turns == 0 else turn_one)
+	Fixture.suite_reset(
+		mounted, pristine if after_turns == 0 else turn_one, Fixture.world()
+	)
 	_chart_bound = true
 	if after_turns == 0:
 		MapPlayTurn.view_live = true

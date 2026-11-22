@@ -1606,7 +1606,7 @@ func _open(size: Vector2i) -> void:
 	_close_modals()
 	_viewport.size = size
 	Fixture.restore(Fixture.world(), world_snapshot)
-	Fixture.suite_reset(_screen, screen_pristine)
+	Fixture.suite_reset(_screen, screen_pristine, Fixture.world())
 	await get_tree().process_frame
 	_screen.hud._relayout()
 

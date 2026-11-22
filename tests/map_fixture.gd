@@ -141,15 +141,18 @@ static func restore(world: WorldMap, snapshot: Array) -> void:
 ##   before_all:  screen = attach_screen(self); pristine = suite_capture(screen)
 ##                park_screen(screen)
 ##   before_each: park_screen(screen)  # pure cases never wake it
-##   live case:   suite_reset(screen, pristine)  # unparks
+##   live case:   suite_reset(screen, pristine, world())  # unparks; pass the chart
 ##   after_all:   screen.free()
-## An idle MapScreen still runs `_process` (HUD, soundtrack, fog). Under coverage
-## that tax is paid on every later case in the suite — park it when no case is
-## reading the chart. Park only where a suite keeps many cases on one chart; a
-## suite that parks for a few cases pays the tree walk for nothing. The screen's
-## own node state (selection, sheets, lenses, news) is dropped by the reset;
-## anything a case leaves on a node that is not re-read here must be cleared by
-## the suite itself.
+## Always pass the suite's fixture chart as `world`. A case that swapped
+## `play.world` for a pocket map leaves a size mismatch: `SaveWorld.reusable`
+## returns null and `SaveCodec.restore` pays a full `generate_world` (~2 s under
+## coverage) on the next re-seat. An idle MapScreen still runs `_process` (HUD,
+## soundtrack, fog). Under coverage that tax is paid on every later case in the
+## suite — park it when no case is reading the chart. Park only where a suite
+## keeps many cases on one chart; a suite that parks for a few cases pays the
+## tree walk for nothing. The screen's own node state (selection, sheets, lenses,
+## news) is dropped by the reset; anything a case leaves on a node that is not
+## re-read here must be cleared by the suite itself.
 
 ## Stops an idle shared mount from processing under coverage. Safe on null/freed,
 ## and cheap to call repeatedly: `process_mode` walks the whole subtree, so skip
