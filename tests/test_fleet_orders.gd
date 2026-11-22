@@ -4040,26 +4040,75 @@ func _slip_row() -> Dictionary:
 
 
 ## The drawer prints the claim under its launch heading, in the pick's own words,
-## and a rival's slip prints none (REQ-P5-03, REQ-P2-03).
+## marks the hull it names, and a rival's slip prints neither (REQ-P5-03,
+## REQ-P2-03, DR-20261122-12).
 func test_the_yard_drawer_prints_the_courts_claim_under_its_heading() -> void:
 	var yard := FleetYardBlock.new()
 	add_child(yard)
-	var pick: String = MapPlayPickProse.sentence(
-		MapPlayYardPickWords.lay_line("sloop")
-	)
-	yard.show_rows(null, [_slip_row()], true, true, pick)
+	var pick: Dictionary = {
+		"kind": MapPlayYardPick.KIND_LAY,
+		"type": "sloop",
+		"line": MapPlayYardPickWords.lay_line("sloop"),
+	}
+	var rows: Array[Dictionary] = [_slip_row()]
+	yard.show_rows(null, rows, true, true, pick)
 
-	assert_eq(yard.pick_line(), pick, "the drawer holds the claim it was handed")
+	assert_eq(
+		yard.pick_line(), MapPlayPickProse.sentence_of(pick),
+		"the drawer words the claim it was handed"
+	)
+	assert_eq(yard.mark_type(), "sloop", "the mark is the pick's own hull")
 	var printed: Array[String] = []
 	for child: Node in yard._box.get_children():
 		var label := child as Label
 		if label != null:
 			printed.append(label.text)
-	assert_true(printed.has(pick), "the claim stands on the slip: %s" % str(printed))
+	assert_true(
+		printed.has(yard.pick_line()), "the claim stands on the slip: %s" % str(printed)
+	)
+	assert_eq(
+		_yard_row_name(yard, rows, "sloop"),
+		"%s Sloop" % FleetYardBlock.COURT_MARK,
+		"the hull the line names wears the mark"
+	)
 
-	yard.show_rows(null, [_slip_row()], false, true, pick)
+	var plain: Dictionary = {
+		"kind": MapPlayYardPick.KIND_LAY,
+		"type": "schooner",
+		"line": MapPlayYardPickWords.lay_line("sloop"),
+	}
+	yard.show_rows(null, rows, true, true, plain)
+	assert_eq(
+		_yard_row_name(yard, rows, "sloop"), "Sloop",
+		"a hull the line does not name keeps its plain name"
+	)
+
+	yard.show_rows(null, rows, false, true, pick)
 	assert_eq(yard.pick_line(), "", "a rival answers to her own court")
+	assert_eq(yard.mark_type(), "", "and marks no hull")
 	yard.queue_free()
+
+
+## One launch row's name label, by the row the yard gives that hull.
+func _yard_row_name(
+	yard: FleetYardBlock, rows: Array[Dictionary], type_id: String
+) -> String:
+	var wanted: int = -1
+	for index: int in rows.size():
+		if String(rows[index].get("type_id", "")) == type_id:
+			wanted = index
+			break
+	if wanted < 0:
+		return ""
+	var seen: int = 0
+	for child: Node in yard._box.get_children():
+		if not (child is VBoxContainer) or child.is_queued_for_deletion():
+			continue
+		if seen == wanted:
+			var top := (child as VBoxContainer).get_child(0) as HBoxContainer
+			return (top.get_child(1) as Label).text
+		seen += 1
+	return ""
 
 
 ## The claim the pure cases prove reaches the live slip: a crown at war with no

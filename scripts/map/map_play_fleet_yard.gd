@@ -48,7 +48,7 @@ static func open(play: PlaySession) -> void:
 	opening.is_player = true
 	opening.slip = province
 	opening.yard_rows = FleetYard.rows(play.economy.economy, true, flown(play))
-	opening.yard_pick = MapPlayYardPick.line(play)
+	opening.yard_pick = MapPlayYardPick.pick(play)
 	play.hud.panels.show_fleet(play.model, opening)
 
 

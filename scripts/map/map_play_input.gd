@@ -113,8 +113,8 @@ static func select_province(play: PlaySession, province_id: int, world_position:
 	# hire order takes next, read on this crown's own staff, purse and studies
 	# (wiki: civilian-units § Training; DR-20261121-06). Any other province hires
 	# nobody, so it carries none.
-	play.hud.panels.panel.set_hire_line(
-		MapPlayHirePick.line(play) if at_capital else ""
+	play.hud.panels.panel.set_hire_pick(
+		MapPlayHirePick.pick(play) if at_capital else {}
 	)
 	play.screen.emit_province_selected(province_id)
 
