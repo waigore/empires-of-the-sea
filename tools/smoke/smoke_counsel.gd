@@ -315,6 +315,20 @@ static func _production(run, screen: MapScreen) -> void:
 			not page.counsel_text().is_empty(),
 			"the ledger names the plan the court would run"
 		)
+		# Every run the plan books leads its row with the counsel's mark, and no
+		# other row wears one, so the good is found among the whole catalogue
+		# (DR-20261122-10).
+		var pick: Dictionary = MapPlayProductionPick.pick(screen.play)
+		var runs: Dictionary = pick.get("runs", {}) as Dictionary
+		run.check(
+			_marked_recipes(page) == runs.size(),
+			"every run the court would set wears the mark (%d marked, %d booked)"
+			% [_marked_recipes(page), runs.size()]
+		)
+		run.check(
+			_printed(page, LedgerProduction.COURT_LEGEND) == (not runs.is_empty()),
+			"the workshop's heading names the mark it prints"
+		)
 	run.check(
 		screen.economy.economy.production.assignments().size() == set_before,
 		"the plan reading sets nothing"
@@ -503,3 +517,26 @@ static func _marked_goods(page: LedgerMarket) -> int:
 		if label.text.begins_with(prefix):
 			marked += 1
 	return marked
+
+
+## How many workshop rows wear the counsel's mark, so the smoke can hold the
+## count to the reading's own runs (DR-20261122-10). The heading's legend wears
+## the same glyph and is not a row.
+static func _marked_recipes(page: LedgerProduction) -> int:
+	var marked: int = 0
+	var prefix: String = LedgerProduction.COURT_MARK + " "
+	for label: Label in page.find_children("*", "Label", true, false):
+		if label.text == LedgerProduction.COURT_LEGEND:
+			continue
+		if label.text.begins_with(prefix):
+			marked += 1
+	return marked
+
+
+## Whether a sheet prints one line of exactly this text: the legend under a
+## section's heading, which nothing else on the page reads.
+static func _printed(page: Node, text: String) -> bool:
+	for label: Label in page.find_children("*", "Label", true, false):
+		if label.text == text:
+			return true
+	return false
