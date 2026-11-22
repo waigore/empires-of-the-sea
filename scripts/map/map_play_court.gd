@@ -195,6 +195,16 @@ static func hostile_warships(play: PlaySession, faction: int) -> int:
 ## the fleet claim every other spender defers to (issue #484). 0 when it is not
 ## rebuilding — no war, a fleet that already matches its enemies, or techs that
 ## open no warship at all.
+##
+## The yield valve (issue #603, issue #1275): the yard stands down past the
+## escalation bar while a line is due — the hull chest then pins the purse the
+## muster's own material row needs — and the chest resumes as published once
+## the line is no longer due (the fill the stand-down freed has closed the
+## muster) or once the shortfall starts shrinking (the stall's own low water,
+## so a fill the court is winning never counts as a stall). Without the
+## line-due gate the valve is one-way: the chest releases, the freed purse
+## funds no other chest, the yard is never reached and the court stays
+## fleetless for the whole campaign.
 static func navy_chest(play: PlaySession, faction: int) -> int:
 	if play == null:
 		return 0
@@ -208,17 +218,35 @@ static func navy_chest(play: PlaySession, faction: int) -> int:
 	# purse for a hull it cannot fill — the wiki's own re-route reading: the
 	# cash floor and the reachable hull chest remain, so a chest the purse can
 	# already fill is the fleet's (the yard lays it) and one it cannot fill
-	# stands down while every other spender leads again (issue #878). The
-	# shortfall shrinking resumes the chest and the court banks for its hull.
+	# stands down while every other spender leads again (issue #878).
 	var stalled: int = (
 		AiDeferral.stall_for(play.ai.deferrals, faction, "navy.build")
 		if play.ai != null else 0
 	)
+	var low: int = (
+		AiDeferral.low_water_for(play.ai.deferrals, faction, "navy.build")
+		if play.ai != null else 0
+	)
+	var price: int = AiNavy.price(ledger, hull_types(play, faction))
+	var shortfall: int = maxi(price - ledger.treasury, 0)
+	var muster_due: bool = AiArmyReinforce.muster_floor(
+		config, ledger, regiments(play, faction), at_war_now
+	) > 0
+	var yields: bool = (
+		# A regiment is due: the hull chest is the purse the muster's row
+		# needs, so a stalled fill stands down behind it (issue #603).
+		muster_due
+		and stalled >= maxi(config.parameter("ledger.escalate_turns"), 1)
+		# The fill is not moving: the shortfall this turn is still the stall's
+		# best gap. A fill the court is winning keeps its chest reachable.
+		and shortfall >= low
+		# The purse has reached the price: the valve releases and the chest
+		# reads as published — the yard lays the hull it banked for.
+		and ledger.treasury < price
+	)
 	return AiNavy.chest(
 		at_war_now, warships(play, faction), hostile_warships(play, faction),
-		ledger, hull_types(play, faction),
-		stalled >= maxi(config.parameter("ledger.escalate_turns"), 1)
-		and ledger.treasury < AiNavy.price(ledger, hull_types(play, faction))
+		ledger, hull_types(play, faction), yields
 	)
 
 

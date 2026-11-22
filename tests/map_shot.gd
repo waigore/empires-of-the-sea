@@ -1,6 +1,9 @@
 extends SceneTree
 ## Screenshot harness for the map screen (excluded from coverage).
 ##   godot --path . -s tests/map_shot.gd -- out=/tmp/map.png frames=90 zoom=2
+##   godot --path . -s tests/map_shot.gd -- advanced=turns100 size=1
+## `advanced=` opens a preset start and `size=` a chart preset, so a shot can be
+## the mid-game map instead of only the turn-0 opening.
 ## Run WITHOUT --headless: it needs a real GL context.
 
 var _frames := 0
@@ -21,6 +24,11 @@ var _war := false
 var _gazette := false
 var _dossier := false
 var _recruits := false
+## Campaign start: `advanced=turns100` opens a preset start and `size=0|1|2`
+## picks the chart preset (GameConfig.SIZES), so a shot can be the mid-game map
+## rather than only the turn-0 opening.
+var _advanced := AdvancedStart.NONE
+var _size_index := -1
 var _shot_taken := false
 var _shot2_taken := false
 var _screen: Node = null
@@ -63,8 +71,20 @@ func _initialize() -> void:
 			_dossier = arg.substr(8) == "1"
 		elif arg.begins_with("recruits="):
 			_recruits = arg.substr(9) == "1"
+		elif arg.begins_with("advanced="):
+			_advanced = AdvancedStart.normalize(arg.substr(9))
+		elif arg.begins_with("size="):
+			_size_index = int(arg.substr(5))
 	var scene: PackedScene = load("res://scenes/map_screen.tscn")
 	_screen = scene.instantiate()
+	if _size_index >= 0:
+		var preset: Dictionary = GameConfig.SIZES[
+			clampi(_size_index, 0, GameConfig.SIZES.size() - 1)
+		]
+		_screen.map_width = int(preset["width"])
+		_screen.map_height = int(preset["height"])
+	if AdvancedStart.active(_advanced):
+		_screen.advanced_start = _advanced
 	root.add_child(_screen)
 
 
