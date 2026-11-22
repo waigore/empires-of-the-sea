@@ -47,7 +47,34 @@ static func apply(play: PlaySession) -> Dictionary:
 	MapPlayAdvancedCivilians.apply(play, tier)
 	MapPlayAdvancedForces.regiments(play, tier)
 	report["ships"] = MapPlayAdvancedForces.ships(play, tier)
+	_own_sight(play)
 	return report
+
+
+## Ownership is sight (wiki: fog-and-exploration § Own vs Other Provinces; § New
+## World arrival — "Ownership is sight"). This pass hands courts ground after
+## `apply_initial()` charted their provinces — the crown's bought land, every
+## claimed colony — so each existing grid is re-asserted here. Without it a
+## crown opening on turn 100 read its own deeds under fog, and the survey lens
+## drew its own roads as uncharted, until the first turn close paid the
+## end-of-turn re-assert.
+##
+## Only grids that already exist are touched: cutting a rival's chart here would
+## undo `CourtCharts`' lazy cut. A chart minted later reads its owner's ground in
+## its own `apply_initial()`.
+static func _own_sight(play: PlaySession) -> void:
+	for raw: Variant in play.visibility_by_region.keys():
+		var view: VisibilityModel = play.visibility_by_region[raw]
+		if view != null:
+			VisibilityFog.reveal_own_provinces(view)
+	if play.court_charts == null:
+		return
+	for raw_faction: Variant in play.court_charts.courts.keys():
+		var by_region: Dictionary = play.court_charts.courts[raw_faction]
+		for raw_region: Variant in by_region.keys():
+			var view: VisibilityModel = by_region[raw_region]
+			if view != null:
+				VisibilityFog.reveal_own_provinces(view)
 
 
 # --- ledgers, techs, commanders ----------------------------------------------

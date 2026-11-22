@@ -3828,6 +3828,36 @@ func test_capitals_open_walled_and_a_tier_does_not_pre_bump_them() -> void:
 		)
 
 
+## Ownership is sight (wiki: fog-and-exploration § Own vs Other Provinces,
+## § New World arrival — "Ownership is sight ... always fully visible to it and
+## never decays"). A tier hands the crown ground after the opening chart ran its
+## initial pass — bought land in Minor provinces, a colony on the Passage shore
+## — and the preset re-asserts it, so a crown opening on turn 100 reads every
+## tile it owns as charted instead of opening the age with its own deeds under
+## fog until the first turn close pays the end-of-turn pass.
+func test_an_advanced_start_charts_the_ground_it_hands_the_crown() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS100)
+	var play: PlaySession = screen.play
+	var charted: int = 0
+	var deeds: int = 0
+	for region in play.world.region_count():
+		var model: MapModel = play.world.region(region)
+		var view: VisibilityModel = MapPlayCourtFog.view_for(
+			play, play.player_faction, region
+		)
+		assert_not_null(view, "the crown charts region %d" % region)
+		for tile: Vector2i in model.ownership.owned_tiles(model, play.player_faction):
+			charted += 1
+			if model.is_purchased_tile(tile):
+				deeds += 1
+			assert_eq(
+				view.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE,
+				"owned tile %s of region %d opens charted" % [tile, region],
+			)
+	assert_gte(charted, 1, "the crown holds ground to chart")
+	assert_gte(deeds, 1, "the tier buys land, so the deed path is read")
+
+
 func test_a_late_campaign_opens_with_the_documented_progress() -> void:
 	var screen: MapScreen = _open(AdvancedStart.TURNS100)
 	var play: PlaySession = screen.play
