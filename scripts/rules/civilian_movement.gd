@@ -100,6 +100,10 @@ static func begin_turn(units: Array[CivilianState]) -> void:
 ## province decays like any other (wiki: § Fog Decay — "when no Explorer or Spy
 ## of the viewer remains"). None of them promotes an `unknown` tile: only
 ## explore, a landing or a ship's coastal ring does that.
+##
+## A Spy is held by its presence alone: the pass keeps the province while a Spy
+## stands in it and fogs it in the same end-of-turn the last one leaves, with no
+## grace (wiki: civilian-units § Spy (1); DR-20261110-03).
 static func held_provinces(
 	model: MapModel, units: Array[CivilianState], owner: int
 ) -> Array:
@@ -110,27 +114,6 @@ static func held_provinces(
 		var province: int = model.province_at(unit.tile.x, unit.tile.y)
 		if province != MapModel.NO_ID and not result.has(province):
 			result.append(province)
-	return result
-
-
-## Provinces where this crown keeps a Spy, so the fog pass can count the charted
-## grace a departed Spy leaves behind (wiki: fog-and-exploration § Spy timer
-## expiry). Own provinces are left out: a timer is never started for them.
-static func spy_provinces(
-	model: MapModel, units: Array[CivilianState], owner: int
-) -> Array:
-	var result: Array = []
-	if model == null:
-		return result
-	for unit: CivilianState in units:
-		if unit == null or unit.owner != owner or unit.type_id != SpyRules.TYPE:
-			continue
-		var province: int = model.province_at(unit.tile.x, unit.tile.y)
-		if province == MapModel.NO_ID or result.has(province):
-			continue
-		if model.province_owner(province) == owner:
-			continue
-		result.append(province)
 	return result
 
 
