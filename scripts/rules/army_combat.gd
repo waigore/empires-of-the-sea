@@ -313,7 +313,14 @@ static func _storm_empty(
 	var lost: Array[String] = []
 	var taken: bool = host_strength > threshold
 	if taken:
-		lost = _storm_losses(storming, FortRules.storm_losses(host_strength, tech, level))
+		## The ladder's price is drawn **weakest first**, the casualty rule every
+		## battle reads (wiki: siege-mechanics § Storming an empty walled province
+		## — "the same weakest-first casualty draw every battle reads"; combat
+		## § Casualties). The draw is [method ArmyForce.apply_losses]' own, so a
+		## storm can never spend its veterans where the field spends its levies.
+		lost = ArmyForce.apply_losses(
+			armies, storming, FortRules.storm_losses(host_strength, tech, level)
+		)
 	var report: Dictionary = BattleSettlement.report_skeleton(
 		model, province, capturer, defender, Outcome.CAPTURE,
 		lost, [] as Array[String], {}, {"fort": level}
@@ -331,22 +338,6 @@ static func _storm_empty(
 		return report
 	BattleSettlement.flip(model, province, capturer)
 	return report
-
-
-## Draws the storm's price from the whole host, weakest regiments first — the
-## casualty rule every battle reads (wiki: combat § Casualties).
-static func _storm_losses(
-	storming: Array[ArmyState], wanted: int
-) -> Array[String]:
-	var lost: Array[String] = []
-	for entry: Dictionary in ArmyModifiers.deployed(storming, 0):
-		if lost.size() >= wanted:
-			break
-		var army: ArmyState = entry["army"]
-		var regiment_id: String = String(entry["id"])
-		if army.remove_regiment(regiment_id):
-			lost.append(regiment_id)
-	return lost
 
 
 static func _capture_report(
