@@ -15,10 +15,10 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   goals `round(desire/25)`. Envy +20; a deed resists; weariness, erosion
   and truces lower it (DR-20261113-25/14-01/18-27).
 - **Diplomacy planner** (`AiDiplomacyPlanner`): one order from that tally.
-  Declarations need relation ≤ ceiling (50; warmonger 70, peacemaker 30) and
-  desire ≥ 51; at war, below `50 + peace_bias` peace is offered, each refusal
-  doubling the wait (DR-20261115-01). A buyable Tribe
-  lifts its envoy chain, not war (DR-20261114-02).
+  Declarations need relation ≤ ceiling and desire ≥ 51; below
+  `50 + peace_bias` peace is offered, each refusal doubling the wait
+  (DR-20261115-01). A buyable Tribe lifts its envoy chain, not war
+  (DR-20261114-02).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
@@ -27,9 +27,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   Home regiment; armies save or storm, or walk a stranded host home
   (DR-20261121-15).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at
-  peace, home (DR-20261110-30); a merchant hull sails a convoy, and the trace
-  says so (#1258).
+  squadron, else raid a hostile coast (DR-20261111-17); at peace, home
+  (DR-20261110-30); the trace names a merchant's own sail `convoy` (#1258).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts**: each court's fog, read by voyages, invasions, diplomacy
   (DR-20261113-03).
