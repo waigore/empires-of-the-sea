@@ -2356,9 +2356,19 @@ match = "scripts/ui/province_panel.gd*"
 domain = "province_sheet"
 
 # The dossier's order rail rides the sheet it hangs on: the panel suite reads the
-# muster rows and the layout suite the compact re-order (DR-20261118-09).
+# muster rows and the layout suite the compact re-order (DR-20261118-09). The rail
+# now owns the yard while its raise presses and muster rows own their homes, so
+# those three files ride the same slice and never the ui fan-out.
 [[rules]]
 match = "scripts/ui/province_orders_section.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_raise_presses.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_muster_block.gd*"
 domain = "province_sheet"
 
 [[rules]]

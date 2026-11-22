@@ -43,7 +43,7 @@ study, the crew, or the stores that shore lacks.
 |------|------|
 | `scripts/rules/wall_ledger.gd` | projection, states, summary, row copy |
 | `scripts/rules/realm_readings.gd` | the realm's defence figure and ground |
-| `scripts/ui/province_orders_section.gd` | the dossier's fort order |
+| `scripts/ui/province_raise_presses.gd` | the dossier's fort order |
 
 No figure is recomputed: the level and its guns are `FortRules`, as are the
 price and the wait; the gate is `CivilianWorkRefusals.fort`, the wording the

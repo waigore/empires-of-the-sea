@@ -44,7 +44,7 @@ town tile — in the order's own words.
 |------|------|
 | `scripts/rules/town_ledger.gd` | projection, states, row copy |
 | `scripts/rules/town_terms.gd` | what a level pays |
-| `scripts/ui/province_orders_section.gd` | the dossier's `Upgrade Town` order |
+| `scripts/ui/province_raise_presses.gd` | the dossier's `Upgrade Town` order |
 
 No figure is recomputed: price is `CivilianWork.cost_for`, wait
 `CivilianWorkPlan.duration_for`, gate `town_upgrade_refusal`, crew the work
