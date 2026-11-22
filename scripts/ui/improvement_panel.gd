@@ -30,7 +30,9 @@ var tech_caps: Dictionary = {}
 var blockade_source: Callable = Callable()
 ## The court's own raise reading, asked at every refresh: the estates the
 ## published Builder pass would raise this phase, or the gate that leaves the
-## page with nothing to name (DR-20261121-10). Unwired prints nothing.
+## page with nothing to name (DR-20261121-10). The pick also keys the tiles it
+## names, so the rows it answers wear the counsel's mark (DR-20261122-04).
+## Unwired prints nothing and marks nothing.
 var counsel_source: Callable = Callable()
 
 var _rows: VBoxContainer = null
@@ -38,6 +40,10 @@ var _head: EstatesHead = null
 var _batch: RaiseBatchPress = null
 ## The gold counsel line above the press: the estates the court would raise.
 var _counsel: Label = null
+## The reading the line was painted from, and the tiles it names: a chip press
+## reorders the same marks without asking the pass again (REQ-P4-01).
+var _court_pick: Dictionary = {}
+var _court: Dictionary = {}
 ## What the press would spend, under it: the stores the ready estates take, or the
 ## rows the stores and the free Builders leave waiting (DR-20261118-12).
 var _line: Label = null
@@ -105,16 +111,22 @@ func refresh_if_open() -> void:
 
 ## The court's own raise reading, asked at every refresh: the estates the
 ## published Builder pass would raise this phase, or the gate that leaves the
-## page with nothing to name (DR-20261121-10). Unwired prints nothing.
+## page with nothing to name (DR-20261121-10). The pick's own keys mark the rows
+## it names, so the line and the marks come off one read (DR-20261122-04).
+## Unwired prints nothing and marks nothing.
 func _sync_counsel() -> void:
 	if _counsel == null:
 		return
 	# A closed card reads nothing: the pass is a planner walk, and a dossier
 	# order that repaints the sheet behind it must not pay for a line nobody
 	# sees (REQ-P4-02).
-	var text: String = ""
+	var pick: Dictionary = {}
 	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_data))
+		var raw: Variant = counsel_source.call(_data)
+		pick = raw as Dictionary if raw is Dictionary else {}
+	_court_pick = pick
+	_court = pick.get("keys", {}) as Dictionary
+	var text: String = MapPlayPickProse.sentence_of(pick)
 	_counsel.text = text
 	_counsel.visible = not text.is_empty()
 
@@ -236,7 +248,8 @@ func _footer() -> Control:
 	hint.text = (
 		"Build orders place the nearest idle Builder on the estate; materials are "
 		+ "spent on assignment and are not refunded if the work is cancelled. "
-		+ "Roads and ports carry yields to the crown."
+		+ "Roads and ports carry yields to the crown. A ▸ marks the estates the "
+		+ "court would raise this phase."
 	)
 	hint.add_theme_font_size_override("font_size", 10)
 	hint.add_theme_color_override("font_color", Color(0.80, 0.74, 0.62, 0.76))
@@ -262,6 +275,9 @@ func _apply_filter() -> void:
 	_clear_rows()
 	if _head == null:
 		return
+	# The marks come off the one reading, so a chip press reorders the same rows
+	# without asking the pass again (REQ-P4-01; DR-20261122-04).
+	_court = _court_pick.get("keys", {}) as Dictionary
 	var groups: Array[Dictionary] = EstateLedger.grouped(_data)
 	var shown: int = 0
 	for group: Dictionary in EstateLedger.in_province(groups, _province_filter):
@@ -357,6 +373,9 @@ func _add_group(group: Dictionary, rows: Array[Dictionary]) -> void:
 	for row: Dictionary in rows:
 		var item := ImprovementRow.new()
 		item.compact = HudLayout.is_compact(get_viewport_rect().size)
+		# The row wears the mark when the reading names its tile, keyed the way
+		# the pick keys its own estates (DR-20261122-04).
+		item.court = _court.has(row.get("tile", CivilianState.NO_TILE))
 		item.build_pressed.connect(func(tile: Vector2i) -> void: action_pressed.emit("build", tile))
 		item.cancel_pressed.connect(func(tile: Vector2i) -> void: action_pressed.emit("cancel", tile))
 		item.focus_pressed.connect(func(tile: Vector2i) -> void: focus_pressed.emit(tile))
