@@ -56,6 +56,7 @@ func _run() -> void:
 		return
 	await _first_pass(int(step["province"]), int(step["staging"]), int(step["tribe"]))
 	await _second_pass()
+	await _stranded_pass()
 	await _seat_pass()
 	_finish()
 
@@ -158,6 +159,101 @@ func _second_pass() -> void:
 	_host_readings("before the second turn")
 	await _run_turn()
 	_after_capture(next, tribe)
+
+
+## A crown host cut off on the New World chart: no own land touches it and no
+## land march from this shore reaches the seat, which lies across the sea. The
+## drive reads the dossier's hint, the march's refusal and the court's pick — the
+## one place a free playtest cannot reach by playing forward — so the rule's
+## words for an army that never shares a chart with its seat are proven on the
+## chart, not only in a unit fixture (wiki: military-armies § Movement and
+## attacks; ships-and-naval § Naval transport (armies); DR-20261122-07).
+func _stranded_pass() -> void:
+	_say("")
+	var spot: int = _cut_off_ground()
+	if spot < 0:
+		_say("no ground here is cut off from the crown — the stranded pass cannot run")
+		return
+	# A standard of its own, minted with the layer's next ids: `army_by_id`
+	# answers the first standard that carries an id, so the drive never reuses the
+	# first pass's.
+	var host: ArmyState = ArmyState.muster(
+		_play.army_layer.next_army, _play.player_faction, spot, false,
+		["guards"] as Array[String], _play.army_layer.next_regiment
+	)
+	_play.army_layer.next_army += 1
+	_play.army_layer.next_regiment += 1
+	_play.army_layer.armies.append(host)
+	_play.army_layer.add_marker(host)
+	MapPlayArmies.select(_play, host)
+	var panel: ArmyPanel = _play.hud.panels.army_panel
+	_say("--- fourth pass: a host cut off at %s (%s) ---" % [
+		_province_name(spot), _owner_name(_province_owner(spot)),
+	])
+	_say("seat on this chart: %d · seat lies elsewhere: %s · stranded: %s" % [
+		ArmyMovement.capital_province_on(_play.model, _play.player_faction),
+		str(ArmyMovement.seat_elsewhere(_play.model, host)),
+		str(ArmyMovement.stranded(_play.model, host)),
+	])
+	_say("dossier place:  \"%s\"" % panel._location.text)
+	_say("dossier status: \"%s\"" % panel._status.text)
+	_say("dossier hint:   \"%s\"" % panel._hint.text)
+	_say("dossier pick:   \"%s\"" % panel._pick.text)
+	_say("army counsel:   \"%s\"" % MapPlayArmyPick.line(_play, host))
+	_say("army sheet:     \"%s\"" % MapPlayArmyOrdersPick.line(_play))
+	var own_far: int = _farthest_own(spot)
+	if own_far >= 0:
+		var check: Dictionary = ArmyMovement.can_move(_play.model, host, own_far, false)
+		_say("march home to %s: %s\"%s\"" % [
+			_province_name(own_far), "ok " if bool(check.get("ok", false)) else "refused ",
+			String(check.get("reason", "")),
+		])
+	_play.army_layer.armies.erase(host)
+	_play.army_layer.remove_marker(host)
+	_play.army_layer.deselect()
+
+
+## Ground of another court with no crown province beside it: the shore a beaten
+## host can be left on, where no own land touches.
+func _cut_off_ground() -> int:
+	for province: ProvinceState in _play.model.provinces:
+		if province.owner == _play.player_faction or province.owner == MapModel.NO_ID:
+			continue
+		var cut: bool = true
+		for id: int in MapGeo.province_neighbors(_play.model, province.id):
+			if _province_owner(id) == _play.player_faction:
+				cut = false
+				break
+		if cut:
+			return province.id
+	return -1
+
+
+## The crown's own province here that stands farthest from the host, so the march
+## it cannot walk is the one the refusal words.
+func _farthest_own(from: int) -> int:
+	var model: MapModel = _play.model
+	var distances: Dictionary = {}
+	var queue: Array[int] = [from]
+	distances[from] = 0
+	while not queue.is_empty():
+		var current: int = queue.pop_front()
+		for id: int in MapGeo.province_neighbors(model, current):
+			if distances.has(id):
+				continue
+			distances[id] = int(distances[current]) + 1
+			queue.append(id)
+	var best: int = -1
+	var best_distance: int = -1
+	for province: ProvinceState in model.provinces:
+		if province.owner != _play.player_faction:
+			continue
+		if not distances.has(province.id):
+			continue
+		if int(distances[province.id]) > best_distance:
+			best = province.id
+			best_distance = int(distances[province.id])
+	return best
 
 
 ## The seat's own orders queued on its chart, then the chart flipped before the
