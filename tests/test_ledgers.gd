@@ -3208,6 +3208,124 @@ func test_only_the_marches_that_fight_spend_a_commander() -> void:
 	)
 
 
+## The line names the fights, not only their number: the standard the army sheet
+## prints and the ground its order storms or relieves, three named and the rest
+## counted, with the pool's answer after them (wiki: military-generals § The hosts
+## the court would lead; DR-20261122-22).
+func test_the_command_counsel_names_the_fights_it_would_lead() -> void:
+	var storm: String = "the field army at Tucapel to storm Cádiz"
+	var relief: String = "the Home Army to throw the host out of Lisbon"
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 2, 2, [storm, relief]),
+		"the court would send 2 hosts into battle — %s and %s — each led by a commander"
+		% [storm, relief]
+	)
+	# Short a commander: the names stand between the count and the answer.
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 1, 2, [storm, relief]),
+		(
+			"the court would send 2 hosts into battle — %s and %s — its 1 commander"
+			+ " would lead 1, and the last host would fight on the leader's own 2 medals"
+		) % [storm, relief]
+	)
+	# No commander free: the gate follows the names, never splits one.
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 0, 2, [storm, relief]),
+		(
+			"the court would send 2 hosts into battle — %s and %s — with no commander"
+			+ " free, they would fight on the leader's own 2 medals"
+		) % [storm, relief]
+	)
+	# Beyond three the line counts the rest, so a wide front stays one sentence.
+	var four: Array[String] = [
+		storm,
+		relief,
+		"the field army at Coimbra to storm Badajoz",
+		"the field army at Oporto to storm Cádiz from the north",
+	]
+	assert_eq(
+		MapPlayCommandPick.pick_line(4, 4, 0, four),
+		(
+			"the court would send 4 hosts into battle — %s, %s, %s and 1 more — each"
+			+ " led by a commander"
+		) % [four[0], four[1], four[2]]
+	)
+	# No fight the sheet can word prints the count-only line it printed before.
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 2, 2, []),
+		"the court would send 2 hosts into battle — each led by a commander"
+	)
+
+
+## The fights are worded off the orders the army sheet prints: a storm into ground
+## the crown does not hold and a relief onto its own land, in the pass's own order,
+## while a frontier advance, a rotation and an entry the module cannot word name
+## nothing (wiki: military-generals § Assignment; DR-20261122-22).
+func test_only_the_fighting_marches_are_named() -> void:
+	var armies: Array = [
+		{
+			"kind": MapPlayArmyPick.KIND_MARCH,
+			"why": MapPlayArmyPick.WHY_FRONTIER,
+			"standard": "the Home Army",
+			"order": "to advance to Cádiz, the frontier",
+		},
+		{
+			"kind": MapPlayArmyPick.KIND_MARCH,
+			"why": MapPlayArmyPick.WHY_STORM,
+			"standard": "the Home Army",
+			"order": "to storm Cádiz",
+		},
+		{
+			"kind": MapPlayArmyPick.KIND_MARCH,
+			"why": MapPlayArmyPick.WHY_RELIEF,
+			"standard": "the field army at Tucapel",
+			"order": "to throw the host out of Lisbon",
+		},
+		{
+			"kind": MapPlayArmyPick.KIND_ROTATE,
+			"why": "",
+			"standard": "the field army at Coimbra",
+			"order": "home to Madrid to merge with the Home Army",
+		},
+		{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_STORM, "standard": "", "order": ""},
+	]
+	assert_eq(MapPlayCommandPick.hosts_of(armies), 3, "a storm, a relief and one unwording storm")
+	assert_eq(
+		MapPlayCommandPick.clauses_of(armies),
+		[
+			"the Home Army to storm Cádiz",
+			"the field army at Tucapel to throw the host out of Lisbon",
+		],
+		"only the fights the sheet can name are named, in the pass's order"
+	)
+	# The pick the sheet prints: the count, the names and the pool's answer off one
+	# read.
+	var pick: Dictionary = MapPlayCommandPick.from(
+		{"armies": armies}, {"held": 1, "fallback": {"attack": 2}}
+	)
+	assert_eq(int(pick["hosts"]), 3)
+	assert_eq(int(pick["led"]), 1)
+	assert_true(String(pick["line"]).contains("the Home Army to storm Cádiz"), pick["line"])
+	# Two standards that would fight alike read as one clause, and the count keeps
+	# both.
+	var repeated: Dictionary = MapPlayCommandPick.from(
+		{
+			"armies": [
+				{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_STORM, "standard": "the Home Army", "order": "to storm Cádiz"},
+				{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_STORM, "standard": "the Home Army", "order": "to storm Cádiz"},
+			]
+		},
+		{"held": 2}
+	)
+	assert_eq(int(repeated["hosts"]), 2)
+	assert_true(String(repeated["line"]).contains("and 1 more"), "a repeat keeps its count")
+	assert_eq(
+		MapPlayCommandPick.from({}, {}).get("line"),
+		MapPlayCommandPick.NO_HOST_LINE,
+		"no fight, no names"
+	)
+
+
 ## The command sheet is the passes' own reading: it prints the line the land pass
 ## and the pool word and orders nothing (REQ-P2-03, REQ-P5-06; DR-20261122-02).
 func test_the_command_sheet_prints_the_reading_it_is_handed() -> void:
@@ -3229,6 +3347,8 @@ func test_the_command_sheet_prints_the_reading_it_is_handed() -> void:
 	# the fights is read off the same walk the army sheet prints.
 	for raw: Variant in MapPlayArmyOrdersPick.pick(play).get("armies", []):
 		assert_true((raw as Dictionary).has("why"), "an ordered standard carries its why")
+		assert_true((raw as Dictionary).has("standard"), "and the title the sheet prints")
+		assert_true((raw as Dictionary).has("order"), "and the order it words")
 	assert_eq(_force_moved_flags(play), before, "the reading marches nothing")
 	# An unwired sheet prints nothing, and the line stands down.
 	var wired: Callable = panel.counsel_source
