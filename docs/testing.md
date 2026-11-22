@@ -228,6 +228,14 @@ godot --headless --path . --script res://playtests/playtest_workshop.gd
 # sealed turn, and the save that restores the defeated campaign).
 godot --headless --path . --script res://playtests/playtest_capital_move.gd
 
+# A seat lost mid-invasion — marches the crown into a rival's capital the same
+# turn another rival storms its own seat (the pass moves two courts onto each
+# other's ground, and the seat the crown just won is the successor it picks),
+# then walks a rival host into the undefended seat with no clash at all and reads
+# the court move, the seat every reader names, and the fall that hands the
+# colonies over.
+godot --headless --path . --script res://playtests/playtest_seat_lost_mid_invasion.gd
+
 # Field hospital train — pitches the army's own tents from the dossier (reading
 # the caption, the receipt and the strength line), mauls two hosts on bare ground
 # to read 40% against 25% over a real turn, seats a General hospital to read the
