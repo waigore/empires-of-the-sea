@@ -2519,6 +2519,23 @@ func test_a_raid_drowns_her_colonist_out_of_the_roster() -> void:
 		CivilianVoyageMap.drop_lost(civilians, FleetRosters.carried_civilians(ships.regions)).is_empty(),
 		"the next naval watch has no drowned hand left to announce"
 	)
+	# No ids and no layer take nobody, and a hand the trim did not name is never
+	# taken: the roster answers only the loss it was told.
+	assert_true(CivilianVoyageMap.drown(civilians, []).is_empty(), "an empty loss takes nobody")
+	assert_true(CivilianVoyageMap.drown(null, [22]).is_empty(), "a court with no roster drowns nobody")
+	# The shown region's own list answers the same way, and its marker leaves
+	# with the hand (wiki: ships-and-naval § Losses).
+	var shown := CivilianLayer.new()
+	shown.model = world.region(0)
+	var crew: Array[CivilianState] = [
+		CivilianState.create(31, 0, "colonist", Vector2i(0, 0)),
+	]
+	shown.units = crew
+	shown.regions.set_region(0, crew)
+	assert_true(CivilianVoyageMap.drown(shown, [32]).is_empty(), "a stranger is no loss")
+	assert_eq(CivilianVoyageMap.drown(shown, [31]).size(), 1, "the drowned hand leaves the shown list")
+	assert_true(shown.units.is_empty(), "the map keeps no marker for a drowned hand")
+	shown.free()
 	play.army_layer.free()
 	ships.free()
 	civilians.free()
