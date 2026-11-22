@@ -19,7 +19,7 @@ const MAX_LEVEL: int = 5
 ## fort eats the ration share the issue fixes (150/100/70/30/50%), so each
 ## level's wall HP is the strength the opening Great Power host (the L1
 ## calibration anchor) must field above the battery before the ratio bands
-## give it the province. E.g. L1 40 vs the 18-strength opening muster: the
+## give it the province. E.g. L1 40 vs the 21-strength opening muster: the
 ## soaking and the single gun leave the attacker below the 1.0 band and the
 ## fort holds.
 const WALL_BASE: float = 40.0
@@ -80,6 +80,13 @@ const EMPLACED_TECHS: Array[Dictionary] = [
 	{"tech": "heavy_emplaced_artillery", "type": "heavy_artillery"},
 ]
 const EMPLACED_TYPE: String = "royal_artillery"
+
+## The top of the emplaced line (wiki: tech-tree-military § Artillery and
+## Forts — Royal → Heavy → Siege). A caller that cannot see the defender's
+## studies prices the wall at its strongest possible battery.
+const CEILING_TECH: Dictionary = {
+	"heavy_emplaced_artillery": true, "emplaced_siege_guns": true,
+}
 
 
 static func clamp_level(level: int) -> int:
@@ -189,6 +196,16 @@ static func storm_losses(strength: float, tech: Dictionary, level: int) -> int:
 	if over <= 0.0:
 		return 0
 	return int(floor(over / STORM_STEP))
+
+
+## The wall at the heaviest battery any court can mount: what a planner that
+## cannot read the defender's studies must beat. The resolver prices the
+## province owner's own line ([method storm_threshold] with the defender's
+## tech); a gate that assumes the floor instead admits a host the ladder
+## repels (wiki: siege-mechanics § Storming an empty walled province — "a thin
+## host never marches on a wall it cannot beat").
+static func storm_ceiling(level: int) -> float:
+	return storm_threshold(CEILING_TECH, level)
 
 
 ## The ladder's own step: strength is soaked by the wall, then each whole

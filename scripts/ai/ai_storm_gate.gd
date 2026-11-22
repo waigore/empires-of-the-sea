@@ -4,7 +4,10 @@ extends RefCounted
 ##
 ## Every Old World province starts behind a wall, and the resolver prices the
 ## wall plus its standing battery before a host may storm an empty one
-## ([method FortRules.storm_threshold]). A court that only ever musters its
+## ([method FortRules.storm_threshold], with the battery the **defender's**
+## studies set). The gate cannot read another court's ledger, so it prices the
+## top of the emplaced line ([method FortRules.storm_ceiling]): a host it sizes
+## clears whatever battery the wall mounts. A court that only ever musters its
 ## published target — five regiments at peace, a handful more at war — stands
 ## under a Wood wall's threshold, so every march into an empty walled province
 ## is repelled and the land it walks stays foreign: the measured bench froze a
@@ -12,7 +15,7 @@ extends RefCounted
 ##
 ## The gate raises the court's muster target by the smallest host that would
 ## cross its thinnest wall: the strongest line its techs open, read against
-## [method FortRules.storm_threshold]. The extra rides the target, so the
+## [method FortRules.storm_ceiling]. The extra rides the target, so the
 ## muster, its labour floor and the chest it holds for the next regiment all
 ## ask for the same host, and the map layer keeps no second target
 ## ([method AiArmyReinforce.desired_regiments]).

@@ -5233,6 +5233,19 @@ func test_fort_tables_follow_the_wiki() -> void:
 	assert_eq(FortRules.tech_gate(4), "bastion_forts")
 	assert_eq(FortRules.tech_gate(5), "star_forts")
 
+
+## The gates are the wall's own thirds (wiki: siege-mechanics § Quick Battle
+## lanes — "each gate opens once ceil(wall HP / 3) casualties have been drawn
+## from the wall lane"): 14 wall casualties at Wood, 27 at Stone, 40 at Modern.
+## The old 4 / 7 / 10 read the pre-#1314 10-HP ladder and mislead a plan.
+func test_each_gate_opens_at_a_third_of_the_wall() -> void:
+	_setup_fort_rules()
+	assert_eq(SiegeGates.breach_threshold(1), 14)
+	assert_eq(SiegeGates.breach_threshold(2), 27)
+	assert_eq(SiegeGates.breach_threshold(3), 40)
+	assert_eq(SiegeGates.breach_threshold(5), 67)
+
+
 func test_fort_levels_are_multi_turn_and_capped() -> void:
 	_setup_fort_rules()
 	assert_eq(FortRules.turns(1), 1)
@@ -6733,6 +6746,47 @@ func test_an_empty_walled_province_is_stormed_not_flipped() -> void:
 		lost_count, 1,
 		"19 strength past the 51 ladder costs one of the ten"
 	)
+
+
+## The storm prices the wall's own battery (wiki: siege-mechanics § Storming an
+## empty walled province — "wall HP + the standing battery's strength"), and the
+## battery's line is the **defender's** studies (wiki: § Emplaced Artillery —
+## Royal → Heavy → Siege). A defender who studied Heavy Emplaced Artillery makes
+## a Wood wall 40 + 15 = 55, which a 54-strength host cannot cross; and the
+## storming court's own siege guns never thicken a wall it is not manning.
+func test_a_storm_prices_the_defenders_battery_not_the_stormers() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var tech := {0: {"emplaced_siege_guns": true}, 1: {"heavy_emplaced_artillery": true}}
+	# Nine arquebusiers: 9 × 6 = 54 — over a Royal wall (51), under this one (55).
+	var nine := army_field_rules_Fixture.army(1, 0, 2, _regiment_types("arquebusiers", 9))
+	nine.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [nine], {"tech": tech})
+	var storm: Dictionary = reports[0]["storm"] as Dictionary
+	assert_almost_eq(float(storm["threshold"]), 55.0, 0.001,
+		"40 wall hp + one Heavy emplaced gun (15) is the defender's wall")
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_false(bool(reports[0]["captured"]))
+	assert_eq(model.province_owner(2), 1)
+	assert_eq(nine.count(), 9, "a host under the wall loses nobody")
+	# The report names the battle the wall mode: a storm is a siege, so the
+	# despatch, the soundtrack and the dialogue record read siege, not field
+	# (wiki: siege-mechanics § Battle Type and Forts — fort ≥ 1 is the switch).
+	assert_eq(String(reports[0]["battle_mode"]), "siege", "a storm is a siege battle")
+	assert_eq(int(reports[0]["fort_level"]), 1, "the report carries the wall it met")
+
+	# The same host against a Royal battery takes the wall: the stormer's own
+	# siege guns (19) price the defender's wall at 40 + 19 = 59 in the old read.
+	model.province_data(4).fort_level = 1
+	var royal_guard := {0: {"emplaced_siege_guns": true}, 1: {}}
+	var again := army_field_rules_Fixture.army(2, 0, 4, _regiment_types("arquebusiers", 9))
+	again.moved = true
+	var taken: Array[Dictionary] = ArmyCombat.resolve_turn(model, [again], {"tech": royal_guard})
+	assert_almost_eq(float((taken[0]["storm"] as Dictionary)["threshold"]), 51.0, 0.001,
+		"a Royal battery is 40 wall hp + 11, whatever the stormer studied")
+	assert_eq(int(taken[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(model.province_owner(4), 0)
 
 
 ## The calibration anchor (issue #1314): the opening Great Power muster —
