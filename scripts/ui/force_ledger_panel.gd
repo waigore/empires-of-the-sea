@@ -22,7 +22,6 @@ var _court_pick: Dictionary = {}
 ## The forces that reading names, by `MapPlayForceCounsel.force_key`, so a row
 ## knows whether it wears the counsel's mark (DR-20261122-03).
 var _court: Dictionary = {}
-var _counsel: Label = null
 
 
 func _init() -> void:
@@ -60,12 +59,6 @@ func refresh() -> void:
 	_apply_filter()
 
 
-## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
-## the sheet carries no reading.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
-
-
 # --- sheet hooks -------------------------------------------------------------
 
 
@@ -85,9 +78,7 @@ func _build_body(column: VBoxContainer) -> void:
 func _under_chips() -> Control:
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 6)
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	block.add_child(_counsel)
+	_counsel_line(block)
 	var doors: Control = _doors()
 	if doors != null:
 		block.add_child(doors)
@@ -98,11 +89,7 @@ func _under_chips() -> Control:
 ## turn, or nothing when every force is already under way or the staff gives no
 ## order (REQ-P5-06).
 func _paint_counsel() -> void:
-	if _counsel == null:
-		return
-	var said: String = MapPlayPickProse.sentence_of(_court_pick)
-	_counsel.text = said
-	_counsel.visible = not said.is_empty()
+	_show_counsel(MapPlayPickProse.sentence_of(_court_pick))
 
 
 ## The doors behind the roll: the crown's army reads every regiment a standard

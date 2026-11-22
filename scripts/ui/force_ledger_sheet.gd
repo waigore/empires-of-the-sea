@@ -14,12 +14,6 @@ extends LedgerSheet
 ## fade and pause-door park come from SheetFrame; the chips, rows and empty
 ## notice from LedgerSheet; the heading dress from LedgerList.
 
-## The court's own reading, asked at every refresh: the sails the published
-## policy would order this force this turn, or nothing when the slot is unwired
-## (DR-20261121-13). A sheet that carries no reading leaves it `Callable()`.
-var counsel_source: Callable = Callable()
-var _counsel: Label = null
-
 
 ## Re-reads both charts' roster for the player's crown and repaints.
 func refresh() -> void:
@@ -114,33 +108,11 @@ func _build_body(column: VBoxContainer) -> void:
 func _under_chips() -> Control:
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 10)
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	block.add_child(_counsel)
+	_counsel_line(block)
 	var note: Control = _note()
 	if note != null:
 		block.add_child(note)
 	return block
-
-
-## The court's own reading, asked at every refresh: the sails the published
-## policy would order this force this turn, or nothing when the slot is unwired
-## (DR-20261121-13). A closed sheet reads nothing, because the pass is a planner
-## walk no one is looking at (REQ-P4-02).
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
-	var text: String = ""
-	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_snapshot))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
-
-
-## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
-## the sheet carries no reading.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
 
 
 func _apply_filter() -> void:

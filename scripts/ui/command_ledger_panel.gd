@@ -9,18 +9,12 @@ extends SheetFrame
 ## (REQ-P3-02, REQ-P3-03). The sheet chrome, fade and pause-door park come from
 ## SheetFrame.
 
-## The court's own reading, asked at every refresh: the hosts the published land
-## policy would march into battle and the commanders that answer them, or nothing
-## when nothing fights (DR-20261122-02).
-var counsel_source: Callable = Callable()
-var _counsel: Label = null
 var _summary: Label = null
 var _road: VBoxContainer = null
 var _medal: Label = null
 var _fallback: Label = null
 var _rows: VBoxContainer = null
 var _empty: Label = null
-var _snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -54,12 +48,6 @@ func refresh() -> void:
 	_sync_counsel()
 
 
-## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
-## the sheet carries no reading.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
-
-
 # --- sheet hooks -------------------------------------------------------------
 
 
@@ -76,9 +64,7 @@ func _build_body(column: VBoxContainer) -> void:
 
 	# The court's own reading: the hosts the land pass would lead this turn and
 	# the commanders that answer them, in the gold every counsel line wears.
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	column.add_child(_counsel)
+	_counsel_line(column)
 
 	# The road: every study that raises the cap, in the wiki's order, so a
 	# crown reads why it holds one commander and what the second costs.
@@ -110,20 +96,6 @@ func _on_profile_changed() -> void:
 	if visible and not _snapshot.is_empty():
 		_paint()
 		_sync_counsel()
-
-
-## The gold counsel line: the hosts the court's pass would lead this turn and the
-## commanders that answer them, or nothing when no sheet can read the walk. A
-## closed sheet reads nothing, because the pass is a planner walk no one is
-## looking at (REQ-P4-02).
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
-	var text: String = ""
-	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_snapshot))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
 
 
 # --- rows --------------------------------------------------------------------

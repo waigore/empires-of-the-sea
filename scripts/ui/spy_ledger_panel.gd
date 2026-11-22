@@ -7,15 +7,7 @@ extends SheetFrame
 ## only renders rows and asks MapPlayCivilianRoster to jump (REQ-P3-02,
 ## REQ-P3-03). The sheet chrome, fade and pause-door park come from SheetFrame.
 
-## The reading the session hands the sheet: the spies the court's own
-## espionage pass would book this turn (wiki: civilian-units § Spy;
-## DR-20261121-11). Unwired, the sheet prints no gold line.
-var counsel_source: Callable = Callable()
-
 var _rows: VBoxContainer = null
-var _snapshot: Dictionary = {}
-## The gold counsel line above the network: the spies the court would book.
-var _counsel: Label = null
 
 
 func _init() -> void:
@@ -59,9 +51,8 @@ func _can_open() -> bool:
 
 
 func _build_body(column: VBoxContainer) -> void:
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	column.add_child(_counsel)
+	# The gold counsel line above the network: the spies the court would book.
+	_counsel_line(column)
 	_rows = VBoxContainer.new()
 	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_rows.add_theme_constant_override("separation", 5)
@@ -83,25 +74,6 @@ func _paint() -> void:
 	_network()
 	_courts()
 	_screen()
-
-
-## The gold counsel line above the network: the spies the court's own pass
-## would walk, screen or keep this turn (wiki: civilian-units § Spy;
-## DR-20261121-11). A sheet with no planner, no spy or no reading prints nothing.
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
-	var text: String = ""
-	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_snapshot))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
-
-
-## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
-## the sheet carries no reading.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
 
 
 ## The crown's spies, one row each: where it stands and what it earns there.

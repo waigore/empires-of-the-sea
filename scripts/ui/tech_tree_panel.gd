@@ -23,19 +23,12 @@ const DETAIL_PIXELS: int = 13
 const DETAIL_PIXELS_COMPACT: int = 12
 const LEGEND_PIXELS: int = 10
 
-## The court's own research reading, asked at every refresh: the study the
-## published policy would open in the crown's first free slot, or {} when it
-## names none (DR-20261121-20). Unwired prints nothing.
-var counsel_source: Callable = Callable()
-
 var _state: ResearchState = null
 var _goal: String = ""
 var _selected: String = ""
 var _canvas: TechTreeCanvas = null
 var _chart_scroll: ScrollContainer = null
 var _road: Label = null
-## The gold counsel line under the road: the study the court would open.
-var _counsel: Label = null
 ## The advance the chart marks as the court's own, mirrored from the pick.
 var _court_tech: String = ""
 var _detail_title: Label = null
@@ -74,28 +67,18 @@ func refresh() -> void:
 	_render_detail(_selected)
 
 
-## The court's own reading, asked once per refresh: the study the published
-## research policy would open, in the college's own sentence, and the advance
-## the chart marks with it. A closed chart reads nothing, so a repaint behind it
-## never pays for a planner walk nobody sees (REQ-P4-02).
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
+## The reading the college's gold line prints, and the advance the chart marks
+## with it: the study the published research policy would open. A closed chart
+## reads nothing, so a repaint behind it never pays for a planner walk nobody
+## sees (REQ-P4-02).
+func _counsel_reading() -> String:
 	var pick: Dictionary = {}
 	if is_open() and counsel_source.is_valid():
 		var raw: Variant = counsel_source.call()
 		if raw is Dictionary:
 			pick = raw
 	_court_tech = String(pick.get("tech", ""))
-	var text: String = MapPlayPickProse.sentence_of(pick)
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
-
-
-## The gold line the chart last printed, or "" — the reading a test checks
-## instead of a label's text (REQ-P3-02).
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
+	return MapPlayPickProse.sentence_of(pick)
 
 
 ## The advance the chart marks as the court's own, or "" (DR-20261121-20).
@@ -116,9 +99,7 @@ func _build_body(column: VBoxContainer) -> void:
 	column.add_child(_road)
 	# The court's own pick sits under the goal's road, above the chart it marks:
 	# two sentences, the crown's aim and the staff's next study (DR-20261121-20).
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	column.add_child(_counsel)
+	_counsel_line(column)
 	column.add_child(_legend())
 
 	_chart_scroll = ScrollContainer.new()
