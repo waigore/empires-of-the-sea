@@ -11718,11 +11718,13 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 	)
 
 
-## The funded chain outranks the bank (issue #1135): the `chain_matters` bypass
-## was written for exactly this case but sat below the banking refusal and never
-## ran — a court below the bar banks on every turn it cannot cover both, so the
-## funded chain the ledger prices stayed shut the whole campaign.
-func test_a_banking_court_walks_its_funded_chain() -> void:
+## The army outranks the funded chain while the conquest bank is engaged (issue
+## #1135's bypass learned the price of a rung): a paid embassy ate the chest the
+## muster was filling, so the line stayed unfunded for the campaign (bench run
+## 2026-11-22: 16 provinces and one regiment, then 31 provinces and eight
+## regiments once the rung waited). The chain walks again the turn the host
+## stands.
+func test_a_banking_court_waits_its_funded_chain_behind_the_army() -> void:
 	_setup_ai_diplomacy_offers()
 	var tribe: int = FactionCatalog.tribe_ids()[0]
 	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
@@ -11742,12 +11744,31 @@ func test_a_banking_court_walks_its_funded_chain() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, tribe, 20, context
 	)
-	assert_false(
+	assert_true(
 		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
 			"the court is banking for its army"
 		),
-		"a chain the court funds outranks the bank's face"
+		"the funded chain waits while the army banks"
 	)
+	# The host stands: the bank lets go and the same chain walks.
+	context["income"] = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": true,
+	}
+	var standing: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, tribe, 20, context
+	)
+	assert_false(
+		_offer_blocked_kind(standing, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a court whose host stands walks its funded chain"
+	)
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
 	# A court with no chain (no charted Tribe beside it) still waits behind the
 	# bank: the aim the ledger funds here is the army's.
 	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
@@ -11769,11 +11790,11 @@ func test_a_banking_court_walks_its_funded_chain() -> void:
 	)
 
 
-## The deed's own chain outranks the bank too (issue #1135): a Minor seller the
-## court has charted with a priced deed still walks its envoy chain while the
-## court banks — the rung that lands the embassy is the link the Merchant's
-## purchase waits for, the same published purchase the tribe chain rides.
-func test_a_banking_court_walks_a_minor_deeds_chain() -> void:
+## The deed's chain waits behind the army too: a court that is short of the bar
+## and one line-cycle short of its chest buys the line first, the paid rung
+## after. The chain walks the turn the host stands, so the Merchant's purchase
+## still finds its embassy.
+func test_a_banking_court_waits_a_minor_deeds_chain() -> void:
 	_setup_ai_diplomacy_offers()
 	var minor: int = FactionCatalog.minor_ids()[0]
 	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
@@ -11797,12 +11818,32 @@ func test_a_banking_court_walks_a_minor_deeds_chain() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, minor, 20, context
 	)
-	assert_false(
+	assert_true(
 		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
 			"the court is banking for its army"
 		),
-		"a Minor deed's chain walks while the court banks"
+		"a Minor deed's chain waits while the court banks"
 	)
+	# The host stands: the same chain walks to its embassy.
+	var standing_income: Dictionary = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": true,
+	}
+	context["income"] = standing_income
+	var standing: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, minor, 20, context
+	)
+	assert_false(
+		_offer_blocked_kind(standing, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a court whose host stands walks its deed chain"
+	)
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
 	# Without a priced deed on the seller's chart the bank's face stands.
 	var bare_world: WorldMap = ai_diplomacy_offers_AiFixture.world([2, minor])
 	var bare_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(

@@ -75,9 +75,14 @@ static func best(
 	# chest, is saving for its next line — and a paid envoy rung is a
 	# deferrable purchase. The chain the deed serves walks again the turn
 	# the host stands. The purse is still read for every court that is not
-	# banking, and for the chain (#1135).
+	# banking, and for the chain (#1135) — except while the shortfall at the
+	# bar is what the bank is for: an aim that bought an envoy with the
+	# muster's own chest kept the line unfunded for the whole campaign
+	# (bench run 2026-11-22: a Maya embassy took the purse the turn the
+	# chest closed, at one regiment and sixteen provinces).
 	var income: Dictionary = context.get("income", {}) as Dictionary
-	if not chain_matters and not income.is_empty():
+	if (not chain_matters or bool(income.get("conquest_gap", false))) \
+			and not income.is_empty():
 		var banked: String = AiIncome.bank_refusal(config, ai_state, income)
 		if not banked.is_empty():
 			return _blocked(banked, AiDiplomacyOffers.KIND_OVERTURE)
