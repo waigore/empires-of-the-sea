@@ -5440,6 +5440,71 @@ func _row(id: String, ctx: Dictionary) -> Dictionary:
 	)
 
 
+## The court's own trade plan marks the good it books and prints the side and
+## the units on the row it names, so the crown reads what her staff would trade
+## where she would press it (wiki: world-market § Trade orders; DR-20261122-08).
+func test_a_row_the_court_would_trade_wears_the_mark_and_its_words() -> void:
+	var built: Dictionary = MarketRow.build(
+		"grain", 4, 0, {"free": 4}, _market(), 0, _row_ctx(), false,
+		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass,
+		{"bid": 3}
+	)
+	var row: Node = built["row"] as Node
+	assert_true(
+		_prints(row, "%s Grain" % MarketRow.COURT_MARK), "the row leads with the mark"
+	)
+	assert_true(
+		_prints(row, "The court would bid 3 this phase."), "the row says what it books"
+	)
+	row.free()
+
+
+## A row the court's plan leaves alone wears neither the mark nor a second
+## sentence: the reading marks what it names and nothing else (REQ-P5-06).
+func test_a_row_the_court_leaves_alone_prints_no_mark() -> void:
+	var built: Dictionary = _row("grain", _row_ctx())
+	var row: Node = built["row"] as Node
+	assert_false(
+		_prints(row, "%s Grain" % MarketRow.COURT_MARK), "no mark on a row it left alone"
+	)
+	assert_true(_prints(row, "Grain"), "the good still reads as it always did")
+	row.free()
+
+
+## The row's sentence names one side, or both when the plan books them, and
+## nothing when it books neither (DR-20261122-08).
+func test_the_court_sentence_names_the_side_it_books() -> void:
+	assert_eq(
+		MarketRow.court_line({"bid": 3}), "The court would bid 3 this phase."
+	)
+	assert_eq(
+		MarketRow.court_line({"offer": 2}), "The court would offer 2 this phase."
+	)
+	assert_eq(
+		MarketRow.court_line({"offer": 2, "bid": 1}),
+		"The court would offer 2 and bid 1 this phase."
+	)
+	assert_eq(MarketRow.court_line({}), "", "no plan, no sentence")
+
+
+## The plan's two sides fold into one book keyed by commodity, so a row marks
+## itself from the same read the gold line was worded from (DR-20261122-08).
+func test_the_court_book_folds_both_sides_by_commodity() -> void:
+	var book: Dictionary = LedgerMarket.court_rows(
+		{"offers": {"wool": 10}, "bids": {"iron": 5}, "line": "…"}
+	)
+	assert_eq(book.get("wool"), {"offer": 10})
+	assert_eq(book.get("iron"), {"bid": 5})
+	assert_eq(LedgerMarket.court_rows({}), {}, "no plan, no marks")
+	assert_eq(
+		LedgerMarket.court_rows({"bids": {"iron": 0}}), {}, "no units, no mark"
+	)
+	assert_eq(
+		LedgerMarket.court_rows({"bids": {"iron": "5"}}), {"iron": {"bid": 5}},
+		"a save-shaped figure still marks"
+	)
+
+
 ## A phone player has no hover: the reason the Bid is shut is printed under the
 ## row it shuts, in the rules' own words (wiki: world-market § Trade orders —
 ## validation rules; REQ-P1-05, REQ-P5-05).

@@ -4,7 +4,7 @@ extends RefCounted
 ## navy, the army, the muster, the colonies, the realm, the production, the
 ## market and the workers tabs — opens from the door the player uses, prints its
 ## one gold line, and orders nothing
-## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01/03/04).
+## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01/03/04/06/08).
 ##
 ## The court ledger's own envoy and the sound desk stay in the HUD step; this
 ## step owns the counsel readings and the tallies that prove they move nothing.
@@ -323,8 +323,9 @@ static func _production(run, screen: MapScreen) -> void:
 
 
 ## The ledger's MARKET tab names the trade the crown's own market pass would
-## book this phase, in the tab's gold line above the orders it answers — and
-## stages nothing (wiki: world-market § Trade orders; DR-20261121-09).
+## book this phase, in the tab's gold line above the orders it answers, and
+## marks the goods that plan names on their own rows — and stages nothing
+## (wiki: world-market § Trade orders; DR-20261121-09, DR-20261122-08).
 static func _market(run, screen: MapScreen) -> void:
 	var orders_before: int = screen.economy.market.book.orders_for(
 		screen.player_faction
@@ -340,6 +341,18 @@ static func _market(run, screen: MapScreen) -> void:
 		run.check(
 			not page.counsel_text().is_empty(),
 			"the ledger names the trade the court would book"
+		)
+		# Every good the court's plan names leads its own row with the counsel's
+		# mark, and the book the page holds is the one the line was worded from
+		# (DR-20261122-08).
+		var book: Dictionary = page.court_marks()
+		run.check(
+			book == LedgerMarket.court_rows(MapPlayMarketPick.pick(screen.play)),
+			"the market marks the plan its reading words"
+		)
+		run.check(
+			_marked_goods(page) == book.size(),
+			"every good the court would trade wears the mark"
 		)
 	run.check(
 		screen.economy.market.book.orders_for(screen.player_faction).size()
@@ -477,5 +490,16 @@ static func _marked_headings(rows: VBoxContainer) -> int:
 			continue
 		var label := box.get_child(0) as Label
 		if label != null and label.text.begins_with(ForceLedgerRow.COURT_MARK):
+			marked += 1
+	return marked
+
+
+## How many market rows wear the counsel's mark, so the smoke can hold the count
+## to the reading's own book (DR-20261122-08).
+static func _marked_goods(page: LedgerMarket) -> int:
+	var marked: int = 0
+	var prefix: String = MarketRow.COURT_MARK + " "
+	for label: Label in page.find_children("*", "Label", true, false):
+		if label.text.begins_with(prefix):
 			marked += 1
 	return marked

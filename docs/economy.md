@@ -72,7 +72,8 @@ Prices publish once; pact, boycott, subsidy settle
 strip); steppers capped by labour/inputs (`allowance`), a run names its
 output (`made 3`), court runs gold (`MapPlayProductionPick`, DR-20261121-07).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, `CROSSING`
-line (`CargoRead`), court trade gold (`MapPlayMarketPick`, DR-20261121-09),
+line (`CargoRead`), court trade gold (`MapPlayMarketPick`, DR-20261121-09)
+with those goods marked `▸` (`MarketRow.COURT_MARK`, DR-20261122-08),
 a **batch press** (`MarketBatch`), a dead `Bid` (`MarketRules.bid_block`,
 DR-20261118-15), a barred colony row (`MinorMarket.sealed_line`), share
 fills (`share_rows`).
