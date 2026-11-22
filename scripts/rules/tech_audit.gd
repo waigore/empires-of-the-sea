@@ -4,7 +4,7 @@ extends RefCounted
 ## § Acceptance Criteria, tech-and-extraction-cap § Static catalog validation).
 ## Pure and side-effect free: tests call it, the game never guesses a tech.
 
-const EXPECTED_COUNT: int = 113
+const EXPECTED_COUNT: int = 115
 
 
 ## Empty array means the catalog is valid; otherwise one line per failure.

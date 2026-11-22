@@ -117,6 +117,8 @@ const TECHS: Dictionary = {
 	"siege_engineering": {"name": "Siege Engineering", "era": 2, "category": "military", "prereqs": ["printing_press", "copper_and_tin_mining"]},
 	"light_artillery_tactics": {"name": "Light Artillery Tactics", "era": 3, "category": "military", "prereqs": ["crucible_process", "university"]},
 	"modern_forts": {"name": "Modern Forts", "era": 3, "category": "military", "prereqs": ["siege_engineering", "university"]},
+	"bastion_forts": {"name": "Bastion Forts", "era": 4, "category": "military", "prereqs": ["modern_forts", "crucible_process"]},
+	"star_forts": {"name": "Star Forts", "era": 4, "category": "military", "prereqs": ["bastion_forts", "explosives"]},
 	"heavy_artillery": {"name": "Heavy Artillery", "era": 3, "category": "military", "prereqs": ["modern_forts", "crucible_process"]},
 	"heavy_emplaced_artillery": {"name": "Heavy Emplaced Artillery", "era": 3, "category": "military", "prereqs": ["road_construction", "national_bureaucracy", "siege_engineering"]},
 	"field_artillery_tactics": {"name": "Field Artillery Tactics", "era": 4, "category": "military", "prereqs": ["light_artillery_tactics", "modern_military_funding"]},

@@ -23,9 +23,9 @@ P5 hidden spies leave no trace.
 - **Research boost:** each observed rival adds +15% RP to slots studying a tech
   it knows (funding ≥ Low), stacking before one floor; spies killed that turn
   do not count.
-- **Court reports:** one digest per observed rival after resolution — its
-  message, battles, provinces, finished technologies; never its agenda. Kept in
-  `play.court_reports`, eight lines at most.
+- **Court reports:** one digest per observed rival after resolution — message,
+  battles, provinces, finished technologies; never its agenda (`play.court_reports`,
+  eight lines at most).
 - **Persistence:** spies ride the civilian and save tables; the screen rebuilds
   from `counter_spy` orders.
 
@@ -37,17 +37,18 @@ door (or `I`) opens one sheet — every spy with the duty its posting earns
 unobserved, and the screen's state. Visit opens the spy; the sheet moves nothing.
 
 One gold line above the network names the spies the court would book this turn
-(DR-20261121-11) — `The court would walk its Spy toward Genoa.` — read from the
-civilian pass the crew sheet and the chart mark read, three named and the rest
-counted. No spy, no planner, no line; nothing is ordered.
+(DR-20261121-11) — `The court would walk its Spy toward Genoa.` — three named and
+the rest counted. Each spy the court would *order* — a walk or a screen — leads
+its row with `▸` (DR-20261122-18); a kept spy carries none: keeping is not an
+order. No spy, no planner, no line; nothing is ordered.
 
 ## AI use
 
-`AiSpyPlanner` keeps a spy in a foreign province on station, walks idle spies
-toward the nearest unobserved rival Great Power province (one spy per rival
-first), and raises a counter-espionage screen at home while at war. Rivals open
-with a spy and train more after their builder/engineer/explorer base.
-Rival research is live, so AI spies earn the same +15% boost.
+`AiSpyPlanner` keeps a spy posted abroad, walks idle spies toward the nearest
+unobserved rival Great Power province (one spy per rival first), and raises a
+counter-espionage screen at home while at war. Rivals open with a spy and train
+more after their builder/engineer/explorer base. AI spies earn the same +15%
+boost.
 
 ## Architecture
 

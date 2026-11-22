@@ -3273,6 +3273,9 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 	var army: ArmyState = _detach_one(screen)
 	army.province = int(pair["start"])
 	var tile: Vector2i = model.province_data(target).tiles[0]
+	# Open ground only: a capital's start wall turns the march into a storm
+	# (#1314); this case exercises the reseat, not the wall.
+	model.province_data(target).fort_level = 0
 	assert_true(MapPlayArmies.try_order(screen.play, tile))
 
 	# Capture and capital reseat land in the combat pass; skip the full end_turn

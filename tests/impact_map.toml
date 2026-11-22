@@ -1134,6 +1134,12 @@ domain = "eyes"
 match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
+# The network's own row wears the counsel's mark (DR-20261122-18): the same
+# slice as the sheet that sets it, never the ui glob's wider set.
+[[rules]]
+match = "scripts/ui/spy_ledger_row.gd*"
+domain = "eyes"
+
 # The reading the eyes print (DR-20261121-11): its own small slice, so the
 # shaping of one gold line never pulls the espionage domain's seven suites.
 [[rules]]

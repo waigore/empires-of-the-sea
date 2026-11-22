@@ -330,6 +330,8 @@ static func outcome_text(
 		ArmyCombat.Outcome.MUTUAL_ANNIHILATION:
 			return "Mutual ruin — both sides are broken"
 		ArmyCombat.Outcome.CAPTURE:
+			if battle.has("storm"):
+				return "%s storms the walls of %s" % [attacker, province_name]
 			return "%s occupies %s unopposed" % [attacker, province_name]
 	return "%s and %s stand off" % [attacker, defender]
 
