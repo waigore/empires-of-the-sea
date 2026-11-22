@@ -53,7 +53,7 @@ static func _add_deals(
 		))
 	if share > 0:
 		var shares := UiRowBuilder.label(
-			"Overseas shares  +%d ducats" % share, 12, Palette.GOLD_PALE
+			"Overseas shares  +%s" % MoneyText.ducats(share), 12, Palette.GOLD_PALE
 		)
 		shares.tooltip_text = (
 			"The court's cut of the Minor and Tribe sales abroad — tile rights "

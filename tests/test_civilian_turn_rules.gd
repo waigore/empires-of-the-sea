@@ -3182,7 +3182,7 @@ func test_purchase_land_prices_at_fifteen_times_the_base_price() -> void:
 	var model: MapModel = field_Fixture.build_minor()
 	assert_eq(LandPurchase.cost(model, Vector2i(3, 1)), 750, "grain")
 	assert_eq(LandPurchase.cost(model, Vector2i(2, 1)), 1200, "iron")
-	assert_eq(LandPurchase.cost_text(model, Vector2i(3, 1)), "£750")
+	assert_eq(LandPurchase.cost_text(model, Vector2i(3, 1)), "750 ducats")
 
 
 func test_merchant_purchase_needs_embassy_and_a_clear_sale() -> void:
