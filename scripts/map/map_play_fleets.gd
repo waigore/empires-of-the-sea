@@ -97,7 +97,7 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	# The yard's own claim: the hull this court means to lay, printed in the
 	# slip the crown launches from (DR-20261121-02). A rival answers to her own
 	# court, and the block draws no rows for her anyway.
-	opening.yard_pick = MapPlayYardPick.line(play) if fleet.owner == play.player_faction else ""
+	opening.yard_pick = MapPlayYardPick.pick(play) if fleet.owner == play.player_faction else {}
 	play.hud.panels.show_fleet(play.model, opening)
 
 
