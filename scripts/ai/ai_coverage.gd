@@ -111,6 +111,13 @@ const RULES: Array[Dictionary] = [
 		"major": true,
 	},
 	{
+		"id": "navy.convoy",
+		"label": "convoy sail",
+		"keys": ["convoy"],
+		"source": "economy-planner § Cargo, ships-and-naval § Ship Types (issue #1258)",
+		"major": false,
+	},
+	{
 		"id": "navy.launch",
 		"label": "hull laid down at the yard",
 		"keys": ["build"],

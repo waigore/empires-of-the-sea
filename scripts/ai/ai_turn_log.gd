@@ -13,7 +13,7 @@ const NO_ID: int = MapModel.NO_ID
 const ACTION_ORDER: Array[String] = [
 	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue", "home",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
-	"invade", "voyage", "colony", "build", "cargo",
+	"invade", "voyage", "colony", "build", "convoy", "cargo",
 ]
 const ACTION_LABELS: Dictionary = {
 	"war": "war declared",
@@ -36,6 +36,7 @@ const ACTION_LABELS: Dictionary = {
 	"voyage": "voyage orders",
 	"colony": "colony landings",
 	"build": "hulls laid down",
+	"convoy": "convoy sails",
 	"cargo": "cargo routes",
 }
 
@@ -186,6 +187,11 @@ static func _record_armies(
 		event(merged, factions[faction], faction, line)
 
 
+## The hull's own move, not the fleet's: a fleet of mixed hulls reads as what
+## the hull that sailed did (wiki: ai-architecture § Naval policy; issue #1258).
+const ACTION_CONVOY: String = "convoy"
+
+
 static func _record_fleets(
 	merged: Dictionary, factions: Dictionary, trace: Array[Dictionary]
 ) -> void:
@@ -194,9 +200,22 @@ static func _record_fleets(
 		if not factions.has(faction):
 			continue
 		var kind: String = String(raw.get("kind", ""))
-		var key: String = "home" if kind == AiNavalPlanner.KIND_HOME else (
-			"sortie" if kind.ends_with("sortie") else "pursue"
-		)
+		var key: String = ""
+		match kind:
+			AiNavalPlanner.KIND_HOME:
+				key = "home"
+			AiNavalPlanner.KIND_CONVOY:
+				# A convoy hull's sail names itself: the trace must not file it
+				# under the war `sortie` the old suffix rule gave every port
+				# fleet, nor under the economy's own `cargo` routes (issue
+				# #1258).
+				key = "convoy"
+			AiNavalPlanner.KIND_SORTIE:
+				key = "sortie"
+			AiNavalPlanner.KIND_RAID, AiNavalPlanner.KIND_PURSUE:
+				key = "pursue"
+			_:
+				key = "pursue"
 		bump(factions[faction]["actions"], key)
 		var zone: String = String(raw.get("zone_name", ""))
 		if zone.is_empty():
@@ -204,6 +223,16 @@ static func _record_fleets(
 		if String(raw.get("reason", "")) == AiNavalPlanner.REASON_TRADE:
 			var trade: String = "%s's squadron gives up its station to keep its holds home."
 			event(merged, factions[faction], faction, trade % FactionCatalog.name_of(faction))
+			continue
+		if kind == AiNavalPlanner.KIND_CONVOY:
+			# The trace names the convoy hull's move for what it is, so a port
+			# fleet never files every sail as a war sortie (issue #1258).
+			event(
+				merged,
+				factions[faction],
+				faction,
+				"%s's convoy sails into the %s." % [FactionCatalog.name_of(faction), zone],
+			)
 			continue
 		event(
 			merged,
