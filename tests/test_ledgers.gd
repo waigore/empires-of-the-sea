@@ -40,6 +40,13 @@ func before_all() -> void:
 	both_charts_map = Fixture.snapshot(Fixture.world())
 	Fixture.restore(Fixture.world(), pristine_map)
 	Fixture.suite_reset(screen, pristine, Fixture.world())
+	Fixture.park_screen(screen)
+
+
+func before_each() -> void:
+	# Projection cases never wake the shared chart; an idle MapScreen still
+	# runs HUD/fog under coverage (docs/testing.md § Speed rules).
+	Fixture.park_screen(screen)
 
 
 func after_all() -> void:

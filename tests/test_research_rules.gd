@@ -8,6 +8,9 @@ extends GdToolsTest
 
 
 const Fixture = preload("res://tests/civilian_fixture.gd")
+## Shared chart for the merged screen cases; parked so pure college rules never
+## pay an idle MapScreen under coverage (docs/testing.md § Speed rules).
+const ScreenFixture = preload("res://tests/map_fixture.gd")
 
 var _state: ResearchState = null
 var _economy: PlayerEconomy = null
@@ -29,12 +32,18 @@ func before_each() -> void:
 	_economy = PlayerEconomy.starting()
 	_turn_economy = PlayerEconomy.starting()
 	_turn_state = _turn_economy.research
+	# The merged screen suite parks its chart so the 100+ rule cases never pay
+	# an idle MapScreen's `_process` under coverage.
+	if research_mounted != null:
+		ScreenFixture.park_screen(research_mounted)
 
 
 func after_each() -> void:
 	if is_instance_valid(_panel):
 		_panel.free()
 	_panel = null
+	if research_mounted != null:
+		ScreenFixture.park_screen(research_mounted)
 
 
 ## Discovery cases read a 5×5 pocket chart; bind it only when a case asks.
@@ -1925,8 +1934,6 @@ func _label_containing(text: String) -> Label:
 ## each screen case, so this merged suite pays one mount instead of one boot.
 
 ## The one chart the sheet cases drive (the rules cases need no nodes).
-const ScreenFixture = preload("res://tests/map_fixture.gd")
-
 var research_mounted: MapScreen = null
 var research_pristine: Dictionary = {}
 var research_pristine_map: Array = []
@@ -1936,6 +1943,7 @@ func before_all() -> void:
 	research_pristine_map = ScreenFixture.snapshot(ScreenFixture.world())
 	research_mounted = ScreenFixture.attach_screen(self)
 	research_pristine = ScreenFixture.suite_capture(research_mounted)
+	ScreenFixture.park_screen(research_mounted)
 
 
 func after_all() -> void:
