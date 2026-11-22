@@ -5,28 +5,22 @@ extends RefCounted
 ## re-assert, coastal sea pass last. Pure rules on a [VisibilityModel] chart —
 ## no nodes (REQ-P3-01, REQ-P3-03).
 ##
-## The chart owns raise/lower and Spy charter booking; this module only walks
-## the turn's fog pipeline so the grid file stays under the soft size bar.
+## The chart owns raise/lower; this module only walks the turn's fog pipeline so
+## the grid file stays under the soft size bar.
 
 
 ## End-of-turn resolution. `at_sea_zones` lists zones holding this player's
 ## fleets at sea; fleets in port do not count. `held_provinces` lists provinces
-## where this player keeps a civilian; `spy_provinces` lists the provinces a Spy
-## of this player stands in, so the charted grace a departed Spy leaves behind
-## is booked here (wiki: § Spy timer expiry).
+## where this player keeps an Explorer or a Spy. The last Spy leaving a foreign
+## province never grants a grace: a province with no holder left decays in this
+## same pass (wiki: civilian-units § Spy (1) — "visibility reverts to fogged
+## immediately at end-of-turn (no grace timer)"; DR-20261110-03).
 static func end_of_turn(
 	chart: VisibilityModel,
 	at_sea_zones: Array,
-	held_provinces: Array = [],
-	spy_provinces: Array = []
+	held_provinces: Array = []
 ) -> Array:
 	var held: Array = held_provinces.duplicate()
-	# Own ground never takes a clock, so it can never be fogged by this rule.
-	var own: Array = []
-	for province: ProvinceState in chart.model.provinces:
-		if province.owner == chart.player_id:
-			own.append(province.id)
-	held.append_array(chart.spy_charter.book(spy_provinces, own))
 	var changed: Array = []
 	changed.append_array(decay_foreign_provinces(chart))
 	changed.append_array(apply_distant_sea_fog(chart, at_sea_zones))
