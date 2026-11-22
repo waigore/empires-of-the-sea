@@ -5297,6 +5297,46 @@ func test_the_estates_ledger_marks_the_estates_the_crowns_pass_would_raise() -> 
 	panel.close()
 
 
+## The estates card says what its mark means beside the mark, not in the footer a
+## compact card drops: the legend stands under the gold line while that reading
+## names an estate, and a card that names none explains no glyph
+## (REQ-P1-07, REQ-P5-07; DR-20261123-03/07).
+func test_the_estates_card_says_what_its_mark_means_beside_the_mark() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ImprovementPanel = screen.improvements
+	_cancel_works()
+	var stock: Dictionary = play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	panel.open()
+	var footer_hint: Label = panel._footer_box.get_child(0) as Label
+	assert_false(
+		footer_hint.text.contains("▸"),
+		"the mark's meaning is not left to the footer a phone hides"
+	)
+	assert_eq(
+		panel.legend_text(), ImprovementPanel.MARK_LEGEND,
+		"the card says what its mark means"
+	)
+	assert_eq(
+		panel.legend_shown(),
+		not panel._counsel.keys().is_empty(),
+		"the legend stands exactly when a row wears the mark"
+	)
+	# The legend is the body's, so the compact profile that drops the footer keeps
+	# the sentence beside the glyph it explains.
+	panel._apply_profile(true, true)
+	assert_false(panel._footer_box.visible, "the compact card drops its footer")
+	assert_eq(
+		panel.legend_shown(),
+		not panel._counsel.keys().is_empty(),
+		"and keeps the legend beside the mark"
+	)
+	panel._apply_profile(false, false)
+	panel.close()
+
+
 ## Every estate row the ledger prints, in its own order.
 func _estate_rows(panel: ImprovementPanel) -> Array[ImprovementRow]:
 	var rows: Array[ImprovementRow] = []

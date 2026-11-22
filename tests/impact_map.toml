@@ -599,6 +599,22 @@ domain = "play_screen"
 match = "scripts/ui/sheet_frame.gd*"
 domain = "ui"
 
+# The sentence that says what the court's ▸ means (DR-20261123-03/07): the sheets
+# that mount it ride the ledger suite, the card and the two yards their own. Its
+# own four readers are named here so a wording change never pays for the menu
+# catch-all.
+[[rules]]
+match = "scripts/ui/mark_legend.gd*"
+domain = "mark_legend"
+
+[domains.mark_legend]
+suites = [
+  "test_ledgers.gd",
+  "test_economy_screen.gd",
+  "test_army_orders.gd",
+  "test_fleet_orders.gd",
+]
+
 # The one modal every cartouche door stands on and the door that hosts a panel
 # carrying its own chrome (issue #692). They are the sheet chrome plus the bar's
 # doors, so a shell change runs the suites that mount those sheets instead of the
