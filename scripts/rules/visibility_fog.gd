@@ -5,8 +5,8 @@ extends RefCounted
 ## re-assert, coastal sea pass last. Pure rules on a [VisibilityModel] chart —
 ## no nodes (REQ-P3-01, REQ-P3-03).
 ##
-## The chart owns raise/lower; this module only walks the turn's fog pipeline
-## so the grid file stays under the soft size bar.
+## The chart owns raise/lower; this module only walks the turn's fog pipeline so
+## the grid file stays under the soft size bar.
 
 
 ## End-of-turn resolution. `at_sea_zones` lists zones holding this player's
@@ -14,7 +14,8 @@ extends RefCounted
 ## provinces where this player keeps an Explorer or a Spy, so a crew's presence
 ## holds the ground it charted — and the last Spy leaving fogs its province in
 ## this same pass, with no grace (wiki: fog-and-exploration § Fog Decay;
-## civilian-units § Spy (1); DR-20261110-03).
+## civilian-units § Spy (1) — "visibility reverts to fogged immediately at
+## end-of-turn (no grace timer)"; DR-20261110-03).
 static func end_of_turn(
 	chart: VisibilityModel,
 	at_sea_zones: Array,

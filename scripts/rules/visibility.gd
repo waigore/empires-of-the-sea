@@ -161,6 +161,9 @@ func reveal_landing(tile: Vector2i) -> Array:
 
 
 ## End-of-turn resolution (wiki: fog-and-exploration). See [VisibilityFog].
+## A departed Spy gets no grace: the province it left decays in the same pass
+## because no holder remains there (wiki: civilian-units § Spy (1);
+## DR-20261110-03).
 func end_of_turn(at_sea_zones: Array, held_provinces: Array = []) -> Array:
 	return VisibilityFog.end_of_turn(self, at_sea_zones, held_provinces)
 
@@ -229,7 +232,8 @@ func to_dict() -> Dictionary:
 ## Restores the grid onto an already-set-up model (coast links stay derived).
 ## A save written by an older build carries a `spy_hold` row of grace clocks; it
 ## is dropped here, so the ground a departed Spy left behind fogs on the next
-## pass exactly as the published rule says.
+## pass exactly as the published rule says (wiki: civilian-units § Spy (1);
+## DR-20261110-03).
 func apply_dict(data: Dictionary) -> bool:
 	player_id = int(data.get("player_id", player_id))
 	var raw: Variant = data.get("levels", PackedByteArray())

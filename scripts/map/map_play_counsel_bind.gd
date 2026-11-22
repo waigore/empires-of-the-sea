@@ -48,13 +48,14 @@ static func _bind_province(play: PlaySession) -> void:
 
 ## THE CROWN'S EYES names the spies the court's own espionage pass would walk,
 ## screen or keep this turn, read on the sheet's own snapshot so the line reads
-## down the network it answers (wiki: civilian-units § Spy; DR-20261121-11).
+## down the network it answers, and marks the spies it would order `▸` on their
+## rows (wiki: civilian-units § Spy; DR-20261121-11, DR-20261122-18).
 static func _bind_spy(play: PlaySession) -> void:
 	var eyes: SpyLedgerPanel = play.hud.spy_ledger
 	if eyes == null:
 		return
 	eyes.counsel_source = (
-		func(data: Dictionary) -> String: return MapPlaySpyPick.line(play, data)
+		func(data: Dictionary) -> Dictionary: return MapPlaySpyPick.pick(play, data)
 	)
 
 

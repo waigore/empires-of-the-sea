@@ -2037,6 +2037,83 @@ func test_the_grid_carries_no_spy_grace() -> void:
 		"and the first pass fogs the ground the departed Spy left"
 	)
 
+
+## The last Spy leaving a foreign province fogs it in that same end-of-turn: the
+## spies page publishes "no grace timer" and DR-20261110-03 books it that way, so
+## a departed spy's ground must not stay charted for a single extra turn
+## (wiki: civilian-units § Spy (1), acceptance criteria).
+func test_the_last_spy_leaving_fogs_the_province_at_once() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	# The spy stands: its presence holds the charted tiles fully visible.
+	data__visibility.end_of_turn([], [1])
+	assert_true(data__visibility.is_province_fully_visible(1), "presence holds")
+	# It leaves this turn: no grace follows it out.
+	data__visibility.end_of_turn([], [])
+	assert_false(
+		data__visibility.is_province_fully_visible(1),
+		"the last spy gone fogs the province at once"
+	)
+	assert_eq(
+		data__visibility.province_visibility(1), VisibilityModel.Level.FOGGED,
+		"charted ground falls to fogged, never below"
+	)
+
+
+## Two spies in one province, one leaving: the province stays fully visible
+## because a spy remains (wiki: civilian-units § Spy acceptance criteria).
+func test_a_spy_left_behind_still_holds_the_province() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	var units: Array[CivilianState] = [
+		CivilianState.create(1, PLAYER, "spy", Vector2i(2, 2)),
+		CivilianState.create(2, PLAYER, "spy", Vector2i(3, 2)),
+	]
+	data__visibility.end_of_turn([], CivilianMovement.held_provinces(_visibility_model, units, PLAYER))
+	assert_true(data__visibility.is_province_fully_visible(1))
+	units[0].tile = Vector2i(0, 1)  # the first walks home to own ground
+	var held: Array = CivilianMovement.held_provinces(_visibility_model, units, PLAYER)
+	assert_eq(held, [0, 1], "one spy still stands on the foreign ground")
+	data__visibility.end_of_turn([], held)
+	assert_true(
+		data__visibility.is_province_fully_visible(1),
+		"a spy left behind keeps the watch"
+	)
+	units[1].tile = Vector2i(0, 1)  # now the last one leaves too
+	data__visibility.end_of_turn([], CivilianMovement.held_provinces(_visibility_model, units, PLAYER))
+	assert_false(
+		data__visibility.is_province_fully_visible(1),
+		"with the last spy gone the province fogs"
+	)
+
+
+## Own ground never decays, spy or no spy (wiki: fog-and-exploration § Own vs
+## Other Provinces).
+func test_own_ground_never_fogs() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(0)
+	data__visibility.end_of_turn([], [])
+	assert_true(
+		data__visibility.is_province_fully_visible(0),
+		"the crown's own province stays fully visible"
+	)
+
+
+## A save written while departed-Spy clocks existed still loads: the read drops
+## the retired `spy_hold` key and keeps the grid.
+func test_a_save_with_a_retired_spy_clock_still_loads() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	var legacy: Dictionary = data__visibility.to_dict()
+	legacy["spy_hold"] = {1: 4}
+	var restored := VisibilityModel.new()
+	restored.setup(_visibility_model, PLAYER)
+	assert_true(restored.apply_dict(legacy), "a save carrying the retired key still loads")
+	assert_true(
+		restored.is_province_fully_visible(1),
+		"the grid restores as it was written"
+	)
+
 func test_presence_never_surveys_unknown_terrain() -> void:
 	_setup_visibility()
 	for tile: Vector2i in _visibility_model.province_tiles(1):

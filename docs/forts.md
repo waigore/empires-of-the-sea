@@ -7,59 +7,53 @@ DR-20261110-27.
 
 ## Implemented
 
-- **Storage:** `ProvinceState.fort_level` 0–3, saved; a captured province keeps
-  its walls.
-- **Build:** Engineers take `Fort`; the project rises on the province's **town
-  tile** (`FortRules.site_tile`). Materials paid at assign; one turn per level;
-  duplicates cannot leap a level or gate. L2 Mine Engineering, L3 Modern Forts.
-- **Capitals:** every Old World capital opens at Wood, advanced starts included
-  (Great Power and Minor); a Great Power's Mine Engineering / Modern Forts lifts
-  its own to L2 / L3 once, and a siege downgrade is not restored.
-- **Battle mode:** 0 field, `≥ 1` siege.
-- **Auto-resolve:** wall HP (10/20/30) soaks attack; the
-  defender's share is scaled by 1 − damage reduction (0.75/0.55/0.40) and adds
-  `guns × strength` of its emplaced type. The train silences a piece per gun's
-  weight of artillery (whole pieces; DR-20261110-22).
-- **Quick Battle lanes** (`SiegeLanes`): infantry man the wall, horse and guns
-  wait behind. RNG ≥ 2 hits the wall, only artillery reaches behind, RNG 1
-  touches neither. The wall scales the blow unless the garrison sorties, which
-  exposes it but lets every regiment strike. A pike garrison gives no return
-  fire; a blow bleeds no more than the deployed slice.
-- **Ground** (`SiegeGround`): HILL on hills/mountains, WOODS in forest, MARSH in
-  swamp, TOWN where a fort rings open ground. Volleys and assaults are weaker
-  into broken ground; entrenching is surer there.
-- **Gates** (`SiegeGates`): three; each falls after `ceil(wall HP / 3)`
-  casualties. A breach ends the reduction and opens the behind lane in the
-  share lost.
-- **Sortie:** the defender's own order, not an Assault. Every
-  regiment strikes, the garrison exposed; a firearmless garrison sallies.
-- **Gun-loss:** a gun spends the blow before the lanes; an empty blow buys
-  nothing, and the last gun still drops the fort one level.
+- **Storage / build:** `ProvinceState.fort_level` 0–5, saved; a captured
+  province keeps its walls. An Engineer's `Fort` project rises on the town tile
+  (`FortRules.site_tile`); materials at assign, turns per level.
+- **Start walls** (issue #1314): every Old World province of a Great Power or
+  Minor opens at Wood; its capital at Stone. New World and colonies stay 0. A
+  Great Power's fort tech lifts its own capital one step once — Modern → 3,
+  Bastion → 4, Star → 5; a siege downgrade is not restored.
+- **Unopposed capture** is open ground only (fort 0). An empty walled province
+  is **stormed**: the host must beat wall HP + the battery
+  (`FortRules.storm_threshold`); each whole 10 strength past it costs a
+  regiment, weakest first. Rival AI `_can_storm` gates read the same ladder.
+- **Battle mode:** 0 field, `≥ 1` siege. **Scaling formula:** wall HP = 40 ×
+  level, guns = level, damage reduction = 10% × level — calibrated so the
+  opening Great Power muster (21 strength) cannot storm a Wood fort.
+- **Auto-resolve:** wall HP soaks attack; the defender's share is scaled by
+  1 − damage reduction and adds `guns × strength` of its emplaced type.
+- **Quick Battle** (`SiegeLanes`): infantry man the wall, horse and guns wait
+  behind; RNG ≥ 2 hits the wall, only artillery reaches behind. Gates: three,
+  each after `ceil(wall HP / 3)` casualties; a breach opens the behind lane.
+  Ground (`SiegeGround`): HILL, WOODS, MARSH, TOWN.
 - **The wall reads itself** (`WallRead`, DR-20261120-06): the province sheet's
-  **Wall** row prints `10 wall hp · 25% off a blow` (empty on open ground), the
-  observatory the same, and a march into another court's wall names it.
+  **Wall** row, the observatory, and a march into another court's wall all name
+  the figures below.
 
 ## Costs and numbers
 
-| Level | Fort | Guns | Wall HP | Cost | Turns | Tech |
-|------:|------|-----:|--------:|------|------:|------|
-| 1 | Wood | 1 | 10 | 3 lumber, 3 bronze | 1 | — |
-| 2 | Stone | 2 | 20 | 4 lumber, 4 bronze | 2 | Mine Engineering |
-| 3 | Modern | 3 | 30 | 5 steel, 5 lumber | 3 | Modern Forts |
+| Level | Fort | Guns | Wall HP | Soak off a blow | Cost | Turns | Tech |
+|------:|------|-----:|--------:|----------------:|------|------:|------|
+| 1 | Wood | 1 | 40 | 10% | 3 lumber, 3 bronze | 1 | — |
+| 2 | Stone | 2 | 80 | 20% | 4 lumber, 4 bronze | 2 | Mine Engineering |
+| 3 | Modern | 3 | 120 | 30% | 5 steel, 5 lumber | 3 | Modern Forts |
+| 4 | Bastion | 4 | 160 | 40% | 5 steel, 4 lumber, 3 bronze | 3 | Bastion Forts |
+| 5 | Star | 5 | 200 | 50% | 6 steel, 6 lumber | 4 | Star Forts |
 
+Wall HP soaks auto-resolve attack; the soak column is the damage reduction off a
+blow (defender casualties × 1 − reduction).
 
 ## Architecture
 
 | File | Role |
 |------|------|
-| `scripts/rules/fort_rules.gd` | tables, wall soak, battery, town site, gates |
-| `scripts/rules/fort_capital.gd` | capital grant, one-shot tech step |
+| `scripts/rules/fort_rules.gd` | tables, wall soak, storm ladder, town site |
+| `scripts/rules/fort_capital.gd` | start walls, one-shot capital step |
 | `scripts/rules/siege_lanes.gd` | wall/behind lanes, terrain, gates, sortie |
 | `scripts/rules/quick_battle_battery.gd`, `auto_siege.gd` | guns, counter-battery, downgrade |
 | `scripts/rules/civilian_work.gd` | `build_fort` target and completion |
 | `scripts/ui/battle_plate*.gd`, `quick_battle_field.gd` | wall, gates, ground |
-| `scripts/rules/battle_scenario.gd` | sandbox for [battle-sim.md](battle-sim.md) |
-
 
 ## Tests
 
