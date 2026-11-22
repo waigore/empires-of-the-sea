@@ -14,18 +14,11 @@ extends LedgerSheet
 ## fade and pause-door park come from SheetFrame; the chips, rows and empty
 ## notice from LedgerSheet; the heading dress from LedgerList.
 ##
-## The court's own reading is read once at the refresh, and every standard or
+## The court's own reading is read once at the refresh and every standard or
 ## squadron it names leads with the counsel's `▸` on its heading, so a crown
 ## finds the force her staff would order rather than scanning every one
-## (DR-20261122-05).
-
-
-## The pick the session wires to this sheet — one walk of the pass per refresh,
-## never one per row (REQ-P4-02).
-var _court_pick: Dictionary = {}
-## The standards or squadrons that pick names, by `MapPlayPickProse.row_key`, so
-## a heading knows whether it wears the counsel's mark (DR-20261122-05).
-var _court: Dictionary = {}
+## (DR-20261122-05). The pick and the marks it keys are the counsel line's own
+## (CounselLine; REQ-P4-01, REQ-P4-02).
 
 
 ## Re-reads both charts' roster for the player's crown and repaints.
@@ -143,27 +136,8 @@ func _heading(group: Dictionary, count: int) -> Control:
 	return LedgerList.standing_heading(title, _standing_text(group))
 
 
-## Asks the court's own reading once, holds it and prints it: the line and the
-## marks both come off the one pick, so a mark can never outrun the sentence it
-## answers (DR-20261122-05, REQ-P4-01).
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
-	_court_pick = _counsel_pick()
-	_court = _court_pick.get("keys", {}) as Dictionary
-	_show_counsel(MapPlayPickProse.sentence_of(_court_pick))
-
-
-## The pick the sheet's reading answers, or {} while it is shut or unwired: a
-## closed sheet asks the pass nothing (REQ-P4-02).
-func _counsel_pick() -> Dictionary:
-	if not is_open() or not counsel_source.is_valid():
-		return {}
-	var raw: Variant = counsel_source.callv(_counsel_args())
-	return raw as Dictionary if raw is Dictionary else {}
-
-
-## Whether the reading names the standard or squadron this heading flies. A
-## sheet that carries marks keys its groups the way its pick keys its entries.
+## Asks the court's own reading once and prints it: the line and the marks both
+## come off the one pick the counsel line holds, so a mark can never outrun the
+## sentence it answers (CounselLine; DR-20261122-05, REQ-P4-01).
 func _is_marked(_group: Dictionary) -> bool:
 	return false
