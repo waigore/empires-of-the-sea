@@ -7,7 +7,8 @@ extends RefCounted
 ## this chrome (REQ-P3-01, REQ-P3-02, REQ-P5-06).
 
 ## The most rows one counsel line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
+## reading stays one line of chrome (REQ-P5-07). A sheet that names more passes
+## its own cap to `court_line_capped`; no sheet restates the common one.
 const NAMED_LIMIT: int = 3
 
 
@@ -53,11 +54,20 @@ static func capped(parts: Array[String], limit: int) -> String:
 static func court_line(
 	head: String, clauses: Array[String], tail: String = "this turn"
 ) -> String:
+	return court_line_capped(head, clauses, tail, NAMED_LIMIT)
+
+
+## `court_line` with the sheet's own cap: a wide sheet (manufacture, the realm)
+## names more rows than the common three before it counts the rest. The cap is
+## the sheet's fact; the capital, the joins and the tail stay here (REQ-P3-02).
+static func court_line_capped(
+	head: String, clauses: Array[String], tail: String, limit: int
+) -> String:
 	var named: Array[String] = []
 	for clause: String in clauses:
 		if not clause.is_empty():
 			named.append(clause)
-	var joined: String = capped(named, NAMED_LIMIT)
+	var joined: String = capped(named, limit)
 	if joined.is_empty():
 		return ""
 	if tail.is_empty():
@@ -114,16 +124,23 @@ static func in_printed_order(
 	return keyed
 
 
-## True when a crew-backed counsel pick may read the crown's session: a live
-## campaign with a civilian layer, a ledger, and a court that plans. Market,
-## estates and spy picks share this gate so they cannot disagree on when the
-## page is silent (REQ-P3-02).
+## True when a counsel pick may read the crown's session at all: a live,
+## unobserved campaign, a chart, relations, and a court that plans. Every pick
+## surface answers this first, so no two sheets disagree on when the crown's page
+## is silent (REQ-P3-02).
+static func crown_ready(play: PlaySession) -> bool:
+	if play == null or play.observer_mode or play.campaign_over():
+		return false
+	if play.world == null or play.diplomacy == null:
+		return false
+	return AiControl.court_kind(play, play.player_faction) != AiControl.KIND_NONE
+
+
+## True when a crew-backed counsel pick may read the crown's session: the crown
+## gate with a civilian layer and a ledger. Market, estates, people and spy picks
+## share this gate so they cannot disagree on when the page is silent
+## (REQ-P3-02).
 static func crown_crew_ready(play: PlaySession) -> bool:
-	if play == null or play.world == null or play.campaign_over():
+	if not crown_ready(play) or play.civilian_layer == null:
 		return false
-	if play.observer_mode or play.civilian_layer == null:
-		return false
-	var faction: int = play.player_faction
-	if play.ledger_for(faction) == null:
-		return false
-	return AiControl.court_kind(play, faction) != AiControl.KIND_NONE
+	return play.ledger_for(play.player_faction) != null

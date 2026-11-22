@@ -64,11 +64,11 @@ static func move_to_region(layer: ArmyLayer, army_id: int, to_region: int) -> vo
 	if layer.model != null and to_region == layer.model.region_id:
 		layer.armies.append(army)
 		layer.add_marker(army)
-		layer.regions.set_region(to_region, layer.armies)
+		publish(layer)
 		return
 	var destination: Array[ArmyState] = roster(layer, to_region)
 	destination.append(army)
-	layer.regions.set_region(to_region, destination)
+	store(layer, to_region, destination)
 
 
 ## A sunken squadron takes its embarked army with it. `seats` maps every carried
@@ -90,9 +90,8 @@ static func drop_lost(layer: ArmyLayer, seats: Dictionary) -> Array[ArmyState]:
 			members.remove_at(cursor)
 			changed = true
 		if changed:
-			layer.regions.set_region(index, members)
+			store(layer, index, members)
 			if layer.model != null and index == layer.model.region_id:
-				layer.armies = members
 				layer.prune_markers()
 	return lost
 
@@ -148,9 +147,8 @@ static func _strike(layer: ArmyLayer, emptied: Array[ArmyState]) -> void:
 				kept.append(army)
 		if kept.size() == members.size():
 			continue
-		layer.regions.set_region(index, kept)
+		store(layer, index, kept)
 		if layer.model != null and index == layer.model.region_id:
-			layer.armies = kept
 			layer.prune_markers()
 
 
@@ -196,14 +194,38 @@ static func region_of(layer: ArmyLayer, army: ArmyState) -> int:
 	return -1
 
 
+## Writes one region's roster to the chart's table and, when that region is the
+## chart on screen, hands the very same list to the layer. Every pass that
+## mutates a muster stores it here: a copy left in the table and a live list on
+## the chart are two musters, and the save, the readings and the other chart's
+## passes would each read a different one (wiki: campaign-persistence — a save
+## holds armies and regiments; military-armies § Split and combine).
+static func store(layer: ArmyLayer, region: int, stored: Array[ArmyState]) -> void:
+	if layer == null:
+		return
+	layer.regions.set_region(region, stored)
+	if layer.model != null and region == layer.model.region_id:
+		layer.armies = stored
+
+
+## Publishes the on-screen list back to its chart: every order that adds,
+## retires or detaches a standard ends here, so the roster a save copies is the
+## one the crown's own detach wrote.
+static func publish(layer: ArmyLayer) -> void:
+	if layer == null or layer.model == null:
+		return
+	store(layer, layer.model.region_id, layer.armies)
+
+
 static func remove_from(layer: ArmyLayer, army: ArmyState, index: int) -> void:
 	if layer.model != null and index == layer.model.region_id:
 		layer.armies.erase(army)
 		layer.remove_marker(army)
+		publish(layer)
 		return
 	var members: Array[ArmyState] = roster(layer, index)
 	members.erase(army)
-	layer.regions.set_region(index, members)
+	store(layer, index, members)
 
 
 static func roster(layer: ArmyLayer, index: int) -> Array[ArmyState]:

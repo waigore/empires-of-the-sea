@@ -169,6 +169,9 @@ func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
 	if not bool(result.get("ok", false)):
 		return result
 	next_army += 1
+	## The detach is part of the crown's muster: it reaches the chart's own
+	## roster before any reading or save copies it (wiki: campaign-persistence).
+	ArmyTransport.publish(self)
 	prune_markers()
 	var created: ArmyState = result["army"] as ArmyState
 	add_marker(created)
@@ -188,6 +191,7 @@ func dismiss(
 		return result
 	if bool(result.get("retired", false)):
 		armies.erase(army)
+		ArmyTransport.publish(self)
 		prune_markers()
 		return result
 	_markers.refresh(army)
@@ -208,6 +212,7 @@ func combine(army: ArmyState) -> Dictionary:
 	var result: Dictionary = ArmyRoster.combine(armies, selected)
 	if not bool(result.get("ok", false)):
 		return result
+	ArmyTransport.publish(self)
 	for old: ArmyState in before:
 		if armies.has(old):
 			continue
@@ -221,8 +226,14 @@ func armies_in(province_id: int, owner: int) -> Array[ArmyState]:
 
 
 ## Musters one regiment into the faction's Home Army, keeping the marker in step.
-func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
-	var home: ArmyState = ArmyTraining.home_army(armies, owner)
+## `roster` names the chart's army list the seat's Home Army lives on: the
+## Build/work pass hands over the seat's own chart, so a crown watching a colony
+## when the turn closes still musters at its capital (wiki:
+## capital-and-connectivity § Capital; world-model-identity). Empty reads the
+## chart on screen.
+func recruit(owner: int, type_id: String, economy: PlayerEconomy, roster: Array = []) -> Dictionary:
+	var seat: Array = armies if roster.is_empty() else roster
+	var home: ArmyState = ArmyTraining.home_army(seat, owner)
 	if home == null:
 		return {
 			"ok": false,
@@ -235,8 +246,11 @@ func recruit(owner: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
 	if not bool(result.get("ok", false)):
 		return result
 	next_regiment += 1
-	_markers.refresh(home)
-	place_all()
+	# A standard on another chart has no marker here; only the chart's own
+	# roster repaints (map-topology § two regions).
+	if armies.has(home):
+		_markers.refresh(home)
+		place_all()
 	return result
 
 

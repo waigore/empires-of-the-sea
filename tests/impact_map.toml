@@ -942,6 +942,19 @@ domain = "muster"
 match = "scripts/map/map_play_command.gd*"
 domain = "muster"
 
+# The command sheet's own court reading (DR-20261122-02): the hosts the land pass
+# would lead into battle this turn against the pool that answers them. Its own
+# slice proves the wording and the pool it reads, instead of the whole map
+# fan-out the path would otherwise pull.
+[[rules]]
+match = "scripts/map/map_play_command_pick*.gd*"
+domain = "command_pick"
+
+[domains.command_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "tests/test_ledgers.gd*"
 domain = "muster"
@@ -3513,6 +3526,19 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The realm's own court reading (DR-20261121-21): the crown's own provinces the
+# civilian and land passes would act in this turn, read once for the whole sheet
+# and marked on its rows. Its own slice proves the wording, the marks and the
+# sheet that prints them, instead of the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_realm_counsel*.gd*"
+domain = "realm_counsel"
+
+[domains.realm_counsel]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
@@ -4689,6 +4715,20 @@ match = "scripts/map/map_play_market_pick*.gd*"
 domain = "market_pick"
 
 [domains.market_pick]
+suites = [
+  "test_market_economy_rules.gd",
+]
+
+# The workers tab's own plan (DR-20261122-01): the heads the published economy
+# pass would recruit, read through the court's one `recruit_orders` home so the
+# tab and the pass cannot hire two pools. Its suite is the economy rules', where
+# the pick is proved off plan data alone, so it names its own domain instead of
+# pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_recruit_pick*.gd*"
+domain = "recruit_pick"
+
+[domains.recruit_pick]
 suites = [
   "test_market_economy_rules.gd",
 ]

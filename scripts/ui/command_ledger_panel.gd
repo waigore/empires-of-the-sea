@@ -2,10 +2,12 @@ class_name CommandLedgerPanel
 extends SheetFrame
 ## The crown's commanders: every general its pool holds, the medals each wears
 ## and the study that raises the cap next (wiki: military-generals § Generals,
-## § Count and tech-gated cap, § Medals; DR-20261115-11). The projection lives
-## in [CommandLedger] and the map hook in [MapPlayCommand]; this class only
-## renders the reading (REQ-P3-02, REQ-P3-03). The sheet chrome, fade and
-## pause-door park come from SheetFrame.
+## § Count and tech-gated cap, § Medals; DR-20261115-11), plus the hosts the land
+## pass would lead this turn and how many of them the pool answers
+## (DR-20261122-02). The projection lives in [CommandLedger] and the map hooks in
+## [MapPlayCommand] and [MapPlayCommandPick]; this class only renders the reading
+## (REQ-P3-02, REQ-P3-03). The sheet chrome, fade and pause-door park come from
+## SheetFrame.
 
 var _summary: Label = null
 var _road: VBoxContainer = null
@@ -13,16 +15,27 @@ var _medal: Label = null
 var _fallback: Label = null
 var _rows: VBoxContainer = null
 var _empty: Label = null
-var _snapshot: Dictionary = {}
 
 
 func _init() -> void:
 	title_text = "THE CROWN'S COMMAND"
 	hint_text = (
 		"A commander is drawn for each battle from this pool. The roll reads "
-		+ "the pool as it stands; it never appoints one."
+		+ "the pool as it stands and names the hosts the court would lead; it "
+		+ "never appoints one."
 	)
 	toggle_action = InputActions.COMMAND_LEDGER
+	# The reading is the panel's own method, not a closure handed in from the
+	# session: a bound callable cannot outlive the session it reads
+	# (DR-20261121-14).
+	counsel_source = _read_counsel
+
+
+## The fights the court's own pass would start and the commanders that answer
+## them, read off the pool the sheet already painted (wiki: military-generals
+## § Assignment; DR-20261122-02).
+func _read_counsel(data: Dictionary) -> String:
+	return MapPlayCommandPick.line(play, data)
 
 
 ## Re-reads the crown's pool and repaints the view.
@@ -32,6 +45,7 @@ func refresh() -> void:
 	_snapshot = MapPlayCommand.snapshot(play)
 	_fit()
 	_paint()
+	_sync_counsel()
 
 
 # --- sheet hooks -------------------------------------------------------------
@@ -47,6 +61,10 @@ func _build_body(column: VBoxContainer) -> void:
 	_summary.add_theme_color_override("font_color", Palette.GOLD_PALE)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_summary)
+
+	# The court's own reading: the hosts the land pass would lead this turn and
+	# the commanders that answer them, in the gold every counsel line wears.
+	_counsel_line(column)
 
 	# The road: every study that raises the cap, in the wiki's order, so a
 	# crown reads why it holds one commander and what the second costs.
@@ -77,6 +95,7 @@ func _note(column: VBoxContainer) -> Label:
 func _on_profile_changed() -> void:
 	if visible and not _snapshot.is_empty():
 		_paint()
+		_sync_counsel()
 
 
 # --- rows --------------------------------------------------------------------

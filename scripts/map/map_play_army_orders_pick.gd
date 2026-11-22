@@ -28,13 +28,11 @@ static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
 ## crown, an observer session, a decided campaign, a session with no army layer or
 ## diplomacy, or an army the pass leaves entirely alone.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
-	if play == null or play.world == null or play.army_layer == null:
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.diplomacy == null or play.observer_mode or play.campaign_over():
+	if play.world == null or play.army_layer == null or play.diplomacy == null:
 		return {}
 	var faction: int = play.player_faction
-	if AiControl.court_kind(play, faction) == AiControl.KIND_NONE:
-		return {}
 	var armies: Array[Dictionary] = _armies(play, faction)
 	if not armies.is_empty():
 		return of(armies, snapshot)
@@ -121,6 +119,10 @@ static func _armies(play: PlaySession, faction: int) -> Array[Dictionary]:
 				"region": region,
 				"army": army.id,
 				"kind": String(order.get("kind", "")),
+				# Why the march goes where it goes (a storm, a relief, the crown's
+				# own frontier), so a sheet about the battles it starts can pick the
+				# marches that fight (DR-20261122-02).
+				"why": String(order.get("why", "")),
 				# The ground the order lands on, so a surface about one province can
 				# name the host the court would send there (DR-20261121-19).
 				"province": int(order.get("province", MapModel.NO_ID)),

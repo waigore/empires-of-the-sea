@@ -23,8 +23,9 @@ const KIND_HANDS: String = "hands"
 ## No run is booked although rows are short: the stores or the benches hold them.
 const KIND_STORES: String = "stores"
 
-## The most outputs one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
+## The most outputs one line names before it counts the rest — a workshop has
+## more rows worth naming than a muster does, so this sheet sets its own cap and
+## hands it to [method MapPlayPickProse.court_line_capped] (REQ-P5-07).
 const NAMED_LIMIT: int = 4
 
 const DONE_LINE: String = (
@@ -50,17 +51,15 @@ static func line(play: PlaySession) -> String:
 ## no planner for the crown, an observer session, a decided campaign, or a crown
 ## with no ledger.
 static func pick(play: PlaySession) -> Dictionary:
-	if play == null or play.world == null or play.campaign_over():
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.observer_mode:
+	if play.world == null:
 		return {}
 	var faction: int = play.player_faction
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return {}
 	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
-		return {}
 	var config: Variant = AiBind.config(
 		kind, faction, play.map_seed, play.ensure_ai().profiles
 	)
@@ -141,8 +140,7 @@ static func run_line(outputs: Dictionary) -> String:
 		if not outputs.has(output):
 			continue
 		parts.append("%s ×%d" % [CommodityCatalog.label(output), int(outputs[output])])
-	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would run %s this phase" % joined
+	return MapPlayPickProse.court_line_capped(
+		"the court would run", parts, "this phase", NAMED_LIMIT
+	)
 

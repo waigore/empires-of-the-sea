@@ -8,9 +8,16 @@ extends LedgerRow
 
 signal visit_pressed(region: int, province_id: int)
 
+## The mark the counsel reads by: a province the court's own staff would act in
+## this turn wears it before its name (DR-20261121-21).
+const COURT_MARK: String = "▸"
+
 ## Which of the realm's three readings this row prints; the sheet sets it
 ## before `setup`.
 var view: String = ProvinceLedger.VIEW_ECONOMY
+## Whether the court would act in this province this turn; the sheet sets it
+## before `setup` from the realm's own reading.
+var court: bool = false
 
 var _icon: Icon = null
 
@@ -25,7 +32,12 @@ func _build_state(state: VBoxContainer) -> void:
 
 
 func _fill() -> void:
-	_name.text = String(data.get("name", "Province"))
+	var name: String = String(data.get("name", "Province"))
+	# The counsel's mark leads the name, so a crown finds the ground its staff
+	# would act in among twenty rows (DR-20261121-21).
+	_name.text = (
+		"%s %s" % [COURT_MARK, name] if court else name
+	)
 	var chip: Dictionary = _chip_reading()
 	_chip.text = String(chip["text"])
 	_paint_chip(chip["color"])

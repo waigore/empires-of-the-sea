@@ -24,11 +24,13 @@ const KIND_LAND: String = MapPlayVoyagePickWords.KIND_LAND
 ## a squadron that has already sailed, a session with no planner or no ledger, a
 ## decided campaign, or a plan that names another squadron.
 static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
-	if play == null or fleet == null or play.ship_layer == null:
+	if not MapPlayPickProse.crown_ready(play):
+		return {}
+	if fleet == null or play.ship_layer == null:
 		return {}
 	if play.world == null or play.civilian_layer == null:
 		return {}
-	if fleet.owner != play.player_faction or play.observer_mode or play.campaign_over():
+	if fleet.owner != play.player_faction:
 		return {}
 	# A squadron that has sailed keeps the step she was given; the pass skips
 	# her, and so does the block (wiki: ships-and-naval § Missions and Movement).

@@ -188,6 +188,7 @@ static func _college(run, screen: MapScreen) -> void:
 	)
 	var door: Button = _door(college)
 	run.check(door != null, "the college offers the chart")
+	var free_before: int = screen.economy.economy.research.free_slot()
 	if door != null:
 		door.pressed.emit()
 	await run.tree.process_frame
@@ -196,6 +197,29 @@ static func _college(run, screen: MapScreen) -> void:
 	run.check(
 		chart._canvas.node_count() == TechCatalog.ids().size(),
 		"the chart places every advance"
+	)
+	# The chart names the study the court would open and marks it `▸`, so the
+	# crown sees where the court would go on the chart itself (wiki: tech-tree
+	# § Research Model; DR-20261121-20).
+	run.check(
+		chart.counsel_source.is_valid(),
+		"the chart binds the court's reading"
+	)
+	var chart_line: String = chart.counsel_text()
+	run.check(
+		chart_line.is_empty() or chart_line.begins_with("The court would open "),
+		"the chart names the study the court would open"
+	)
+	var court_tech: String = chart.court_tech()
+	run.check(
+		court_tech.is_empty()
+		or (chart._canvas.node(court_tech) != null
+			and chart._canvas.node(court_tech).text.contains("▸")),
+		"the chart marks the court's own study"
+	)
+	run.check(
+		screen.economy.economy.research.free_slot() == free_before,
+		"the chart's reading assigns nothing"
 	)
 	chart._canvas.node("safety_lamp").pressed.emit()
 	run.check(run.has_text(chart, "extraction cap"), "a tapped advance reads what it grants")
