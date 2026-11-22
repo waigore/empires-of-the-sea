@@ -3066,6 +3066,29 @@ func test_a_captured_capital_carries_no_seat_to_its_conqueror() -> void:
 	assert_eq(int(result["reassigned"][0]["province"]), HARBOUR)
 
 
+func test_a_seat_won_the_same_pass_survives_the_old_owners_verdict() -> void:
+	var model: MapModel = _chart()
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	# A pass that moves two courts onto each other's ground: the crown takes the
+	# rival's seat while its own seat falls, and the seat it just won is the only
+	# ground it holds, so that is the successor it picks. The stripped rival's
+	# own verdict still clears its lost seat, and must not clear the seat the
+	# same pass gave the crown (wiki: capital-and-connectivity § Capital loss and
+	# reassignment).
+	BattleSettlement.flip(model, SEAT, 1)
+	BattleSettlement.flip(model, RIVAL, 0)
+	model.province_data(HARBOUR).owner = 1
+	model.province_data(UPLANDS).owner = 1
+
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+
+	assert_eq(result["reassigned"].size(), 2, "both courts move")
+	assert_eq(result["fallen"].size(), 0)
+	assert_eq(CapitalLoss.seat_of(model, 0), RIVAL, "the seat the pass gave survives it")
+	assert_true(model.province_data(RIVAL).capital)
+	assert_eq(CapitalLoss.seat_of(model, 1), SEAT, "the rival keeps a seat of its own")
+
+
 func test_a_captured_seat_moves_to_the_lowest_seaboard_province() -> void:
 	var model: MapModel = _chart()
 	var before: Dictionary = CapitalLoss.snapshot(model)
