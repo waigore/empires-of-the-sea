@@ -115,6 +115,16 @@ static func reconcile_decks(play: PlaySession) -> Array[Dictionary]:
 			stored.assign(play.ship_layer.regions.value(index, []))
 			fleets.append_array(stored)
 	var rows: Array[Dictionary] = ArmyTransport.reconcile_aboard(play.army_layer, fleets)
+	# A drowned colonist leaves play with her hull: the trim has already taken her
+	# off the squadron's list, so the roster follows in this same pass rather than
+	# counting a hand the sea has taken until the next naval watch — and reading
+	# the one loss twice (wiki: ships-and-naval § Naval transport — a hull sent
+	# down by a raid takes her colonist with her; § Losses).
+	if play != null and play.civilian_layer != null:
+		for row: Dictionary in rows:
+			CivilianVoyageMap.drown(
+				play.civilian_layer, row.get("civilians", []) as Array
+			)
 	## A drowned regiment is news only when it was the crown's: a rival's loss at
 	## sea is its own court's business (wiki: hud-toasts).
 	if play != null and play.hud != null:
