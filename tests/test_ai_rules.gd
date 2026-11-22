@@ -6493,6 +6493,32 @@ func test_the_border_read_names_the_front_the_army_can_walk() -> void:
 	)
 
 
+## The one war-border pass both planners read: the hostile provinces touching
+## the court's land, and the own provinces that stage the storm, so the land
+## policy and the overseas crossing can never disagree about the border.
+func test_the_war_border_names_the_ground_and_its_staging() -> void:
+	var model: MapModel = AiFixture.land_world([PHASE_OWNER, PHASE_RIVAL]).region(0)
+	var state := _war_state(PHASE_OWNER, PHASE_RIVAL)
+	var read: Dictionary = AiBorderFronts.war_border(model, PHASE_OWNER, state)
+	var hostile: Array[int] = []
+	hostile.assign(read["hostile"])
+	var staging: Array[int] = []
+	staging.assign(read["staging"])
+	assert_eq(hostile, [1] as Array[int], "the rival province beside the court is the front")
+	assert_eq(staging, [0] as Array[int], "the court's own province beside it stages")
+	assert_eq(
+		AiMilitaryPlanner.frontier_hostile(model, PHASE_OWNER, state), hostile,
+		"the land planner names the same hostile ground"
+	)
+	var peace := _peace_state(PHASE_OWNER, PHASE_RIVAL)
+	var quiet: Dictionary = AiBorderFronts.war_border(model, PHASE_OWNER, peace)
+	assert_true((quiet["hostile"] as Array).is_empty(), "peace reads no hostile ground")
+	assert_true((quiet["staging"] as Array).is_empty(), "peace stages nowhere")
+	var none: Dictionary = AiBorderFronts.war_border(null, PHASE_OWNER, state)
+	assert_true((none["hostile"] as Array).is_empty(), "no map reads no front")
+	assert_true((none["staging"] as Array).is_empty(), "no map stages nowhere")
+
+
 ## The footing's word on the pair: an overstretched court keeps the border front
 ## and takes any other peace, and no lighter footing changes at all (issue #995).
 func test_the_overstretched_court_keeps_the_border_front() -> void:
@@ -18219,6 +18245,40 @@ func test_the_storm_host_clears_the_wall_it_faces() -> void:
 		MapPlayArmyMusterAi.thinnest_wall(open, 1), 0.0,
 		"open ground in front of the court reads no wall"
 	)
+
+
+## The one storm gate the two war planners read (issue #1314): an empty open
+## province admits any host, an empty walled one only a host that clears the top
+## of the emplaced line, and a caller with no host or no map admits nothing.
+func test_one_storm_gate_reads_for_the_land_and_the_landing() -> void:
+	var model: MapModel = AiFixture.land_world([PHASE_OWNER, PHASE_RIVAL]).region(0)
+	var config := AiConfig.build(PHASE_OWNER, 1500)
+	var weak: ArmyState = ArmyState.muster(
+		1, PHASE_OWNER, 0, false, ["peasant_levies"] as Array[String], 1
+	)
+	model.provinces[1].fort_level = 0
+	assert_true(
+		AiStormGate.admits(config, model, [weak], weak, 1),
+		"an empty open province admits any host"
+	)
+	model.provinces[1].fort_level = 1
+	assert_false(
+		AiStormGate.admits(config, model, [weak], weak, 1),
+		"an empty walled province wants a host that clears the top battery"
+	)
+	var line: int = RegimentCatalog.strength("peasant_levies")
+	var want: int = int(ceil(FortRules.storm_ceiling(1) / float(line))) + 1
+	var types: Array[String] = []
+	for index in want:
+		types.append("peasant_levies")
+	var host: ArmyState = ArmyState.muster(2, PHASE_OWNER, 0, false, types, 101)
+	assert_true(
+		AiStormGate.admits(config, model, [host], host, 1),
+		"a host sized past the wall is admitted"
+	)
+	assert_false(AiStormGate.admits(config, model, [weak], null, 1))
+	assert_false(AiStormGate.admits(null, model, [weak], weak, 1))
+	assert_false(AiStormGate.admits(config, null, [weak], weak, 1))
 
 
 ## The wall reading rides the court's own target (issue #1314): the muster, its
