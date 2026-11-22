@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1345 (REQ-P2-02).
+Audited: wiki / DRs / code through #1359 (REQ-P2-02).
 Default pick: largest gap here, then REQ/wiki.
 
 ## Already live
@@ -36,10 +36,10 @@ Default pick: largest gap here, then REQ/wiki.
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face; opening muster; fan/stack | `RaiseBatchPress`; `FleetMuster`; `FleetLanes` |
-| Rival priced overtures | `DiplomacyProposals` queue + the asking court's ledger |
-| AI win / border front (#995) | `AiBorderFronts`; bench win t101 (DR-19-16, #1095) |
+| Rival priced overtures | `DiplomacyProposals` + asking ledger |
+| AI win / border front (#995) | `AiBorderFronts`; bench t101 (DR-19-16) |
 | Passengers whole-berth press | `EmbarkBatch` (DR-19-18, #1104) |
-| Station raid/catch dossier prices | `NavalRaid`/`NavalInterception` preview (DR-20-01/02) |
+| Station raid/catch dossier prices | `NavalRaid`/`NavalInterception` preview |
 
 ## Gaps (ranked)
 
@@ -68,5 +68,5 @@ None; see `docs/rubric.md` / wiki.
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`).
 `DR-20261112-09` fog closed by DR-13-03. Soft weight seed (DR-13-15).
-Learnings harness-only; #1262–#1345 counsel/marks/household/fort/expedition —
-not backlog.
+`phase-planner-architecture` “domain dispatch stays seed” — stale;
+`SLOT_MARKET`/`SLOT_NAVAL` live. #1347–#1359 counsel/stores/walls — not backlog.
