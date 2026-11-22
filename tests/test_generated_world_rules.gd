@@ -630,21 +630,27 @@ func test_the_new_world_gets_no_great_power_farms() -> void:
 
 const NEW_WORLD: int = 1
 
-var adv_world: WorldMap = null
+## Ownership snapshot of `Fixture.world()` before any advanced-start case mutates
+## it. Non-underscore so before_all copies it onto each test instance.
 var adv_saved: Array = []
+## Set when this case has paid for an advanced-chart restore; cleared in
+## `before_each`. Pure bootstrap / generator / census / setup cases that never
+## ask never pay the restore (docs/testing.md § Speed rules).
+var _adv_bound: bool = false
 
 
 func _advanced_before_all() -> void:
 	adv_saved = Fixture.snapshot(Fixture.world())
 
 
-func _advanced_before_each() -> void:
-	Fixture.restore(Fixture.world(), adv_saved)
-	adv_world = Fixture.world()
-
-
-func _advanced_after_each() -> void:
-	Fixture.restore(adv_world, adv_saved)
+## Advanced-start colony / chart / estate cases reach the shared chart through
+## `adv_world`; every other case in this merged suite skips the restore.
+var adv_world: WorldMap:
+	get:
+		if not _adv_bound:
+			Fixture.restore(Fixture.world(), adv_saved)
+			_adv_bound = true
+		return Fixture.world()
 
 
 # --- tier tables -------------------------------------------------------------
@@ -1786,11 +1792,13 @@ func _is_contiguous(tiles: Array) -> bool:
 # --- merged hooks (advanced start) ------------------------------------------
 
 func before_each() -> void:
-	_advanced_before_each()
+	_adv_bound = false
 
 
 func after_each() -> void:
-	_advanced_after_each()
+	if _adv_bound:
+		Fixture.restore(Fixture.world(), adv_saved)
+		_adv_bound = false
 	_setup_page_after_each()
 
 

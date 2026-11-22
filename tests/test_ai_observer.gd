@@ -127,11 +127,11 @@ func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
 
 
 func test_observer_resolves_a_turn_for_every_crown() -> void:
+	# before_all already resolved turn 1 once; read that capture instead of
+	# paying a second full AI pass under coverage (docs/testing.md § Speed rules).
 	var play: PlaySession = _screen.play
-	var before: int = play.turn
-	_step(1)
-	assert_eq(play.turn, before + 1, "the calendar advances")
-	assert_eq(play.ai_turns.size(), 2, "one merged record per resolved turn")
+	assert_eq(play.turn, 2, "before_all advanced the calendar")
+	assert_eq(play.ai_turns.size(), 1, "one merged record from the shared turn")
 	var factions: Dictionary = play.ai_turns[0]["factions"]
 	assert_eq(factions.size(), FactionCatalog.great_power_ids().size())
 	for faction: int in FactionCatalog.great_power_ids():
@@ -157,17 +157,17 @@ func test_observer_never_queues_a_human_decision() -> void:
 
 func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
 	# `MapPlayTurn.view_live = false` is the batch harness (docs/ai-observer.md §
-	# Performance budget): same rules, no per-turn view follow-up. Two turns are
-	# enough to prove the calendar and the merged record keep growing without a
-	# view; five turns used to burn ~9 s under coverage for the same asserts.
+	# Performance budget): same rules, no per-turn view follow-up. One further
+	# turn proves the calendar and the merged record keep growing without a
+	# view; two turns used to burn ~2 s under coverage for the same asserts.
 	# Seat first: a lazy `_screen` re-seat restores `view_live = true`.
 	var play: PlaySession = _screen.play
 	MapPlayTurn.view_live = false
 	assert_false(MapPlayTurn.view_live, "the turn knows no view is followed")
 	var before: int = play.turn
-	_step(2)
-	assert_eq(play.turn, before + 2, "the calendar still advances")
-	assert_eq(play.ai_turns.size(), 3, "every turn still records")
+	_step(1)
+	assert_eq(play.turn, before + 1, "the calendar still advances")
+	assert_eq(play.ai_turns.size(), 2, "every turn still records")
 	# Same rules as an on-screen observer: every crown still holds a ledger.
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_true(
