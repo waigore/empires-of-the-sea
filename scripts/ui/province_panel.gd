@@ -254,19 +254,35 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 ## The gold counsel line: what the court's staff would do with this province's
 ## ground this turn, or nothing when neither pass names the ground. A closed
 ## sheet reads nothing, because the pass is a planner walk no one is looking at
-## (REQ-P4-02; CounselLine).
+## (REQ-P4-02; CounselLine). The rail's marks come off the same reading, so the
+## sentence and the presses cannot disagree (DR-20261122-23).
 func _sync_counsel() -> void:
 	if _counsel == null:
 		return
 	_counsel.source = counsel_source
 	_counsel.args = [_model, _province_id]
 	_counsel.sync()
+	if _orders != null:
+		_orders.set_court_marks(_counsel.keys())
 
 
 ## The counsel line's text, for tests and tooling (REQ-P3-02). Empty when the
 ## sheet carries no reading.
 func counsel_text() -> String:
 	return "" if _counsel == null else _counsel.text
+
+
+## The rail's marks: the presses the court's own crew pass would file on this
+## ground, read off the counsel line's own pick so the line and the marks come
+## off one read (DR-20261122-23). Exposed so a suite asserts the marks instead of
+## reading button captions (REQ-P3-02).
+func court_marks() -> Dictionary:
+	return {} if _orders == null else _orders.court_marks()
+
+
+## One rail press's caption as the sheet prints it — marked or plain (REQ-P3-02).
+func press_text(key: String) -> String:
+	return "" if _orders == null else _orders.press_text(key)
 
 
 ## The Build road control's reading, one plan per estate RoadWorks would road:

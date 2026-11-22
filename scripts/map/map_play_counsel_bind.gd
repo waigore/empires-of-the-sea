@@ -37,12 +37,14 @@ static func _bind_estates(play: PlaySession) -> void:
 
 ## The province dossier names the orders the court would give on its ground: the
 ## work the civilian pass would put crews to here and the hosts the land pass
-## would send here, read on the chart the sheet is showing (wiki: world-model
-## § The crown's provinces; DR-20261121-19).
+## would send here, read on the chart the sheet is showing. The pick is handed
+## over whole, not worded, so the rail's marks come off the same read the line
+## prints (wiki: world-model § The crown's provinces; DR-20261121-19,
+## DR-20261122-23).
 static func _bind_province(play: PlaySession) -> void:
 	play.hud.panels.panel.counsel_source = (
-		func(model: MapModel, province_id: int) -> String:
-			return MapPlayProvinceCounsel.line(play, model, province_id)
+		func(model: MapModel, province_id: int) -> Dictionary:
+			return MapPlayProvinceCounsel.pick(play, model, province_id)
 	)
 
 
