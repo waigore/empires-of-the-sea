@@ -161,9 +161,12 @@ func refresh(
 	)
 	_fill_call()
 	_fill_list(ids)
+	# The open court's own pick travels whole, so the sheet words its gold line
+	# and marks the press that line names off one read (DR-20261121-05,
+	# DR-20261123-01).
 	_detail.fill(
 		_state, _world, _player, _selected, _treasury, _tech, _court_reports, _power,
-		counsel_text()
+		_pick(_selected)
 	)
 
 

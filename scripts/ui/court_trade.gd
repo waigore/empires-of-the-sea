@@ -11,7 +11,15 @@ signal order_pressed(kind: String, target: int, arg: String)
 ## terms never squeeze the orders beside them.
 const TERM_WIDTH: float = 240.0
 
+## The mark the counsel reads by, and the caption its legend rides: the trade
+## press the court's own envoy would take leads its label with it
+## (DR-20261123-01).
+const COURT_MARK: String = "▸"
+
 var _target: int = -1
+## The press the open court's gold line names, `{kind, arg}` or {}
+## (DR-20261123-01).
+var _press: Dictionary = {}
 
 
 func fill(
@@ -19,14 +27,19 @@ func fill(
 	world: WorldMap,
 	player: int,
 	target: int,
-	options: Array[Dictionary]
+	options: Array[Dictionary],
+	pick: Dictionary = {}
 ) -> void:
 	_target = target
+	_press = MapPlayDiplomacyPick.press(pick)
 	UiRowBuilder.clear(self)
 	if options.is_empty():
 		return
 	add_theme_constant_override("separation", 6)
-	add_child(UiRowBuilder.caption("TRADE TERMS", 11, Palette.TEXT_DIM))
+	var caption: String = "TRADE TERMS"
+	if _any_marked(options):
+		caption = "%s  ·  %s court" % [caption, COURT_MARK]
+	add_child(UiRowBuilder.caption(caption, 11, Palette.TEXT_DIM))
 	if state != null:
 		_add_summary(state, world, player, target)
 	for option: Dictionary in options:
@@ -97,6 +110,10 @@ func _add_option(option: Dictionary) -> void:
 		text = "✓ %s" % text
 	if not cost.is_empty():
 		text = "%s  ·  %s" % [text, cost]
+	# The counsel's mark leads the trade press the court's own envoy would take
+	# (DR-20261123-01).
+	if _marks(String(option["kind"]), String(option.get("arg", ""))):
+		text = "%s %s" % [COURT_MARK, text]
 	var button := UiRowBuilder.button(text, 36.0, 0.0)
 	button.disabled = not bool(option["ok"])
 	var kind: String = String(option["kind"])
@@ -113,3 +130,19 @@ func _add_option(option: Dictionary) -> void:
 
 func _label(text: String, size: int, color: Color) -> Label:
 	return UiRowBuilder.wrapped_line(text, size, color, TERM_WIDTH)
+
+
+## True when this block holds the press the gold line names.
+func _any_marked(options: Array[Dictionary]) -> bool:
+	for option: Dictionary in options:
+		if _marks(String(option.get("kind", "")), String(option.get("arg", ""))):
+			return true
+	return false
+
+
+func _marks(kind: String, arg: String) -> bool:
+	if _press.is_empty():
+		return false
+	if String(_press.get("kind", "")) != kind:
+		return false
+	return String(_press.get("arg", "")) == arg

@@ -55,6 +55,23 @@ static func _court(run, screen: MapScreen) -> void:
 		marked == ([bound] if bound != MapModel.NO_ID else []),
 		"the crown list marks the court the envoy would treat"
 	)
+	# The order list marks the press the gold line names, and the legend under the
+	# line stands with it (DR-20261123-01): one press when the line names one, none
+	# when it names none — and no legend without a mark.
+	var pressed: bool = run.has_text(
+		panel._detail, "%s " % CourtDetailBlock.COURT_MARK
+	)
+	var press: Dictionary = panel._detail.counsel_press()
+	run.check(
+		pressed == not press.is_empty(),
+		"the order list marks the press the envoy would take"
+	)
+	run.check(
+		run.has_text(
+			panel._detail, CourtDetailBlock.MARK_LEGEND % CourtDetailBlock.COURT_MARK
+		) == pressed,
+		"the legend under the envoy's line stands with the mark"
+	)
 	run.check(
 		run.has_text(screen.hud.panels.diplomacy_panel._detail, "THEIR ENVOY"),
 		"the court answers a declaration in its own voice"
