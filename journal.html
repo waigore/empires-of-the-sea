@@ -22,11 +22,11 @@
   <p class="note">Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Current contract: one <strong>subject</strong> crown (submission planners) vs two <strong>baseline</strong> rivals (<code>scripts/ai_mainline/</code> from <code>origin/main</code>) and three <strong>random</strong> courts; only the subject scores. Weighted progress: Old World provinces ×100, New World ×50, regiments ×10, ships ×10, workers ×5, extraction ×2, income ×1, +500 for a win before the cap.</p>
 
   <div class="status">
-    <strong>Phase:</strong> issue #995 — the win is claimed: the subject takes the Old World bar (31 of 31) and the campaign at t101; verified still standing on current main (t170) after #1096–#1099<br/>
-    <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">4297.83</span> (<code>995-06-the-border-front-kept.json</code>, early_win; the 1082-01 keeper read 3465.20)<br/>
-    <strong>Best honest so far:</strong> 4297.83 · 31 OW · 5 reg · 3 ships · workers 4 · funded 70.94 — the border front the army can march on, won at t101<br/>
-    <strong>Open gates:</strong> none on the +500 — the win is earned and standing; the climb is keeping it green as the surface moves
+    <strong>Phase:</strong> 2026-11-22 — the army's bank holds the envoy rung: main read 16 OW at one regiment for 180 turns, and the fix reads <strong>31 OW at 8 regiments</strong> (1269)<br/>
+    <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench · frozen baselines <code>2c382bb2</code><br/>
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Main on the frozen bench (2026-11-22):</strong> 1853.90<br/>
+    <strong>Claimed latest.json:</strong> <span class="good">4102.15</span> (<code>1269-army-bank-holds-the-rung.json</code>) · 31 OW · 8 reg · 3 ships · workers 4 · funded 52.33<br/>
+    <strong>Open gates:</strong> the bar is taken at t186, after the cap's early-win window; the +500 stays open
   </div>
 
   <h2>What was wrong with the bench itself</h2>
@@ -227,6 +227,14 @@
         <td class="good">the last province and the +500: the border front, read pair by pair, takes the subject to the 31-province bar at t101 (the 1082-01 keeper ended 30 at the cap); the 1904.52 floor holds and nobody starves (funded 70.94 ≥ 58, no strike turn in the subject's row). The single <code>--final</code> claim reads identical (<code>995-07-final-claim.json</code>)</td>
         <td><a href="reports/ai-bench/995-06-the-border-front-kept.json">995-06-the-border-front-kept.json</a></td>
       </tr>
+      <tr>
+        <td>1269</td>
+        <td>The army's bank holds the envoy rung (issue #1135's bypass): <code>AiDiplomacyTreaties.best</code> reads <code>bank_refusal</code> even when the tribe or deed chain matters, while <code>conquest_gap</code> is stamped — the rung walks again the turn the host stands</td>
+        <td><strong>4102.15</strong></td>
+        <td>31 OW · 8 reg · 3 ships · workers 4 · income 284.99 · funded 52.33 · bar taken at t186</td>
+        <td class="good">+2248.25 over main on the same bench (1853.90 · 16 OW · 1 reg); the deck no longer eats the chest, so the line fills and the host storms the bar</td>
+        <td><a href="reports/ai-bench/1269-army-bank-holds-the-rung.json">1269-army-bank-holds-the-rung.json</a></td>
+      </tr>
     </tbody>
   </table>
 
@@ -325,6 +333,14 @@
     <li><strong>The measurement</strong>: the France war runs t11..t201 (187 turns at war; the keeper settled it in one turn) with Portugal (184) and United Provinces (187) behind it. Spain's Old World count reads 11 at t15, 13 at t20, 18 at t75, 26 at t100, 30 at t200 — the keeper read 17 at t15 and 19 at t200, stalled for 185 turns. France falls from 14 OW at t15 to 6 at t200 and never wins (the pre-#1080 tree had it taking the map at t122). The subject's own full-strike turns go 37 → 0. Official <strong>3465.20</strong> (+389.36 over the 3075.84 keeper), funded 61.65 against the 58.005 floor.</li>
     <li><strong>The funded margin thinned, read not ignored</strong>: the subject spends its purse on the wars it keeps (4 workers against the keeper's 10, 6,995 in the chest at the cap, funded 74.97 → 61.65) instead of the estate programme. The floor's note names a starvation collapse as the failure it catches; the strike guard reads 0 full-strike turns for every live crown (the random courts' 181 hoard-strike turns are the frozen random surface, identical in the keeper). Green, but the next money-side lever should expect to re-measure the floor.</li>
     <li><strong>Where #995 starts</strong>: the subject stands at 30 of 31 Old World provinces at the cap — one province short of the +500 win. The last crowns standing on its border are the ones it has not eaten yet; the win lever is the reach of that final war, not a new bank.</li>
+  </ul>
+
+  <h2>The army's bank holds the envoy rung (1269, 2026-11-22)</h2>
+  <ul>
+    <li><strong>What the trace said</strong>: on current main the subject holds 16 Old World provinces for 180 turns at one regiment. It declares a war a dozen times, buys out of it a turn or two later, and the purse never rests above ~650 — so neither the ~2,200 muster chest nor the 5,500 yard chest ever fills. Every few dozen turns the purse touches ~1,000 and a <code>treaty</code> order leaves with it (the Maya embassy at t68 took the rest).</li>
+    <li><strong>The lever</strong>: the province and deed chains were let through the conquest bank (issue #1135) so the deed's Merchant could still find its embassy. A court short of the bar therefore spent its army's chest on a paid rung. Now the rung waits while the bank is engaged for the army, and walks again the turn the host stands. The two #1135 tests are re-pointed: the chain waits while banking, walks when the host stands.</li>
+    <li><strong>The measurement</strong>: official <strong>4102.15</strong> · 31 OW · 8 regiments · 3 ships · 4 workers · funded 52.33 (floor 49). Main on the same bench reads 1853.90 · 16 OW · 1 regiment. The subject takes the bar at t186 with eight line regiments standing.</li>
+    <li><strong>Tried and dropped</strong>: rank the muster over the deck while the court can see the bar, and over a blocked line (<code>W_PRESS_LINE</code> 95) — bit-identical, the labour floor was the block, not the rank; hire a peasant when the levy is short — 3423.45, a regression; a trained hand counts toward the labour floor — no effect (no trained worker in the run); the yard chest waits behind the line — 1866.56, a regression.</li>
   </ul>
 
   <h2>The win lands — the border front read pair by pair (995-06, 2026-11-20)</h2>
