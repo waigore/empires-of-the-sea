@@ -1,20 +1,21 @@
 class_name DiplomacyGift
 extends RefCounted
 ## The court's gift: the sum one Grant Aid order carries. The rules publish a
-## step and a floor — "a positive multiple of £1000 (minimum £1000)" — and never
-## a menu of legal amounts (wiki: diplomacy § Diplomatic Order Types — Grant Aid,
-## § Amount parameters), while `DiplomacyAid.can_grant_aid` already validates any
-## amount inside those rules and the purse. This reading turns that parameter
-## into the £1,000 steps the court's sheet offers, so a crown sends one gift of
-## the sum it chose instead of the same £1,000 every press (REQ-P2-02, REQ-P5-02).
+## step and a floor — "a positive multiple of 1,000 ducats (minimum 1,000)" — and
+## never a menu of legal amounts (wiki: diplomacy § Diplomatic Order Types —
+## Grant Aid, § Amount parameters), while `DiplomacyAid.can_grant_aid` already
+## validates any amount inside those rules and the purse. This reading turns that
+## parameter into the 1,000-ducat steps the court's sheet offers, so a crown sends
+## one gift of the sum it chose instead of the same 1,000 ducats every press
+## (REQ-P2-02, REQ-P5-02).
 ##
 ## Pure: it steps a number against the treasury it is handed and prints the same
 ## sentence the gift's rules carry. Nothing here spends, stages or saves
 ## (REQ-P3-03).
 
 
-## The step and the floor are the catalogue's own £1,000, so a step can never
-## propose an amount the validator would refuse on its amount.
+## The step and the floor are the catalogue's own 1,000 ducats, so a step can
+## never propose an amount the validator would refuse on its amount.
 static func step() -> int:
 	return maxi(DiplomacyCatalog.GRANT_AID_STEP, 1)
 

@@ -3182,7 +3182,7 @@ func test_purchase_land_prices_at_fifteen_times_the_base_price() -> void:
 	var model: MapModel = field_Fixture.build_minor()
 	assert_eq(LandPurchase.cost(model, Vector2i(3, 1)), 750, "grain")
 	assert_eq(LandPurchase.cost(model, Vector2i(2, 1)), 1200, "iron")
-	assert_eq(LandPurchase.cost_text(model, Vector2i(3, 1)), "£750")
+	assert_eq(LandPurchase.cost_text(model, Vector2i(3, 1)), "750 ducats")
 
 
 func test_merchant_purchase_needs_embassy_and_a_clear_sale() -> void:
@@ -5144,7 +5144,7 @@ func test_the_hire_pick_names_the_crew_the_hire_order_takes() -> void:
 	assert_eq(String(pick.get("crew", "")), "builder")
 	assert_eq(
 		String(pick.get("line", "")),
-		"Your hire order takes a Builder next — 1,000 cash + 2 paper.",
+		"Your hire order takes a Builder next — 1,000 ducats + 2 paper.",
 		"the line names the crew and the price the rail charges"
 	)
 	assert_false(
@@ -5163,7 +5163,7 @@ func test_the_hire_pick_names_the_taste_that_leads_it() -> void:
 	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TASTE)
 	assert_eq(
 		String(pick.get("line", "")),
-		"Your court's taste takes an Explorer next — 1,000 cash + 2 paper.",
+		"Your court's taste takes an Explorer next — 1,000 ducats + 2 paper.",
 		"the article follows the craft's own name"
 	)
 
@@ -5210,7 +5210,7 @@ func test_the_hire_pick_names_the_gate_a_waiting_crew_waits_on() -> void:
 	assert_eq(String(spy.get("kind", "")), MapPlayHirePick.KIND_WAIT)
 	assert_eq(
 		String(spy.get("line", "")),
-		"Your hire order takes a Spy next, and the purse cannot cover 2,000 cash + 4 paper."
+		"Your hire order takes a Spy next, and the purse cannot cover 2,000 ducats + 4 paper."
 	)
 
 
@@ -5230,7 +5230,7 @@ func test_the_hire_pick_falls_back_to_the_queue_when_no_gate_holds_it() -> void:
 	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TAKE)
 	assert_eq(
 		String(pick.get("line", "")),
-		"Your hire order takes a Builder next — 1,000 cash + 2 paper."
+		"Your hire order takes a Builder next — 1,000 ducats + 2 paper."
 	)
 	assert_eq(
 		String(MapPlayHirePick.of({"ok": true, "type_id": ""}, "", null).get("line", "")),

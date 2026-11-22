@@ -57,7 +57,9 @@ static func row(
 		market.buy_price(order.commodity, viewer) if order.is_bid()
 		else market.sell_price(order.commodity, viewer)
 	)
-	var notional := UiRowBuilder.label("%d" % (price * order.remaining()), 12, Palette.TEXT_DIM)
+	var notional := UiRowBuilder.label(
+		TextFormat.thousands(price * order.remaining()), 12, Palette.TEXT_DIM
+	)
 	notional.custom_minimum_size = Vector2(52, 0)
 	notional.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(notional)

@@ -9,7 +9,7 @@ P5 hidden spies leave no trace.
 
 ## Implemented
 
-- **Roster:** 2,000 cash + 4 paper at the capital; any land province, rivals,
+- **Roster:** 2,000 ducats + 4 paper at the capital; any land province, rivals,
   Minors and Tribes included.
 - **Presence reveal** (`SpyNetworks`, `CivilianMovement`): a spy on non-owner
   ground holds its charted tiles visible; it never reveals terrain or mineral

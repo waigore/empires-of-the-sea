@@ -82,7 +82,7 @@ func _network() -> void:
 	_heading("THE NETWORK", "%d spy%s" % [rows.size(), "" if rows.size() == 1 else "s"])
 	if rows.is_empty():
 		_rows.add_child(UiRowBuilder.wrapped_line(
-			"No spy answers the crown. Train one at the capital — 2,000 cash and "
+			"No spy answers the crown. Train one at the capital — 2,000 ducats and "
 			+ "4 paper — and post it on a rival's land.",
 			13,
 			Palette.TEXT_DIM

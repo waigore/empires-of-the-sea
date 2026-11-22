@@ -5027,8 +5027,8 @@ func test_a_staged_order_is_valued_at_the_viewing_crowns_terms() -> void:
 	var order: MarketOrder = MarketOrder.create(1, "timber", MarketOrder.SIDE_OFFER, 2, 1)
 	var row: Control = LedgerMarketOrders.row(order, market, 1)
 	var notional: Label = row.get_child(3) as Label
-	assert_eq(notional.text, "%d" % (market.sell_price("timber", 1) * 2))
-	assert_ne(notional.text, "%d" % (market.sell_price("timber", 0) * 2))
+	assert_eq(notional.text, TextFormat.thousands(market.sell_price("timber", 1) * 2))
+	assert_ne(notional.text, TextFormat.thousands(market.sell_price("timber", 0) * 2))
 	row.free()
 
 

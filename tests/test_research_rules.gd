@@ -2142,6 +2142,18 @@ func test_the_first_idle_slot_carries_the_counsel_alone() -> void:
 	assert_eq(rows[0].counsel_text(), "", "a filled slot carries no idle counsel")
 
 
+## The college's standing line prints the crown's purse the one way every money
+## line does: grouped, in ducats, from the one formatter (issue #1305).
+func test_the_college_head_groups_the_purse_in_ducats() -> void:
+	_bind_panel()
+	_panel.refresh(_panel_state, 40000)
+	assert_eq(
+		_panel._head.summary_text(),
+		"3 slots · 0 at study · 40,000 ducats · 0 techs known",
+		"the standing line groups the purse and names the word"
+	)
+
+
 ## The live college reads the pick through its own door: the crown opens the
 ## sheet and the idle row names a study the ranking would take.
 func test_the_live_college_reads_the_courts_pick() -> void:

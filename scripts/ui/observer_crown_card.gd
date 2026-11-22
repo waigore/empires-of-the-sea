@@ -73,11 +73,11 @@ func fill(row: Dictionary) -> void:
 	var wars: Array = row["wars"]
 	stats.text = (
 		"%d OW · %d NW  ·  power %d  ·  army %d  ·  fleet %d  ·  civilians %d\n"
-		+ "treasury %d  ·  stock %d  ·  workers %d  ·  wars: %s"
+		+ "treasury %s  ·  stock %d  ·  workers %d  ·  wars: %s"
 	) % [
 		int(row["provinces_old"]), int(row["provinces_new"]), int(row["power"]),
 		int(row["regiments"]), int(row["ships"]), int(row["civilians"]),
-		int(row["treasury"]), int(row["stock"]), int(row["workers"]),
+		TextFormat.thousands(int(row["treasury"])), int(row["stock"]), int(row["workers"]),
 		", ".join(PackedStringArray(wars)) if not wars.is_empty() else "none",
 	]
 	last.text = "Last turn: %s" % String(row["headline"])

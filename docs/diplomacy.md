@@ -24,13 +24,13 @@ Wars, treaties, aid, intervention, chronicle — wiki
   intervene, stand aside (lose embassy) or protest −10 (−5 with Propaganda);
   else protest at 26+. **A deed is a stake** (`DeedProtection`): one lifts trial
   to 25% and blocks stand-aside, two to 50%; a deed-only court keeps its embassy.
-- **Overture chain:** Consulate £500 → Embassy £1,000 → NAP free → Join Empire
-  £5,000 + £2,000/province; one per target/turn; Minor/Tribe embassies need
-  Diplomatic Expertise.
+- **Overture chain:** Consulate 500 ducats → Embassy 1,000 → NAP free → Join
+  Empire 5,000 + 2,000/province; one per target/turn; embassies need Diplomatic
+  Expertise.
 - **Join Empire:** absorbs a Minor, colonizes a Tribe; a GP answers if nearly
   defeated or our power is twice its own; Empire Building gates it.
-- **Aid & land:** Grant Aid stepped in £1,000s at embassy (+5 each); Subsidy 5–20% in
-  fives, Minor/Tribe only; Merchant land 15× base, one deed/tile.
+- **Aid & land:** Grant Aid in 1,000-ducat steps at embassy (+5 each);
+  Subsidy 5–20% in fives, Minor/Tribe only; Merchant land 15× base, one deed.
 - **Trade terms** (`DiplomacyTrade`): pacts and boycotts publish.
   **Favoured pact** (GP–GP, embassy, accepts 65+): imports 95%, exports
   105%; war ends it. **Boycott** (needs a colony, GP at peace): no trade with
