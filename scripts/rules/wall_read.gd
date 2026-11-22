@@ -21,8 +21,9 @@ static func line(level: int) -> String:
 	]
 
 
-## The share of a blow a wall spares the garrison (25/45/60%), read from the
-## exchange's own loss scale so the words cannot drift from the casualty band.
+## The share of a blow a wall spares the garrison (ten points a level), read
+## from the exchange's own loss scale so the words cannot drift from the
+## casualty band.
 static func damage_share(level: int) -> float:
 	return 1.0 - FortRules.loss_scale(FortRules.clamp_level(level))
 

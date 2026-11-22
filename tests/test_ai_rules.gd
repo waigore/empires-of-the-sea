@@ -1065,30 +1065,36 @@ func test_ai_military_does_not_storm_a_stronger_defender() -> void:
 ## prices the standing battery too — the resolver's storm threshold is wall HP
 ## + emplaced strength, so a host that beats the wall but not the battery is
 ## repelled and never marches (wiki: siege-mechanics § Storming an empty
-## walled province).
+## walled province). The battery is the **defender's** line; the gate cannot
+## read it, so it prices the top of the ladder (Siege Guns, 19) and a host the
+## Royal floor would have admitted stays home rather than be turned back.
 func test_ai_military_prices_an_empty_wall_at_the_storm_threshold() -> void:
 	var world: WorldMap = AiFixture.land_world([1, 2])
 	var model: MapModel = world.region(0)
 	var state := _war_state(2, 1)
 	var config: AiConfig = AiConfig.build(2, 1500)
 	# Province 0 stands hostile and empty behind a Wood fort: 40 wall HP + one
-	# 11-strength Royal gun = a 51-strength storm threshold. A levy is 3.
+	# 19-strength Siege gun = a 59-strength storm ceiling. A levy is 3.
 	model.province_data(0).fort_level = 1
 	var armies: Array[ArmyState] = []
 	var thin: Array[String] = []
-	thin.resize(17)
+	thin.resize(18)
 	thin.fill("peasant_levies")
 	var host: ArmyState = ArmyState.muster(2, 2, 1, false, thin, 101)
 	armies.append(host)
-	assert_eq(host.strength(), 51.0, "seventeen levies reach the threshold exactly")
+	assert_eq(host.strength(), 54.0, "eighteen levies beat a Royal wall's 51 and are still refused")
 	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
-	assert_eq((plan["orders"] as Array).size(), 0, "a host at the threshold is repelled and never marches")
+	assert_eq(
+		(plan["orders"] as Array).size(), 0,
+		"a host under the heaviest battery the wall could mount never marches"
+	)
 	var over: Array[String] = []
-	over.resize(18)
+	over.resize(20)
 	over.fill("peasant_levies")
 	armies[0] = ArmyState.muster(2, 2, 1, false, over, 101)
+	assert_eq(armies[0].strength(), 60.0, "twenty levies clear the 59 ceiling")
 	plan = AiMilitaryPlanner.march_orders(config, state, model, armies)
-	assert_eq((plan["orders"] as Array).size(), 1, "one levy over the threshold storms the empty wall")
+	assert_eq((plan["orders"] as Array).size(), 1, "one levy over the ceiling storms the empty wall")
 	assert_eq(int(plan["orders"][0]["province"]), 0)
 
 
@@ -18164,14 +18170,22 @@ func test_idle_hull_gates_refuse_what_the_larder_cannot_claim() -> void:
 ## Storm sizing (issue #1314): every Old World province starts behind a wall,
 ## and the storm ladder prices wall + battery, so the muster has to read the
 ## wall it faces — never a host that ties the threshold, never one the court
-## already fields.
+## already fields. The battery is the **defender's** line, which the muster
+## cannot read, so it prices the top of the ladder (Siege Guns, 19): a host it
+## sizes clears the wall whatever battery the province mounts.
 func test_the_storm_host_clears_the_wall_it_faces() -> void:
+	assert_almost_eq(FortRules.storm_ceiling(1), 59.0, 0.001,
+		"a Wood wall at its heaviest battery is 40 + 19")
 	assert_eq(
-		AiStormGate.regiments_for(FortRules.storm_threshold({}, 1), 6.0), 11,
-		"a 40+11 wall wants eleven 6-strength men: ten clear it, one spare"
+		AiStormGate.regiments_for(FortRules.storm_ceiling(1), 6.0), 12,
+		"a 40+19 wall wants twelve 6-strength men: ten clear it, two spare"
+	)
+	assert_true(
+		FortRules.storm_ceiling(1) > FortRules.storm_threshold({}, 1),
+		"the floor battery under-prices the wall the gate must clear"
 	)
 	assert_eq(AiStormGate.regiments_for(0.0, 6.0), 0, "open ground asks for no host")
-	assert_eq(AiStormGate.regiments_for(51.0, 0.0), 0, "a line of no strength weighs nothing")
+	assert_eq(AiStormGate.regiments_for(59.0, 0.0), 0, "a line of no strength weighs nothing")
 	var model: MapModel = _walk_chart(
 		[[0, 1], [2, 3]], {1: 2, 2: 1, 3: 1}, {1: 1}
 	)
@@ -18179,22 +18193,22 @@ func test_the_storm_host_clears_the_wall_it_faces() -> void:
 	model.provinces[2].fort_level = 2
 	model.provinces[3].fort_level = 0
 	assert_eq(
-		MapPlayArmyMusterAi.thinnest_wall(model, 1, {}),
-		FortRules.storm_threshold({}, 1),
+		MapPlayArmyMusterAi.thinnest_wall(model, 1),
+		FortRules.storm_ceiling(1),
 		"the court reads the lowest wall it must cross, not its own L2 one"
 	)
 	var strength: float = float(RegimentCatalog.strength(
 		AiArmyReinforceLine.strongest_line({})
 	))
 	assert_true(strength > 0.0, "the opening techs open a line")
-	var want: int = AiStormGate.regiments_for(FortRules.storm_threshold({}, 2), strength)
+	var want: int = AiStormGate.regiments_for(FortRules.storm_ceiling(2), strength)
 	assert_eq(
-		int(AiStormGate.extra(FortRules.storm_threshold({}, 2), strength, 1, 1)["extra"]),
+		int(AiStormGate.extra(FortRules.storm_ceiling(2), strength, 1, 1)["extra"]),
 		want - 1,
 		"the gate asks for the host between the court's guard and the wall"
 	)
 	assert_eq(
-		int(AiStormGate.extra(FortRules.storm_threshold({}, 2), strength, want, want)["extra"]), 0,
+		int(AiStormGate.extra(FortRules.storm_ceiling(2), strength, want, want)["extra"]), 0,
 		"a court already at the wall's host asks for nothing"
 	)
 	assert_eq(int(AiStormGate.extra(0.0, strength, 1, 1)["extra"]), 0, "open ground asks for no host")
@@ -18202,7 +18216,7 @@ func test_the_storm_host_clears_the_wall_it_faces() -> void:
 	open.provinces[0].fort_level = 0
 	open.provinces[1].fort_level = 0
 	assert_eq(
-		MapPlayArmyMusterAi.thinnest_wall(open, 1, {}), 0.0,
+		MapPlayArmyMusterAi.thinnest_wall(open, 1), 0.0,
 		"open ground in front of the court reads no wall"
 	)
 

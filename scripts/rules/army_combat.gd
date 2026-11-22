@@ -298,8 +298,12 @@ static func _storm_empty(
 ) -> Dictionary:
 	var capturer: int = _lowest(attackers)
 	var storming: Array[ArmyState] = ArmyForce.armies_of(armies, province, capturer)
+	## The battery is the province's, so its line is the **defender's** studies
+	## (wiki: siege-mechanics § Storming an empty walled province; § Emplaced
+	## Artillery — "the defender's unlocked emplaced-quality tech line"). The
+	## storming court's own guns never price the wall it is not manning.
 	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(
-		capturer, {}
+		defender, {}
 	) as Dictionary
 	var level: int = FortRules.level_at(model, province)
 	var host_strength: float = 0.0
@@ -312,7 +316,7 @@ static func _storm_empty(
 		lost = _storm_losses(storming, FortRules.storm_losses(host_strength, tech, level))
 	var report: Dictionary = BattleSettlement.report_skeleton(
 		model, province, capturer, defender, Outcome.CAPTURE,
-		lost, [] as Array[String], {}, {}
+		lost, [] as Array[String], {}, {"fort": level}
 	)
 	report["captured"] = taken
 	report["storm"] = {
