@@ -10,17 +10,19 @@ DR-20261110-27.
 - **Storage / build:** `ProvinceState.fort_level` 0–5, saved; a captured
   province keeps its walls. An Engineer's `Fort` project rises on the town tile
   (`FortRules.site_tile`); materials at assign, turns per level.
-- **Start walls** (issue #1314): every Old World province of a Great Power or
-  Minor opens at Wood; its capital at Stone. New World and colonies stay 0. A
-  Great Power's fort tech lifts its own capital one step once — Modern → 3,
-  Bastion → 4, Star → 5; a siege downgrade is not restored.
-- **Unopposed capture** is open ground only (fort 0). An empty walled province
-  is **stormed**: the host must beat wall HP + the battery
-  (`FortRules.storm_threshold`); each whole 10 strength past it costs a
-  regiment, weakest first. Rival AI `_can_storm` gates read the same ladder.
+- **Start walls** (issue #1314): every Old World Great Power or Minor province
+  opens at Wood, its capital at Stone; New World and colonies stay 0. A Great
+  Power's fort tech lifts its own capital one step once (Modern 3, Bastion 4,
+  Star 5); a siege downgrade is not restored.
+- **Unopposed capture** is open ground only. An empty walled province is
+  **stormed**: beat wall HP + the battery (`FortRules.storm_threshold`, the
+  **defender's** Royal → Heavy → Siege line); every whole 10 strength past it
+  costs a regiment, weakest first. The AI gates and muster cannot read another
+  court's ledger, so they price the top of the line (`storm_ceiling`, 59 at
+  Wood); a host they admit is never repelled.
 - **Battle mode:** 0 field, `≥ 1` siege. **Scaling formula:** wall HP = 40 ×
-  level, guns = level, damage reduction = 10% × level — calibrated so the
-  opening Great Power muster (21 strength) cannot storm a Wood fort.
+  level, guns = level, damage reduction = 10% × level. The opening Great Power
+  muster (21 strength) cannot storm a Wood fort.
 - **Auto-resolve:** wall HP soaks attack; the defender's share is scaled by
   1 − damage reduction and adds `guns × strength` of its emplaced type.
 - **Quick Battle** (`SiegeLanes`): infantry man the wall, horse and guns wait
@@ -40,9 +42,6 @@ DR-20261110-27.
 | 3 | Modern | 3 | 120 | 30% | 5 steel, 5 lumber | 3 | Modern Forts |
 | 4 | Bastion | 4 | 160 | 40% | 5 steel, 4 lumber, 3 bronze | 3 | Bastion Forts |
 | 5 | Star | 5 | 200 | 50% | 6 steel, 6 lumber | 4 | Star Forts |
-
-Wall HP soaks auto-resolve attack; the soak column is the damage reduction off a
-blow (defender casualties × 1 − reduction).
 
 ## Architecture
 

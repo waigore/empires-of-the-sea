@@ -12,6 +12,9 @@ extends FleetDossierSection
 ## rows of their own, so a port province's whole land never grows the sheet
 ## (DR-20261119-03).
 
+## The mark the counsel reads by lives on the block (FleetDossierSection), so every
+## subclass of the dossier prints one glyph (DR-20261122-21).
+
 ## The coast whose grounds are open, or -1 for the coast list, and the crew kind
 ## whose grounds they are. They live on the block, not in the rebuilt rows, so a
 ## choice survives the redraw every order and every turn makes (REQ-P5-05).
@@ -34,6 +37,11 @@ var _batch_line: Label = null
 ## prints in: advice, never state (DR-20261121-08, REQ-P5-06).
 var _pick: Label = null
 var _data: Dictionary = {}
+## The press the block's own gold line names, read once per render: `{kind,
+## unit}` for a boarding, `{kind, province, crew, tile}` for a landing, and {}
+## when the pick names no press this block prints — a sail, a dock, a crossing,
+## or no reading at all (DR-20261122-21).
+var _mark: Dictionary = {}
 
 
 func _ready() -> void:
@@ -94,6 +102,10 @@ func _render() -> void:
 	visible = count > 0 or not embark.is_empty() or not land.is_empty() \
 		or not sortie.is_empty() or not pick_line.is_empty()
 	_begin(String(_data.get("note", "")))
+	# The mark is the pick's own, read once with the sentence it answers, so a
+	# marked press is always the one the gold line above it names (REQ-P2-03).
+	_mark = _read_mark(pick)
+	_legend()
 	if _pick != null:
 		_pick.text = pick_line
 		_pick.visible = not pick_line.is_empty()
@@ -107,7 +119,10 @@ func _render() -> void:
 	for raw: Variant in embark:
 		var row: Dictionary = raw as Dictionary
 		_add_row(
-			"Take %s aboard" % String(row.get("name", "a civilian")),
+			_mark_text(
+				"Take %s aboard" % String(row.get("name", "a civilian")),
+				_marks_embark(row)
+			),
 			"crew:embark:%d" % int(row.get("id", -1))
 		)
 	_sync_batch()
@@ -159,7 +174,10 @@ func _add_coast(row: Dictionary) -> void:
 	if tiles.size() == 1:
 		var only: Dictionary = tiles[0] as Dictionary
 		_add_row(
-			"Put the %s ashore at %s" % [crew_name, name],
+			_mark_text(
+				"Put the %s ashore at %s" % [crew_name, name],
+				_marks_coast(int(row.get("province", -1)), crew)
+			),
 			"crew:land:%d:%d:%s" % [int(only.get("x", -1)), int(only.get("y", -1)), crew]
 		)
 		return
@@ -169,11 +187,17 @@ func _add_coast(row: Dictionary) -> void:
 	var seat: Dictionary = row.get("seat", {})
 	if not seat.is_empty():
 		_add_row(
-			_seat_text(crew_name, name, seat),
+			_mark_text(
+				_seat_text(crew_name, name, seat),
+				_marks_ground(int(seat.get("x", -1)), int(seat.get("y", -1)))
+			),
 			"crew:land:%d:%d:%s" % [int(seat.get("x", -1)), int(seat.get("y", -1)), crew]
 		)
 	_add_press(
-		"Put the %s ashore at %s · %d grounds ›" % [crew_name, name, tiles.size()],
+		_mark_text(
+			"Put the %s ashore at %s · %d grounds ›" % [crew_name, name, tiles.size()],
+			_marks_coast(int(row.get("province", -1)), crew)
+		),
 		func() -> void:
 			open_coast = int(row.get("province", -1))
 			open_crew = crew
@@ -236,7 +260,7 @@ func _add_ground_row(name: String, crew: String, tile: Dictionary) -> void:
 	if not ground.is_empty():
 		text = "%s (%d, %d) — %s" % [name, x, y, ground]
 	_add_ground_press(
-		text,
+		_mark_text(text, _marks_ground(x, y)),
 		func() -> void:
 			open_coast = -1
 			open_crew = ""
@@ -295,3 +319,69 @@ func _coast_row(province: int, crew: String) -> Dictionary:
 			and String(row.get("crew", "")) == crew:
 			return row
 	return {}
+
+
+# --- the court's mark (DR-20261122-21) ---------------------------------------
+
+
+## The press the pick names, as this block prints it: a boarding names the crew
+## it would take aboard, a landing the coast and the ground it would put her
+## ashore on. Every other step — a sail, a dock, a crossing — names no press
+## here, so it marks none (REQ-P2-03).
+static func _read_mark(pick: Dictionary) -> Dictionary:
+	var kind: String = String(pick.get("kind", ""))
+	if kind == MapPlayVoyagePick.KIND_EMBARK:
+		var unit: int = int(pick.get("unit", -1))
+		return {"kind": kind, "unit": unit} if unit >= 0 else {}
+	if kind != MapPlayVoyagePick.KIND_LAND:
+		return {}
+	var crew: String = String(pick.get("crew", ""))
+	if crew.is_empty():
+		return {}
+	return {
+		"kind": kind,
+		"province": int(pick.get("province", -1)),
+		"crew": crew,
+		"tile": pick.get("tile", CivilianState.NO_TILE),
+	}
+
+
+## The block's own legend, on the note line it already prints: a crown that sees
+## one press lead with `▸` reads what the glyph means without a hover
+## (REQ-P1-05, REQ-P5-03).
+func _legend() -> void:
+	if _mark.is_empty():
+		return
+	var legend: String = "%s marks the press the court would take" % COURT_MARK
+	_note.text = legend if _note.text.is_empty() else "%s  ·  %s" % [_note.text, legend]
+	_note.visible = true
+
+
+## The counsel's mark leads the press the line names, so a crown finds that row
+## among the block's whole list (DR-20261122-21).
+static func _mark_text(text: String, marked: bool) -> String:
+	return "%s %s" % [COURT_MARK, text] if marked else text
+
+
+## Whether this embark row is the crew the line would take aboard.
+func _marks_embark(row: Dictionary) -> bool:
+	return String(_mark.get("kind", "")) == MapPlayVoyagePick.KIND_EMBARK \
+		and int(_mark.get("unit", -1)) == int(row.get("id", -2))
+
+
+## Whether this coast is the one the line would put the crew ashore on.
+func _marks_coast(province: int, crew: String) -> bool:
+	return String(_mark.get("kind", "")) == MapPlayVoyagePick.KIND_LAND \
+		and int(_mark.get("province", -1)) == province \
+		and String(_mark.get("crew", "")) == crew
+
+
+## Whether this ground is the tile the line would land on.
+func _marks_ground(x: int, y: int) -> bool:
+	return String(_mark.get("kind", "")) == MapPlayVoyagePick.KIND_LAND \
+		and _mark.get("tile", CivilianState.NO_TILE) == Vector2i(x, y)
+
+
+## The mark the block reads by, for tests and the smoke (REQ-P3-02).
+func mark() -> Dictionary:
+	return _mark

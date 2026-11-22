@@ -93,7 +93,16 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	opening.merge = MapPlayHomeMerge.row(play, fleet)
 	opening.beach_hint = MapPlayFleetMissions.hint(play, fleet)
 	opening.roster = play.ship_layer.fleets
-	opening.pick = MapPlayFleetPick.line(play, fleet)
+	# The court's own reading, walked once: the naval policy's sail, or — for a
+	# squadron that carries a host — the step the invasion policy gives the
+	# expedition, which the naval pick leaves to its planner (DR-20261120-04,
+	# DR-20261122-20). The step's coast travels beside the sentence, not parsed
+	# out of it, so the mission block marks the row it names (DR-20261122-12).
+	var pick: Dictionary = MapPlayFleetPick.pick(play, fleet)
+	if pick.is_empty():
+		pick = MapPlayExpeditionPick.pick(play, fleet)
+	opening.pick = MapPlayPickProse.sentence_of(pick)
+	opening.court_coast = MapPlayExpeditionPick.marked_coast(pick)
 	# The yard's own claim: the hull this court means to lay, printed in the
 	# slip the crown launches from (DR-20261121-02). A rival answers to her own
 	# court, and the block draws no rows for her anyway.

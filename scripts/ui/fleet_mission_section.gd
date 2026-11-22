@@ -19,15 +19,23 @@ func _ready() -> void:
 
 
 ## Empty data hides the block: a fresh squadron has no landing duty yet. The pick
-## is a reading — a squadron the court would leave alone carries none.
-func set_data(note: String, rows: Array[Dictionary], pick: String = "") -> void:
+## is a reading — a squadron the court would leave alone carries none. `coast`
+## is the hostile coast the pick would mark (the expedition's beachhead,
+## DR-20261122-20): its row leads with the counsel's mark and the caption prints
+## the legend, so the coast the line names is found on the page it is pressed on.
+func set_data(note: String, rows: Array[Dictionary], pick: String = "", coast: int = -1) -> void:
 	visible = not note.is_empty() or not rows.is_empty() or not pick.is_empty()
 	_begin(note)
 	_pick.text = pick
 	_pick.visible = not pick.is_empty()
+	var marked: bool = false
 	for row: Dictionary in rows:
 		var province: int = int(row.get("province", -1))
+		var court: bool = coast != -1 and province == coast
+		marked = marked or court
 		_add_row(
 			String(row.get("label", "Mark %s" % String(row.get("name", "the coast")))),
-			String(row.get("action", "beachhead:%d" % province))
+			String(row.get("action", "beachhead:%d" % province)),
+			court
 		)
+	_set_caption_legend(marked)

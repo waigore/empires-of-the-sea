@@ -43,6 +43,9 @@ var _goal: String = ""
 ## `MapPlayResearchPick` on every refresh so the desk need not ask twice
 ## (DR-20261121-01).
 var _pick_line: String = ""
+## The advance that sentence names, so the AVAILABLE row the crown would press
+## wears `▸` — the mark the chart sets on the same node (DR-20261122-19).
+var _pick_tech: String = ""
 var _treasury: int = 0
 ## The standing line (slots, studies, ducats, techs) and the rule behind an
 ## unpaid study, both in their own head strip (REQ-P3-01).
@@ -246,6 +249,12 @@ func pick_line() -> String:
 	return _pick_line
 
 
+## The advance that line names, or "" — the id the AVAILABLE row marked `▸`
+## (DR-20261122-19).
+func pick_tech() -> String:
+	return _pick_tech
+
+
 ## The persistent rows the college keeps, one per slot (REQ-P3-02). A test that
 ## proves a slot survives a repaint reads them here, not through `_slots_body`.
 func slot_rows() -> Array[ResearchSlotRow]:
@@ -269,25 +278,29 @@ func set_goal(tech_id: String) -> void:
 	if _state != null:
 		_state.goal = next
 	goal_changed.emit(_goal)
-	refresh(_state, _treasury, _boost, _leader, _pick_line)
+	refresh(_state, _treasury, _boost, _leader, _pick_line, _pick_tech)
 
 
 ## Rebuilds the goal strip, slots, open advances and known techs from live
 ## research state. `boost` carries the spy network's per-tech percent
 ## (DR-20261110-03); it marks the slots it lifts so a faster study is never
-## silent (REQ-P5-05).
+## silent (REQ-P5-05). `pick` is the counsel sentence and `pick_tech` the advance
+## it names, so the AVAILABLE row the crown would press wears its mark
+## (DR-20261122-19).
 func refresh(
 	state: ResearchState,
 	treasury: int,
 	boost: Dictionary = {},
 	leader: String = "",
-	pick: String = ""
+	pick: String = "",
+	pick_tech: String = ""
 ) -> void:
 	_state = state
 	_treasury = treasury
 	_boost = boost
 	_leader = leader
 	_pick_line = pick
+	_pick_tech = TechOrder.normalize(pick_tech)
 	if _tabs == null or _state == null:
 		return
 	_goal = TechOrder.normalize(_state.goal)
@@ -299,10 +312,16 @@ func refresh(
 	_pages.paint_available(
 		_available_body, _state, open, _goal,
 		func(id: String) -> void: assign_requested.emit(id),
-		func(id: String) -> void: set_goal("" if id == _goal else id)
+		func(id: String) -> void: set_goal("" if id == _goal else id),
+		_pick_tech
 	)
 	_pages.paint_known(_known_body, _state, _goal)
-	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
+	# The legend rides the list the mark stands on, and only while that row is
+	# painted; a page with no court reading keeps its plain heading
+	# (DR-20261122-19).
+	_tabs.set_tab_title(0, ResearchCatalogPages.available_title(
+		open.size(), _pick_tech if open.has(_pick_tech) else ""
+	))
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
 	_hint.text = ResearchBatch.hint_line(
 		open.size(), _state.free_slot(), _head.notice_shown()

@@ -6130,6 +6130,107 @@ func test_the_passengers_block_names_the_crew_it_lands() -> void:
 	block.free()
 
 
+## The block's gold line names one press among many, so the press it names leads
+## with the counsel's mark: the crew the voyage would take aboard, and no other
+## row (wiki: civilian-units § Overseas deployment; DR-20261122-21).
+func test_the_passengers_block_marks_the_crew_the_court_would_take() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	block.set_data({
+		"count": 0,
+		"note": "No colonists aboard.",
+		"embark": [{"id": 7, "name": "Anne"}, {"id": 8, "name": "Bess"}],
+		"sortie": [],
+		"land": [],
+		"pick": {
+			"kind": "embark", "unit": 8,
+			"line": "the court would take a Colonist aboard at Cadiz",
+		},
+	})
+	var rows: Array[Node] = _crew_rows(block)
+	assert_eq(rows.size(), 2, "one press per idle crew")
+	assert_eq(
+		(rows[0] as Button).text, "Take Anne aboard",
+		"the crew the line does not name keeps its plain press"
+	)
+	assert_eq(
+		(rows[1] as Button).text, "▸ Take Bess aboard",
+		"the crew the line names leads with the mark"
+	)
+	assert_eq(String(block.mark().get("kind", "")), "embark", "the block reads the pick's step")
+	assert_true(
+		block._note.text.contains("▸ marks the press the court would take"),
+		"the note prints the legend"
+	)
+
+	# A step that names no press here — a sail — marks nothing and prints no
+	# legend, and a block filled without a pick reads none at all.
+	block.set_data({
+		"count": 0, "note": "No colonists aboard.",
+		"embark": [{"id": 7, "name": "Anne"}], "sortie": [], "land": [],
+		"pick": {"kind": "sail", "zone": 0, "line": "the court would sail her for the roads"},
+	})
+	assert_eq((_crew_rows(block)[0] as Button).text, "Take Anne aboard", "a sail marks no press")
+	assert_eq(block._note.text, "No colonists aboard.", "and prints no legend")
+	block.set_data({
+		"count": 0, "note": "No colonists aboard.",
+		"embark": [{"id": 7, "name": "Anne"}], "sortie": [], "land": [],
+	})
+	assert_eq((_crew_rows(block)[0] as Button).text, "Take Anne aboard", "no pick, no mark")
+	assert_true(block.mark().is_empty(), "no pick, no reading")
+	block.free()
+
+
+## A landing names a coast and a ground, so the coast the line would take leads
+## with the mark, and the ground it would land on leads once that coast's grounds
+## are open — no other coast and no other ground (wiki: civilian-units § Landing;
+## DR-20261122-21).
+func test_the_passengers_block_marks_the_coast_and_ground_the_court_would_take() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	block.set_data({
+		"count": 1,
+		"note": "1 aboard: Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer", "tiles": [{"x": 2, "y": 3}],
+			},
+			{
+				"province": 5, "name": "Vera Cruz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"tiles": [
+					{"x": 7, "y": 8, "ground": "Hills · iron"},
+					{"x": 9, "y": 10},
+				],
+			},
+		],
+		"pick": {
+			"kind": "land", "province": 5, "crew": "explorer", "tile": Vector2i(7, 8),
+			"line": "the court would put an Explorer ashore at (7, 8) — Hills · iron",
+		},
+	})
+	var coasts: Array[Node] = _crew_rows(block)
+	assert_eq(coasts.size(), 2, "one press per coast")
+	assert_eq((coasts[0] as Button).text, "Put the Explorer ashore at Cadiz", "the other coast is plain")
+	assert_true(
+		(coasts[1] as Button).text.begins_with("▸ Put the Explorer ashore at Vera Cruz · 2 grounds"),
+		"the coast the line names leads with the mark"
+	)
+	(coasts[1] as Button).pressed.emit()
+	var grounds: Array[Node] = _crew_rows(block)
+	assert_eq(grounds.size(), 3, "the way back and the coast's two grounds")
+	assert_false((grounds[0] as Button).text.begins_with("▸"), "the way back marks nothing")
+	assert_eq(
+		(grounds[1] as Button).text, "▸ Vera Cruz (7, 8) — Hills · iron",
+		"the ground the line names leads with the mark"
+	)
+	assert_eq((grounds[2] as Button).text, "Vera Cruz (9, 10)", "the other ground is plain")
+	block.free()
+
+
 ## The crown's own seat reads above the list as one press, so a port province
 ## whose coast holds a whole province of ground never makes a crown open the
 ## list to land at home (wiki: civilian-units § Landing; DR-20261118-28).
@@ -6354,6 +6455,39 @@ func test_the_mission_block_prints_the_courts_pick_under_its_station() -> void:
 	assert_eq(block._pick.text, "", "and nothing left over from the last squadron")
 	block.set_data("", [], "")
 	assert_false(block.visible, "nothing to say, nothing raised")
+	block.queue_free()
+
+
+## The mission row the court's own expedition would mark leads with the counsel's
+## mark and the caption prints the legend; a block with no reading prints neither
+## (DR-20261122-20).
+func test_the_mission_block_marks_the_coast_the_court_would_mark() -> void:
+	var block := FleetMissionSection.new()
+	add_child(block)
+	var rows: Array[Dictionary] = [
+		{"province": 0, "name": "Coro"},
+		{"province": 1, "name": "Cartagena"},
+	]
+	block.set_data(
+		"", rows, "The court would mark a beachhead on the coast of Cartagena.", 1
+	)
+	var presses: Array = block._rows_box.get_children()
+	assert_eq((presses[0] as Button).text, "Mark Coro", "a coast the reading left alone")
+	assert_eq(
+		(presses[1] as Button).text,
+		"%s Mark Cartagena" % FleetDossierSection.COURT_MARK,
+		"the coast the line names leads with the mark"
+	)
+	assert_eq(
+		block._title.text, "MISSIONS · %s court" % FleetDossierSection.COURT_MARK,
+		"the caption prints the legend while a row wears the mark"
+	)
+	block.set_data("", rows, "", -1)
+	assert_eq(
+		(block._rows_box.get_child(1) as Button).text, "Mark Cartagena",
+		"no reading, no mark"
+	)
+	assert_eq(block._title.text, "MISSIONS", "nor a legend")
 	block.queue_free()
 
 

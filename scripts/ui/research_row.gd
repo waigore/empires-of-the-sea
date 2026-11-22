@@ -12,18 +12,25 @@ const ICON_SIZE: float = 30.0
 const MARK_WIDTH: float = 14.0
 const GOAL_ON_PATH: String = "◇"
 const GOAL_ITSELF: String = "◆"
+## The mark the counsel reads by: the advance the published research policy
+## would open in the crown's first free slot wears it before its own name, the
+## same `▸` the chart sets on the node it names (DR-20261121-20, DR-20261122-19).
+const COURT_MARK: String = "▸"
 
 
 ## A researchable tech the crown can start now (or reason it cannot). `goal_id`
 ## lights the goal mark and the goal button reads back which tech is the goal.
 ## The row names what the study opens under its price, because a touch crown
-## never sees a tooltip (REQ-P1-05, REQ-P5-03).
+## never sees a tooltip (REQ-P1-05, REQ-P5-03). `court` marks the advance the
+## court's own college would open next, so the list the crown presses Research
+## on points at the study the idle slot's sentence above it names.
 static func available(
 	state: ResearchState,
 	tech_id: String,
 	on_assign: Callable,
 	goal_id: String = "",
-	on_goal: Callable = Callable()
+	on_goal: Callable = Callable(),
+	court: bool = false
 ) -> Control:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
 	row.add_child(icon(tech_id))
@@ -33,7 +40,8 @@ static func available(
 		"%s · %d RP" % [TechCatalog.era_name(tech_id), TechCatalog.cost(tech_id)],
 		Palette.TEXT,
 		Palette.TEXT_DIM,
-		TechCatalog.payoff_text(tech_id)
+		TechCatalog.payoff_text(tech_id),
+		court
 	))
 
 	if on_goal.is_valid():
@@ -119,17 +127,21 @@ static func goal_mark(tech_id: String, goal_id: String) -> Control:
 
 ## Name over a small meta line: one column, so the buttons keep their room. A
 ## purchase row adds the payoff under its price — the catalog's own words, never
-## a hover (REQ-P1-05).
+## a hover (REQ-P1-05). A row the court would take leads with `▸`, the mark the
+## chart sets on that same advance (DR-20261122-19).
 static func _name_column(
 	tech_id: String, meta: String, title_color: Color, meta_color: Color,
-	payoff: String = ""
+	payoff: String = "", court: bool = false
 ) -> VBoxContainer:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 0)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.mouse_filter = Control.MOUSE_FILTER_PASS
-	var name_label := UiRowBuilder.label(TechCatalog.display_name(tech_id), 14, title_color)
+	var title: String = TechCatalog.display_name(tech_id)
+	var name_label := UiRowBuilder.label(
+		("%s %s" % [COURT_MARK, title]) if court else title, 14, title_color
+	)
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.tooltip_text = TechCatalog.effect_text(tech_id)
 	column.add_child(name_label)
