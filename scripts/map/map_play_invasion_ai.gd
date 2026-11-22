@@ -26,10 +26,11 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var before: Array[ArmyState] = []
 		before.assign(armies)
 		for faction: int in MapPlayCourt.planning_factions(play):
-			var kind: String = AiControl.court_kind(play, faction)
-			if kind == AiControl.KIND_RANDOM:
+			var court: Dictionary = AiControl.court(play, faction)
+			if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 				continue
-			var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+			var kind: String = String(court["kind"])
+			var config: Variant = court["config"]
 			# A court on **earn** sails for the far coast even while a war sits on
 			# its border: the gold that ends its impasse is overseas
 			# (DR-20261113-19). Defence still comes first on its own soil, which

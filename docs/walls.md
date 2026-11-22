@@ -23,10 +23,12 @@ own fort order.
 |------|-------|
 | Level | the numeral the realm prints — `—` (open shore), `I`, `II`, `III` |
 | Gate | `READY`, `AT WORK`, `NO ENGINEER`, `LOCKED`, `WALLED` |
-| Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, or the study the order waits on |
+| Press | `Raise Wall · 4 lumber + 4 bronze` — the next level's price, from the fort table |
+| Note | what the next wall buys — `L2 soaks 20 wall hp with 2 guns (+10 hp, +1 gun)` — or the order's own refusal |
 
-The chip names the wait; the note is the step. The sheet states the rule:
-10 / 20 / 30 wall hp by level and 1–3 emplaced guns.
+The press names the price and prints what the wall buys under it, in words a
+phone reads without a hover. The sheet states the rule: 10 / 20 / 30 wall hp by
+level and 1–3 emplaced guns.
 
 ## Raise
 

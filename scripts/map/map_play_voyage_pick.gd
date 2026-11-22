@@ -60,10 +60,11 @@ static func _step(play: PlaySession, faction: int, region: int) -> Dictionary:
 	var model: MapModel = play.world.region(region)
 	if model == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_RANDOM or kind == AiControl.KIND_NONE:
+	var court: Dictionary = AiControl.court(play, faction)
+	if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 		return {}
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+	var kind: String = String(court["kind"])
+	var config: Variant = court["config"]
 	if config == null:
 		return {}
 	var fleets: Array = MapPlayCourt.region_fleets(play, region)

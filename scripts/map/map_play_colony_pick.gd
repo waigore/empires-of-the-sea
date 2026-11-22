@@ -85,10 +85,11 @@ static func pick(play: PlaySession) -> Dictionary:
 		return {}
 	if play.ledger_for(faction) == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	var config: Variant = AiBind.config(
-		kind, faction, play.map_seed, play.ensure_ai().profiles
-	)
+	var court: Dictionary = AiControl.court(play, faction)
+	if court.is_empty():
+		return {}
+	var kind: String = String(court["kind"])
+	var config: Variant = court["config"]
 	if config == null:
 		return {}
 	var economy: PlayerEconomy = play.ledger_for(faction)

@@ -2592,6 +2592,45 @@ func test_a_work_order_and_a_fort_complete_on_the_same_turn() -> void:
 	assert_true(engineer.is_idle())
 
 
+## The province dossier's own presses raise the wall and the ward (wiki:
+## siege-mechanics § Fort Levels; combat § Regiment condition; DR-20261116-01,
+## DR-20261116-02): each sends the nearest idle Engineer on the work the
+## civilian panel files, so the sheet that reads a wall or a ward can raise it.
+func test_the_province_dossiers_presses_raise_the_wall_and_the_ward() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var engineer: CivilianState = null
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.type_id == "engineer" and unit.is_idle():
+			engineer = unit
+			break
+	assert_true(engineer != null, "the crown keeps an idle Engineer")
+	if engineer == null:
+		return
+	_screen.stockpile["lumber"] = 40
+	_screen.stockpile["bronze"] = 12
+	_screen.stockpile["fabric"] = 20
+	_screen.stockpile["steel"] = 12
+	play.economy.economy.tech_unlocked["organised_regiments"] = true
+	_screen.model.province_data(capital).fort_level = 0
+	MapPlayInput.select_province(play, capital, _capital_point())
+
+	MapPlayInput.on_panel_action(play, "raise_wall")
+	assert_true(engineer.is_working(), "the wall press files the Engineer's order")
+	assert_eq(engineer.work_action(), "build_fort")
+	assert_eq(engineer.work_tile(), FortRules.site_tile(_screen.model, capital))
+	MapPlayTurnFinish.resolve_work(play)
+	assert_eq(FortRules.level_at(_screen.model, capital), 1, "the wall it named stands")
+	assert_true(engineer.is_idle())
+
+	MapPlayInput.on_panel_action(play, "raise_ward")
+	assert_true(engineer.is_working(), "the ward press files the Engineer's order")
+	assert_eq(engineer.work_action(), "build_hospital")
+	assert_eq(engineer.work_tile(), HospitalRules.site_tile(_screen.model, capital))
+	MapPlayTurnFinish.resolve_work(play)
+	assert_eq(HospitalRules.level_at(_screen.model, capital), 1, "the ward it named stands")
+
+
 ## The chart carries the pick (DR-20261117-07): the survey lens is mounted with
 ## the crown's own picks, and the ground an idle crew's planner names wears the
 ## mark — the same reading its sheet prints, drawn where the crown plans work.
