@@ -1,6 +1,6 @@
 # Civilian units
 
-Land units: explore, improve, colonize, spy.
+Units: explore, improve, colonize, spy.
 
 **Pillars:** P1–P5.
 
@@ -10,13 +10,13 @@ Land units: explore, improve, colonize, spy.
 
 ## Implemented
 
-- **Roster** (`CivilianCatalog`): six playable types.
+- **Roster** (`CivilianCatalog`): six types.
 - **Hiring:** the rail names each craft's work and study gate
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
   a gold line names the court's hire pass, its craft `▸`
   (`MapPlayHirePick`, DR-20261122-12/15).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, walks
-  the idle ones and names the court's work pick, its crews marked `▸`
+  the idle ones and names the court's pick, its crews marked `▸`
   (DR-20261121-12/22-06); a crew aboard reads **Aboard** and answers no order
   chip.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
@@ -26,7 +26,7 @@ Land units: explore, improve, colonize, spy.
   `unknown`); each shadowed rival GP adds +15% RP at Low+ funding.
   **Counter-espionage** kills or turns agents; reports name deeds
   ([espionage.md](espionage.md)).
-- **Work orders** (Builders: any owned tile); materials are spent at assign,
+- **Work orders** (Builders: any owned tile); materials spent at assign,
   never refunded on cancel. **Aboard** a squadron a crew is off the map and
   takes no order, and no ledger hands it one. Explore ≤3, **prospect 1**
   (charted ground), improve 1–4, **upgrade town** (National Bureaucracy), road,
@@ -36,7 +36,7 @@ Land units: explore, improve, colonize, spy.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
   [DR-20261117-07](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-07)):
   an idle crew's dossier names its pick, priced by its ledger.
-- **Towns:** Builders raise them to 4; connected port towns cap extraction;
+- **Towns:** Builders raise them to 4; port towns cap extraction;
   levels 2, 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
   per hull, no troops); lands on a coastal tile beside its zone
@@ -44,8 +44,8 @@ Land units: explore, improve, colonize, spy.
   Explorers/Merchants any coast, others crown land. **A rival reads the
   ground:** its colonist takes the charted coast its workshop can turn
   ([DR-20261119-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-05)).
-  **The crown reads her own step:** the passenger block names the voyage
-  (DR-20261121-08).
+  **The crown reads her own step:** the passenger block names the voyage and
+  marks its press (DR-20261121-08/22-21).
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
   prospected mineral); 15× base, debit on complete; each deed lifts the
   town ([DR-20261118-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-05)).

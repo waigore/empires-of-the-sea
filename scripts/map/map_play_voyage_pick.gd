@@ -149,6 +149,12 @@ static func _words(
 	# the pick carries it for a caller that never reads a sentence.
 	if String(data["kind"]) == KIND_EMBARK and int(data["province"]) == MapModel.NO_ID:
 		data["province"] = data["harbour"]
+	# A landing names the ground, not the coast: the province the tile stands in
+	# travels beside it, so the block can mark the coast the step would take
+	# (DR-20261122-21).
+	if String(data["kind"]) == KIND_LAND and int(data["province"]) == MapModel.NO_ID \
+		and tile.x >= 0:
+		data["province"] = model.province_at(tile.x, tile.y)
 	var line: String = MapPlayVoyagePickWords.line(model, data)
 	if line.is_empty():
 		return {}
