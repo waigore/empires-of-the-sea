@@ -56,12 +56,10 @@ func before_all() -> void:
 	drained_auto = _capture_auto(mounted.play)
 	if mounted.play.ai != null:
 		drained_ai = mounted.play.ai.to_dict()
-	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
-	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:

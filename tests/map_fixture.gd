@@ -144,14 +144,20 @@ static func restore(world: WorldMap, snapshot: Array) -> void:
 ##   live case:   suite_reset(screen, pristine)  # unparks
 ##   after_all:   screen.free()
 ## An idle MapScreen still runs `_process` (HUD, soundtrack, fog). Under coverage
-## that tax is paid on every later case in the suite — park it whenever no case
-## is reading the chart. The screen's own node state (selection, sheets, lenses,
-## news) is dropped by the reset; anything a case leaves on a node that is not
-## re-read here must be cleared by the suite itself.
+## that tax is paid on every later case in the suite — park it when no case is
+## reading the chart. Park only where a suite keeps many cases on one chart; a
+## suite that parks for a few cases pays the tree walk for nothing. The screen's
+## own node state (selection, sheets, lenses, news) is dropped by the reset;
+## anything a case leaves on a node that is not re-read here must be cleared by
+## the suite itself.
 
-## Stops an idle shared mount from processing under coverage. Safe on null/freed.
+## Stops an idle shared mount from processing under coverage. Safe on null/freed,
+## and cheap to call repeatedly: `process_mode` walks the whole subtree, so skip
+## the write when the screen is already parked.
 static func park_screen(screen: MapScreen) -> void:
 	if screen == null or not is_instance_valid(screen):
+		return
+	if screen.process_mode == Node.PROCESS_MODE_DISABLED:
 		return
 	screen.process_mode = Node.PROCESS_MODE_DISABLED
 
@@ -159,6 +165,8 @@ static func park_screen(screen: MapScreen) -> void:
 ## Wakes a parked mount before a live case reads it (`suite_reset` does this).
 static func unpark_screen(screen: MapScreen) -> void:
 	if screen == null or not is_instance_valid(screen):
+		return
+	if screen.process_mode == Node.PROCESS_MODE_INHERIT:
 		return
 	screen.process_mode = Node.PROCESS_MODE_INHERIT
 

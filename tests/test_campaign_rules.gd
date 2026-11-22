@@ -18,7 +18,6 @@ func before_each() -> void:
 	state.initialize(1)
 	call_state = DiplomacyState.new()
 	call_state.initialize(1)
-	Fixture.park_screen(loss_mounted)
 
 
 # --- from test_intervention.gd ---
@@ -1382,7 +1381,6 @@ func before_all() -> void:
 	loss_pristine_map = Fixture.snapshot(Fixture.world())
 	loss_mounted = Fixture.attach_screen(self)
 	loss_pristine = Fixture.suite_capture(loss_mounted)
-	Fixture.park_screen(loss_mounted)
 
 
 func after_all() -> void:
@@ -1396,7 +1394,6 @@ func after_all() -> void:
 
 
 func after_each() -> void:
-	Fixture.park_screen(loss_mounted)
 	_teardown_gazette_plate()
 	_teardown_capital_seat()
 

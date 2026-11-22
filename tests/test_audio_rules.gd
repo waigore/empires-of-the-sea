@@ -25,7 +25,6 @@ func after_each() -> void:
 			_after_soundtrack()
 		"app_shell":
 			_after_shell()
-	Fixture.park_screen(_screen)
 	_suite_setup = ""
 
 func _setup_audio_mix() -> void:
@@ -422,7 +421,6 @@ func _mount_soundtrack() -> void:
 	_audio.fade_scale = 0.0
 	_score = _screen.get_node("Soundtrack") as MapSoundtrack
 	_pristine = Fixture.suite_capture(_screen)
-	Fixture.park_screen(_screen)
 
 
 ## Re-seats the shared chart at the top of turn 1 and puts the mix and the era

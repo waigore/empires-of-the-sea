@@ -29,7 +29,6 @@ func before_each() -> void:
 	_economy = PlayerEconomy.starting()
 	_turn_economy = PlayerEconomy.starting()
 	_turn_state = _turn_economy.research
-	ScreenFixture.park_screen(research_mounted)
 
 
 func after_each() -> void:
@@ -1937,7 +1936,6 @@ func before_all() -> void:
 	research_pristine_map = ScreenFixture.snapshot(ScreenFixture.world())
 	research_mounted = ScreenFixture.attach_screen(self)
 	research_pristine = ScreenFixture.suite_capture(research_mounted)
-	ScreenFixture.park_screen(research_mounted)
 
 
 func after_all() -> void:

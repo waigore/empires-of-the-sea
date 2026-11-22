@@ -40,11 +40,6 @@ func before_all() -> void:
 	both_charts_map = Fixture.snapshot(Fixture.world())
 	Fixture.restore(Fixture.world(), pristine_map)
 	Fixture.suite_reset(screen, pristine)
-	Fixture.park_screen(screen)
-
-
-func before_each() -> void:
-	Fixture.park_screen(screen)
 
 
 func after_all() -> void:

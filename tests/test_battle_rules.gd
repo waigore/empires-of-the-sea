@@ -8880,15 +8880,10 @@ var hud_pristine: Dictionary = {}
 var hud_pristine_map: Array = []
 
 
-func before_each() -> void:
-	overlay_Fixture.park_screen(hud_mounted)
-
-
 func before_all() -> void:
 	hud_pristine_map = overlay_Fixture.snapshot(overlay_Fixture.world())
 	hud_mounted = overlay_Fixture.attach_screen(self)
 	hud_pristine = overlay_Fixture.suite_capture(hud_mounted)
-	overlay_Fixture.park_screen(hud_mounted)
 
 
 func after_all() -> void:
