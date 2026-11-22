@@ -1294,6 +1294,12 @@ domain = "auto"
 match = "scripts/ui/auto_bar.gd*"
 domain = "auto"
 
+# The seat's three bar seals share one face (the AUTO plaque, the pace and the
+# log door), so a face edit rides the seat's own domain too.
+[[rules]]
+match = "scripts/ui/auto_seal.gd*"
+domain = "auto"
+
 # The seat's action log: the plate under the cartouche and the whole-log sheet
 # its seal opens. Both are Auto chrome, so they ride the seat's own domain.
 [[rules]]
