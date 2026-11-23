@@ -55,7 +55,7 @@ static func commit_label() -> String:
 
 
 static func platform_label() -> String:
-	return "%s %s" % [OS.get_name(), OS.get_version()]
+	return PlaytestPlatform.label()
 
 
 ## UTC, so a report filed from any timezone names the same moment.

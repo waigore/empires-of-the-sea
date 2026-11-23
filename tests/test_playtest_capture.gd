@@ -55,7 +55,7 @@ func test_meta_carries_session_parameters() -> void:
 	assert_eq(str(meta["region"]), "Old World", "the region is named")
 	assert_eq(str(meta["build"]), GameVersion.as_string(), "the build is named")
 	assert_eq(str(meta["commit"]), "dev", "an unbaked build says dev")
-	assert_true(str(meta["platform"]).contains(OS.get_name()), "the platform is named")
+	assert_eq(str(meta["platform"]), PlaytestPlatform.label(), "the platform is named")
 	assert_eq(str(meta["timestamp"]), "2026-11-23T05:13:17", "the stamp is kept")
 
 
@@ -217,6 +217,17 @@ func _capture() -> PlaytestCapture:
 
 func test_capture_is_supported_on_desktop() -> void:
 	assert_true(PlaytestCapture.supported(), "the CI host is a desktop")
+	assert_true(PlaytestPlatform.is_desktop(), "the platform says desktop too")
+
+
+func test_platform_label_names_the_os() -> void:
+	assert_true(PlaytestPlatform.label().length() > 2, "the report names the OS")
+	assert_true(PlaytestPlatform.label().contains(" "), "the OS line carries a version")
+
+
+func test_platform_reports_a_headless_display_in_the_suite() -> void:
+	# gd-tools always boots a headless Godot, so no drawable frame exists here.
+	assert_false(PlaytestPlatform.has_display(), "the suite has no drawable frame")
 
 
 func test_toggle_creates_the_session_and_report() -> void:

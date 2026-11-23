@@ -2,7 +2,7 @@
 
 Index for product and process docs. Entry: [`../AGENTS.md`](../AGENTS.md).
 
-Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Lint: `python tools/lint_docs_words.py` (CI `docs-lint`).
+Root and `docs/` Markdown ≤ **500 words** (fenced code excluded). Lint: `python tools/lint_docs_words.py` (CI `docs-lint`).
 
 ## Product
 
@@ -53,8 +53,8 @@ Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Li
 |-----|---------|
 | [pull-requests.md](pull-requests.md) | PR rules: `gh`, required checks, merge |
 | [testing.md](testing.md) | Test + e2e budgets (≤5 min / ≤5 min) |
-| [android-build.md](android-build.md) | Android export presets, local build, signing |
-| [android-debug.md](android-debug.md) | Debug APK via PR into `android-debug` |
-| [agent-debug.md](agent-debug.md) | Localhost agent debug bridge: enable flag, ops, adb forward |
-| [playtest-capture.md](playtest-capture.md) | Desktop capture mode: screenshots, video, comments, report |
-| [skills.md](skills.md) | Project skills; Cursor/OpenCode/Grok facades; Hermes via `.agents` |
+| [android-build.md](android-build.md) | Android presets, local build, signing |
+| [android-debug.md](android-debug.md) | Debug APK via `android-debug` PR |
+| [agent-debug.md](agent-debug.md) | Debug bridge: flag, ops, adb forward |
+| [playtest-capture.md](playtest-capture.md) | Capture mode: shots, video, comments, report |
+| [skills.md](skills.md) | Skills; Cursor/OpenCode/Grok facades; Hermes via `.agents` |

@@ -38,7 +38,7 @@ var _pending_comment: int = -1
 
 ## Mobile is out of scope for v1: the mode never mounts there.
 static func supported() -> bool:
-	return not OS.has_feature("mobile")
+	return PlaytestPlatform.is_desktop()
 
 
 func _ready() -> void:
@@ -118,7 +118,7 @@ func capture_screenshot() -> void:
 func _grab() -> Image:
 	# Headless CI has no drawable frame: answer at once instead of waiting for
 	# a `frame_post_draw` that never comes.
-	if DisplayServer.get_name() == "headless":
+	if not PlaytestPlatform.has_display():
 		return null
 	await RenderingServer.frame_post_draw
 	var viewport: Viewport = get_viewport()
