@@ -199,7 +199,7 @@ static func dress(
 	button.tooltip_text = tip
 	button.focus_mode = Control.FOCUS_ALL
 	button.add_theme_stylebox_override(
-		"normal", _plaque(Color(0.13, 0.10, 0.07, 0.58), Color(0.54, 0.43, 0.12, 0.55))
+		"normal", _plaque(Color(0.13, 0.10, 0.07, 0.58), Palette.with_alpha(Palette.GOLD_DIM, 0.55))
 	)
 	button.add_theme_stylebox_override(
 		"hover", _plaque(Color(0.22, 0.17, 0.11, 0.88), Palette.GOLD)
@@ -208,7 +208,7 @@ static func dress(
 		"pressed", _plaque(Color(0.09, 0.07, 0.05, 0.95), Palette.GOLD_PALE)
 	)
 	button.add_theme_stylebox_override(
-		"disabled", _plaque(Color(0.13, 0.10, 0.07, 0.58), Color(0.54, 0.43, 0.12, 0.55))
+		"disabled", _plaque(Color(0.13, 0.10, 0.07, 0.58), Palette.with_alpha(Palette.GOLD_DIM, 0.55))
 	)
 	button.add_theme_stylebox_override(
 		"focus", _plaque(Color(0.0, 0.0, 0.0, 0.0), Palette.GOLD_PALE)
@@ -263,13 +263,13 @@ static func _chip(name_text: String, icon_kind: String, caption: String, delta: 
 	button.set_meta("wide_column", 74.0 if delta else 48.0)
 	button.set_meta("compact_column", 36.0 if delta else 24.0)
 	button.add_theme_stylebox_override(
-		"normal", _plaque(Color(0.16, 0.13, 0.09, 0.70), Color(0.54, 0.43, 0.12, 0.50))
+		"normal", _plaque(Color(0.16, 0.13, 0.09, 0.70), Palette.with_alpha(Palette.GOLD_DIM, 0.50))
 	)
 	button.add_theme_stylebox_override(
 		"hover", _plaque(Color(0.24, 0.19, 0.12, 0.92), Palette.GOLD)
 	)
 	button.add_theme_stylebox_override(
-		"pressed", _plaque(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_PALE)
+		"pressed", _plaque(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_PALE)
 	)
 	button.add_theme_stylebox_override(
 		"focus", _plaque(Color(0.0, 0.0, 0.0, 0.0), Palette.GOLD_PALE)

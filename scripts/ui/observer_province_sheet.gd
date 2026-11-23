@@ -52,7 +52,7 @@ func _build() -> void:
 	frame.add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4,
+			Palette.with_alpha(Palette.PARCHMENT, 0.97), Palette.GOLD_DIM, 1, 4,
 			Vector4(16, 14, 16, 14)
 		)
 	)
@@ -86,12 +86,12 @@ func _build() -> void:
 	head.realm_button.visible = false
 
 	_column.add_child(_caption(CAPTION, Palette.TEXT_DIM, 11))
-	_column.add_child(_divider())
+	_column.add_child(UiRowBuilder.rule())
 
 	grid = ProvinceFactsGrid.new()
 	_column.add_child(grid)
 
-	_column.add_child(_divider())
+	_column.add_child(UiRowBuilder.rule())
 
 	_column.add_child(_caption(DEFENCE_CAPTION, Palette.TEXT_DIM, 11))
 	band_label = _caption("", Palette.GOLD_PALE, 14)
@@ -99,26 +99,14 @@ func _build() -> void:
 	defence_label = _caption("", Palette.TEXT, 13)
 	_column.add_child(defence_label)
 
-	_column.add_child(_divider())
+	_column.add_child(UiRowBuilder.rule())
 
 	estates = ProvinceResources.new()
 	_column.add_child(estates)
 
 
 func _caption(text: String, ink: Color, size: int) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", ink)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return label
-
-
-func _divider() -> Control:
-	var line := ColorRect.new()
-	line.color = Color(0.83, 0.69, 0.22, 0.35)
-	line.custom_minimum_size = Vector2(0, 1)
-	return line
+	return UiRowBuilder.wrapped_line(text, size, ink)
 
 
 # --- reading -----------------------------------------------------------------

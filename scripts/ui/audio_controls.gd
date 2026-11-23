@@ -50,7 +50,7 @@ func _build_panel() -> void:
 	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	_panel.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(16, 12, 16, 14))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(16, 12, 16, 14))
 	)
 	add_child(_panel)
 

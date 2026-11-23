@@ -54,7 +54,7 @@ var _province_id: int = -1
 func _ready() -> void:
 	add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
 	)
 	_build()
 	get_viewport().size_changed.connect(_fit_to_viewport)
@@ -92,18 +92,18 @@ func _build() -> void:
 	_counsel = CounselLine.make(column)
 	_counsel.gate = func() -> bool: return _model != null and _province_id >= 0
 
-	column.add_child(_divider())
+	column.add_child(UiRowBuilder.rule())
 
 	_grid = ProvinceFactsGrid.new()
 	column.add_child(_grid)
 
-	column.add_child(_divider())
+	column.add_child(UiRowBuilder.rule())
 
 	_resources = ProvinceResources.new()
 	_resources.road_pressed.connect(_on_road_pressed)
 	column.add_child(_resources)
 
-	column.add_child(_divider())
+	column.add_child(UiRowBuilder.rule())
 
 	# The rail block sits under the estates: a railroad upgrades a road, so the
 	# press that lays one belongs beside the ground it serves (DR-20261117-10).
@@ -111,7 +111,7 @@ func _build() -> void:
 	_rail.rail_pressed.connect(_on_rail_pressed)
 	column.add_child(_rail)
 
-	column.add_child(_divider())
+	column.add_child(UiRowBuilder.rule())
 
 	_orders = ProvinceOrdersSection.new()
 	_orders.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
@@ -122,18 +122,18 @@ func _build() -> void:
 	spacer.custom_minimum_size = Vector2(0, 4)
 	column.add_child(spacer)
 
-	var hint := Label.new()
-	hint.text = "Civilians muster at the capital; estates are managed from the ledger."
-	hint.add_theme_font_size_override("font_size", 11)
-	hint.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.6))
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	var hint := UiRowBuilder.wrapped_line(
+		"Civilians muster at the capital; estates are managed from the ledger.",
+		11,
+		Palette.with_alpha(Palette.TEXT_DIM, 0.6)
+	)
 	column.add_child(hint)
 
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
 	shell.add_child(footer)
 
-	_dock = _icon_button("◀", "Dock left")
+	_dock = UiRowBuilder.small_button("◀", "Dock left")
 	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
 	footer.add_child(_dock)
 	_fit_to_viewport()
@@ -351,30 +351,3 @@ func _on_road_pressed(tile: Vector2i) -> void:
 ## map dispatches and the tile the block names can never drift apart.
 func _on_rail_pressed(tile: Vector2i) -> void:
 	action_pressed.emit("rail:%d,%d" % [tile.x, tile.y])
-
-
-func _divider() -> Control:
-	var line := ColorRect.new()
-	line.color = Color(0.83, 0.69, 0.22, 0.35)
-	line.custom_minimum_size = Vector2(0, 1)
-	return line
-
-
-func _make_button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 40)
-	button.add_theme_font_size_override("font_size", 15)
-	return button
-
-
-## A dock affordance is a glyph in the corner, never a titled bar: the dossier
-## itself is the subject, the side it opens on is housekeeping.
-func _icon_button(text: String, tip: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.tooltip_text = tip
-	button.custom_minimum_size = Vector2(40, 40)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	button.add_theme_font_size_override("font_size", 18)
-	return button

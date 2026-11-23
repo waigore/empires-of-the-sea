@@ -194,7 +194,7 @@ static func panel(height: float = 0.0) -> PanelContainer:
 	var frame := PanelContainer.new()
 	frame.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(28, 24, 28, 24))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(28, 24, 28, 24))
 	)
 	if height > 0.0:
 		frame.custom_minimum_size = Vector2(0.0, height)

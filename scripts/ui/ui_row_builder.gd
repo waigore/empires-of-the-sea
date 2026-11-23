@@ -101,6 +101,17 @@ static func small_button(text: String, tip: String) -> Button:
 	return out
 
 
+## The hairline that divides a dossier's blocks: the sheet's gold at a third
+## strength, so the rule reads on parchment without a second ink. A rule never
+## eats a scroll drag (REQ-P1-05).
+static func rule(ink: Color = Palette.GOLD_RULE) -> Control:
+	var line := ColorRect.new()
+	line.color = Color(ink.r, ink.g, ink.b, 0.35)
+	line.custom_minimum_size = Vector2(0, 1)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return line
+
+
 static func spacer(parent: Node, height: float = 10.0) -> void:
 	var pad := Control.new()
 	pad.custom_minimum_size = Vector2(0, height)
