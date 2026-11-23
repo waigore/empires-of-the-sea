@@ -12,8 +12,8 @@ place for the bookkeeping.
 ## Opening it
 
 **Realm** seals the bar (`T`) and the dossier's foot — the muster roll's
-sibling, same chrome and park ([`armies.md`](armies.md)). Chart switch
-(**OLD** / **NEW**) top-left.
+sibling, same chrome ([`armies.md`](armies.md)). Chart switch
+**OLD** / **NEW** top-left.
 
 ## The three views
 
@@ -24,9 +24,8 @@ sibling, same chrome and park ([`armies.md`](armies.md)). Chart switch
 | Connectivity | hops from the seat, the crown road | hops, near first; no-road last |
 
 Output is the harvest at **today's sell** (`WorldMarket.sell_price`), so no row
-invents a price. Defence is the battle's own terms — `side_strength` ×
-`ArmyModifiers.TERRAIN_DEFENCE` + `FortRules.emplaced_strength` — no second
-formula (`REQ-P2-03`). Towns, walls and hospitals ride them; the dossier raises each
+invents a price. Defence is the battle's own terms (`side_strength` × terrain
++ guns); no second formula (`REQ-P2-03`). Towns, walls and hospitals ride them; the dossier raises each
 ([`towns.md`](towns.md), [`walls.md`](walls.md), [`hospitals.md`](hospitals.md)).
 
 ## Filters
@@ -36,10 +35,9 @@ ungarrisoned and at-works tallies, and **Visit**.
 
 ## The court's own orders here
 
-One gold line names what the court would do here: the work its civilian pass
-would give crews and the hosts its land pass would send; an idle crew earns the
-gate (DR-20261121-19). The rail's presses wear the same read — the named raise
-leads with **▸** (DR-20261122-23).
+One gold line names what the court would do here: its civilian pass's work and
+its land pass's hosts; an idle crew earns the gate (DR-20261121-19). The rail's
+named raise leads with **▸** (DR-20261122-23).
 
 ## Across the realm
 
@@ -58,6 +56,8 @@ leads with **▸**; both passes are asked once. Neither line orders anything.
 | `scripts/map/map_play_realm_counsel.gd` | the realm's court reading |
 | `scripts/rules/province_hosts.gd` | the Hosts count |
 | `scripts/map/map_play_province_hosts.gd` | its session bind |
+| `scripts/rules/province_harbour.gd` | the Squadrons count |
+| `scripts/map/map_play_province_harbour.gd` | its session read |
 | `scripts/ui/province_ledger_panel.gd` | the sheet |
 | `scripts/ui/province_ledger_row.gd` | one province per view |
 | `scripts/ui/province_panel.gd` | the dossier and its reading |
@@ -74,8 +74,8 @@ Visit, back and key.
 ## The dossier's facts
 
 A tap opens the province: ground, harbour, town, roads, fort, **Wall**
-(DR-20261120-06), **Hosts** — every court's regiments there, the crown's own
-always, a rival's where the fog holds the province `fogged` or better
-(DR-20261123-13) — hospital and **Deeds**; empty rows hide. A Tribe shore with
-another crown's deed refuses an undeclared march in those words (`DeedBar`,
-DR-20261120-05).
+(DR-20261120-06), **Hosts** — every court's regiments, a rival's where the fog
+holds the province `fogged` or better (DR-20261123-13) — **Squadrons** — the
+same read for hulls (DR-20261123-14) — hospital and **Deeds**; empty rows hide.
+A Tribe shore with another crown's deed refuses an undeclared march in those
+words (`DeedBar`, DR-20261120-05).

@@ -168,3 +168,11 @@ static func _province(run, screen: MapScreen) -> void:
 		screen.play.economy.economy.recruits.is_empty(),
 		"the province reading queues nothing"
 	)
+	# The sheet also names the squadrons in the harbour — the hull count a crown
+	# may read in a charted port — or carries no row when none rides there
+	# (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-14).
+	var harbour: String = screen.hud.panels.panel.harbour_text()
+	run.check(
+		harbour.is_empty() or harbour.contains("hull"),
+		"the province sheet names the squadrons that ride its harbour"
+	)
