@@ -351,10 +351,6 @@ func refresh_map_views() -> void:
 	screen.refresh_map_views()
 
 
-func switch_region(index: int) -> void:
-	screen.switch_region(index)
-
-
 ## Turns, orders and map intents close for good once a victory is declared, the
 ## human crown falls, or the calendar cap closes the age (wiki: victory,
 ## turn-time-mapping).
