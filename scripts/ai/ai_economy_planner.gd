@@ -347,8 +347,18 @@ static func _reserve(recipe_id: String, runs: int, stock: Dictionary) -> void:
 ## mineral is never read, because a chart shows no unprospected ground
 ## (DR-20261111-26), so a court crosses the water for sugar cane and tobacco, not
 ## for a hill that may or may not hold tin.
+##
+## The treasury rides beside the workshop (issue #1382): once the court charts
+## the New World, the appetite carries the `economy.riches_route_weight` under
+## the `riches` key, and the colonisation planner weighs every charted
+## mineral-bearing coast on it — peaks, hills, swamp and desert, the ground an
+## Explorer can survey. The weight names no commodity and no deposit: what a
+## survey may uncover stays the fog's own read (DR-20261111-26), the court just
+## prefers to land where prospecting can pay. A court that has never charted the
+## New World reads no riches weight — there is no shore to weigh.
 static func ground_appetite(
-	config: AiConfig, economy: PlayerEconomy, town_level: int = 0
+	config: AiConfig, economy: PlayerEconomy, town_level: int = 0,
+	charts: CourtCharts = null
 ) -> Dictionary:
 	var appetite: Dictionary = {}
 	if config == null or economy == null:
@@ -365,7 +375,22 @@ static func ground_appetite(
 			if deficit <= 0:
 				continue
 			appetite[id] = int(appetite.get(id, 0)) + deficit
+	var weight: int = maxi(config.parameter("economy.riches_route_weight"), 0)
+	if weight > 0 and _charts_new_world(charts, config.faction):
+		appetite["riches"] = weight
 	return appetite
+
+
+## True when the court's own chart has reached the New World: its region-1 grid
+## holds at least one charted sea zone. A null chart is the fixture reading —
+## the crown has charted nothing, so no riches coast is named.
+static func _charts_new_world(charts: CourtCharts, owner: int) -> bool:
+	if charts == null:
+		return false
+	var view: VisibilityModel = charts.model_for(owner, WorldMap.NEW_WORLD)
+	if view == null:
+		return false
+	return not charts.known_zones(owner, WorldMap.NEW_WORLD).is_empty()
 
 
 ## Highest score first; recipe id breaks a tie so the plan is deterministic.
