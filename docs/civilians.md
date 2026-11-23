@@ -57,7 +57,7 @@ Units: explore, improve, colonize, spy.
 
 ## Deferred (REQ-P2-02)
 
-Workshop-coast landing live (DR-19-05); see [`deferred.md`](deferred.md).
+Workshop-coast + riches landing live (DR-19-05, DR-21); see [`deferred.md`](deferred.md).
 
 ## Architecture
 
