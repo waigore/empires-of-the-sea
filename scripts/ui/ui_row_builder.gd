@@ -101,6 +101,16 @@ static func small_button(text: String, tip: String) -> Button:
 	return out
 
 
+## A hairline between two blocks of a sheet: the dossier and the observatory's
+## province sheet divide their sections the same way (REQ-P3-01).
+static func rule(ink: Color, thickness: int = 1) -> Control:
+	var line := ColorRect.new()
+	line.color = ink
+	line.custom_minimum_size = Vector2(0, thickness)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return line
+
+
 static func spacer(parent: Node, height: float = 10.0) -> void:
 	var pad := Control.new()
 	pad.custom_minimum_size = Vector2(0, height)

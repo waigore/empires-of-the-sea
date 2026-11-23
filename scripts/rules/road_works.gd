@@ -121,6 +121,34 @@ static func plan(
 	return plan_out
 
 
+## The Build road plans for one province, keyed by tile: only the estates that
+## still need a road, so the dossier prints one press per row it can act on. The
+## crown network is resolved once for the whole province, so a sheet of five
+## estates costs one BFS (REQ-P4-01). `rows` is the estate survey the sheet
+## already holds, so the plan and the row it sits under read the same tiles.
+static func province_plans(
+	model: MapModel,
+	works: LandWorks,
+	units: Array[CivilianState],
+	owner: int,
+	capital_tile: Vector2i,
+	rows: Array[Dictionary]
+) -> Dictionary:
+	var plans: Dictionary = {}
+	if model == null or works == null or owner < 0:
+		return plans
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, owner, capital_tile
+	)
+	for row: Dictionary in rows:
+		var plan_out: Dictionary = plan(
+			model, works, units, owner, capital_tile, row["tile"], resolved
+		)
+		if bool(plan_out["needed"]):
+			plans[row["tile"]] = plan_out
+	return plans
+
+
 ## Dispatch the nearest idle Engineer onto the first tile of the route.
 ## Returns {ok, message}. Every gate and cost stays in CivilianWork.
 static func dispatch(

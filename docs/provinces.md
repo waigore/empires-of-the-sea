@@ -57,7 +57,7 @@ with **▸**, both passes asked once. Neither line orders anything.
 | `scripts/rules/province_hosts.gd`, `scripts/map/map_play_province_hosts.gd` | the Hosts count and its bind |
 | `scripts/rules/province_harbour.gd`, `scripts/map/map_play_province_harbour.gd` | the Squadrons count and its read |
 | `scripts/ui/province_ledger_panel.gd`, `province_ledger_row.gd` | the sheet and one row per view |
-| `scripts/ui/province_panel.gd`, `province_resources.gd`, `scripts/map/map_play_province_harvest.gd` | the dossier, its estate block, the harvest |
+| `scripts/ui/province_panel.gd`, `province_sheet_shell.gd`, `province_resources.gd`, `scripts/map/map_play_province_harvest.gd` | the dossier, its frame, its estate block, the harvest |
 | `scripts/ui/province_orders_section.gd`, `province_raise_presses.gd`, `province_muster_block.gd`, `press_marks.gd` | the rail, presses, craft rows, marks |
 
 ## Tests

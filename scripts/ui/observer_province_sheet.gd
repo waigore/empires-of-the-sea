@@ -19,6 +19,8 @@ const MARGIN: float = 12.0
 ## A wide chart gives the sheet a column; a phone gives it the screen.
 const WIDE_WIDTH: float = 380.0
 const DEFENCE_CAPTION: String = "DEFENCE"
+## The gold hairline between the sheet's blocks, the dossier's own rule.
+const DIVIDER_INK: Color = Color(0.83, 0.69, 0.22, 0.35)
 
 var frame: PanelContainer = null
 var head: ProvinceSheetHead = null
@@ -86,12 +88,12 @@ func _build() -> void:
 	head.realm_button.visible = false
 
 	_column.add_child(_caption(CAPTION, Palette.TEXT_DIM, 11))
-	_column.add_child(_divider())
+	_column.add_child(UiRowBuilder.rule(DIVIDER_INK))
 
 	grid = ProvinceFactsGrid.new()
 	_column.add_child(grid)
 
-	_column.add_child(_divider())
+	_column.add_child(UiRowBuilder.rule(DIVIDER_INK))
 
 	_column.add_child(_caption(DEFENCE_CAPTION, Palette.TEXT_DIM, 11))
 	band_label = _caption("", Palette.GOLD_PALE, 14)
@@ -99,7 +101,7 @@ func _build() -> void:
 	defence_label = _caption("", Palette.TEXT, 13)
 	_column.add_child(defence_label)
 
-	_column.add_child(_divider())
+	_column.add_child(UiRowBuilder.rule(DIVIDER_INK))
 
 	estates = ProvinceResources.new()
 	_column.add_child(estates)
@@ -112,13 +114,6 @@ func _caption(text: String, ink: Color, size: int) -> Label:
 	label.add_theme_color_override("font_color", ink)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return label
-
-
-func _divider() -> Control:
-	var line := ColorRect.new()
-	line.color = Color(0.83, 0.69, 0.22, 0.35)
-	line.custom_minimum_size = Vector2(0, 1)
-	return line
 
 
 # --- reading -----------------------------------------------------------------
