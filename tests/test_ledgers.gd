@@ -44,8 +44,8 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	# Projection cases never wake the shared chart; an idle MapScreen still
-	# runs HUD/fog under coverage (docs/testing.md § Speed rules).
+	# Snapshot-only cases never call `_attach()`; park so idle HUD/fog work
+	# does not run under every pure case (docs/testing.md § Speed rules).
 	Fixture.park_screen(screen)
 
 
@@ -3274,6 +3274,71 @@ func test_only_the_marches_that_fight_spend_a_commander() -> void:
 	)
 
 
+## The fights the command line names are printed on THE CROWN'S ARMY, where the
+## standards they lead wear the counsel's mark, so the sheet carries the door
+## that opens it — standing only while the reading names a fight
+## (wiki: military-generals § The hosts the court would lead; DR-20261123-06;
+## REQ-P5-01, REQ-P5-03, REQ-P5-06).
+func test_the_command_line_carries_the_door_to_the_fights_it_names() -> void:
+	# Pure: a reading that names a host leads, an empty read and the gate do not.
+	assert_false(MapPlayCommandPick.leads({}), "no reading, no door")
+	assert_false(
+		MapPlayCommandPick.leads(MapPlayCommandPick.of(0, 2, 2)),
+		"a gate names no fight"
+	)
+	assert_true(MapPlayCommandPick.leads(MapPlayCommandPick.of(2, 1, 2)))
+	assert_true(
+		MapPlayCommandPick.leads(MapPlayCommandPick.of(1, 0, 0)),
+		"a host with no commander is still a fight"
+	)
+
+	_attach()
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	assert_true(panel.is_open())
+	assert_not_null(panel.army_press(), "the sheet carries the door")
+	assert_eq(panel.army_press().text, CommandLedgerPanel.ARMY_DOOR)
+	assert_true(
+		panel.army_press().tooltip_text.contains("THE CROWN'S ARMY"),
+		"the door names the sheet it opens"
+	)
+	# A reading of no fight stands the press down with its line.
+	panel._counsel.show_value(MapPlayCommandPick.of(0, 1, 2))
+	panel._sync_army_door()
+	assert_false(panel.army_press_shown(), "no fight, no door")
+	# A reading that names fights stands it under the line.
+	panel._counsel.show_value(MapPlayCommandPick.of(2, 1, 2))
+	panel._sync_army_door()
+	assert_true(panel.army_press_shown(), "a named fight carries the door")
+
+
+## The door opens THE CROWN'S ARMY and this sheet steps aside, so the crown reads
+## the page the fights are marked on rather than two sheets at once — and an army
+## sheet already standing is left standing (DR-20261123-06; REQ-P5-01, REQ-P5-07).
+func test_the_command_door_opens_the_army_and_steps_aside() -> void:
+	_attach()
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	var keys: Array[String] = []
+	panel.door_pressed.connect(func(key: String) -> void: keys.append(key))
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	panel._counsel.show_value(MapPlayCommandPick.of(2, 1, 2))
+	panel._sync_army_door()
+	panel.army_press().pressed.emit()
+	assert_eq(keys.size(), 1, "one door press")
+	assert_eq(keys[0], HudLedgerDoors.ARMY, "the door names the army sheet")
+	assert_true(screen.hud.army_ledger.is_open(), "the door opens THE CROWN'S ARMY")
+	assert_false(panel.is_open(), "the command sheet steps aside for it")
+	# An army sheet already up stays up: the press does not toggle it shut.
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	assert_true(panel.is_open())
+	panel._counsel.show_value(MapPlayCommandPick.of(2, 1, 2))
+	panel._sync_army_door()
+	panel.army_press().pressed.emit()
+	assert_true(screen.hud.army_ledger.is_open(), "a sheet already up stays up")
+	assert_false(panel.is_open())
+	screen.hud.army_ledger.close()
+
+
 ## The line names the fights, not only their number: the standard the army sheet
 ## prints and the ground its order storms or relieves, three named and the rest
 ## counted, with the pool's answer after them (wiki: military-generals § The hosts
@@ -3593,6 +3658,145 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 	row.visit_pressed.disconnect(visit)
 	assert_true(BackRequest.handle(play, play.improvements), "back walks the sheets")
 	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+## --- the colonies' own reading (DR-20261121-16) -----------------------------
+
+
+## The door the line's own court answers (DR-20261123-05): a reading that names a
+## Tribe opens it; a footing that shuts new chains names no court and opens
+## nothing, so the press can never promise a sheet the sentence does not name.
+func test_the_colonies_door_names_the_court_its_line_opens() -> void:
+	var tribe: int = _colony_tribe()
+	var chain: Dictionary = MapPlayColonyPick.of(
+		{"target": tribe, "stage": DiplomacyCatalog.STAGE_CONSULATE}, {}
+	)
+	assert_eq(String(chain["kind"]), MapPlayColonyPick.KIND_CHAIN)
+	assert_eq(MapPlayColonyPick.door(chain), tribe, "the chain's own court")
+	var gate: Dictionary = MapPlayColonyPick.gated(
+		{"target": tribe, "stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE}, "a reason"
+	)
+	assert_eq(MapPlayColonyPick.door(gate), tribe, "a refused link still names its court")
+	var study: Dictionary = MapPlayColonyPick.of(
+		{"target": tribe, "stage": DiplomacyCatalog.STAGE_EMBASSY}, {}
+	)
+	assert_eq(String(study["kind"]), MapPlayColonyPick.KIND_STUDY)
+	assert_eq(MapPlayColonyPick.door(study), tribe, "the door the chain owes names its court")
+	# A footing that shuts new chains names no court, and nothing names none.
+	assert_eq(
+		MapPlayColonyPick.door({"kind": MapPlayColonyPick.KIND_CLOSED, "line": "x"}),
+		-1,
+		"a shut footing opens no door"
+	)
+	assert_eq(MapPlayColonyPick.door({}), -1, "no reading, no door")
+
+
+## The door on a live sheet: the press stands only while the line names a court,
+## it opens THE COURT on that court, and the colony sheet steps aside so the
+## envoy rows are what the crown reads (DR-20261123-05; REQ-P5-01, REQ-P5-05).
+func test_the_colonies_door_opens_the_court_the_line_names() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var faction: int = play.player_faction
+	var model: MapModel = Fixture.region()
+	var tribe: int = _colony_tribe()
+	var seat: int = Fixture.inland_province(model)
+	model.province_data(seat).owner = tribe
+	play.economy.economy.treasury = 50000
+	play.diplomacy.ensure_relation(faction, tribe, play.turn)
+	play.diplomacy.relation(faction, tribe).score = 40.0
+	play.diplomacy.set_overture(faction, tribe, DiplomacyCatalog.STAGE_NAP)
+	# The envoy has already been to this court, so the reading names the gate and
+	# keeps the Tribe: a door with nothing to promise still opens the sheet.
+	play.diplomacy.claim(faction, tribe, "overture")
+	play.ensure_ai()
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	assert_true(panel.is_open(), "the colonies sheet is up")
+	panel.refresh()
+	var pick: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(int(pick.get("target", -1)), tribe, "the reading names the Tribe")
+	var press: Button = panel.follow_press()
+	assert_not_null(press, "the sheet carries its door")
+	assert_true(press.visible, "the door stands while the line names a court")
+	assert_eq(panel.door_court(), tribe, "the door names the court the line names")
+	assert_true(
+		press.tooltip_text.contains(FactionCatalog.name_of(tribe)),
+		"the door says which court it opens"
+	)
+	# The one gate a court sheet answers, so a door never promises a sheet it
+	# cannot stand on (REQ-P5-05).
+	assert_true(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, faction, tribe),
+		"a contacted court can be stood on"
+	)
+	assert_false(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, faction, -1), "no court, no sheet"
+	)
+	assert_false(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, faction, faction),
+		"the crown's own court is no envoy target"
+	)
+	press.pressed.emit()
+	assert_true(
+		screen.hud.panels.is_diplomacy_open(), "the door opens THE COURT"
+	)
+	assert_eq(
+		screen.hud.panels.diplomacy_panel.selected_faction(), tribe,
+		"THE COURT stands on the court the line named"
+	)
+	assert_false(panel.is_open(), "the colony sheet steps aside for it")
+	DiplomacyHud.hide(screen.hud.panels)
+
+
+## The door's guards (DR-20261123-05): a sheet whose body never built carries no
+## press, a reading that names no court opens nothing, and a court the crown
+## cannot stand on answers in a toast rather than in silence (REQ-P5-05).
+func test_a_door_with_no_court_says_so_and_opens_nothing() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var bare := ColonyLedgerPanel.new()
+	bare._sync_follow()
+	assert_null(bare.follow_press(), "a sheet with no body carries no door")
+	bare._on_follow()
+	assert_false(screen.hud.panels.is_diplomacy_open(), "no court named, no sheet")
+	bare.free()
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	var stranger: int = _court_never_met()
+	assert_true(stranger >= 0, "the fixture leaves a court the crown never met")
+	assert_false(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, play.player_faction, stranger),
+		"a court never met cannot be stood on"
+	)
+	panel._pick = {"kind": MapPlayColonyPick.KIND_CHAIN, "target": stranger}
+	# The lane holds its lines while a sheet covers it, which is where the door's
+	# answer is read: a toast under an open roll waits its turn.
+	screen.hud.despatches.set_covered(true)
+	panel._on_follow()
+	# Read the lane before it is uncovered: releasing it prints the held line.
+	var said: PackedStringArray = screen.hud.despatches.waiting()
+	screen.hud.despatches.set_covered(false)
+	assert_false(
+		screen.hud.panels.is_diplomacy_open(), "a stranger opens no court sheet"
+	)
+	assert_true(panel.is_open(), "the roll stays up rather than closing on nothing")
+	assert_false(said.is_empty(), "the door answers in a toast, never in silence")
+	if not said.is_empty():
+		assert_true(
+			String(said[said.size() - 1]).contains(FactionCatalog.name_of(stranger)),
+			"the toast names the court it could not open"
+		)
+	panel.close()
+	assert_false(MapPlayDiplomacy.open_court(null, 0), "no session, no court sheet")
+
+
+## The first Tribe the crown holds no relation with.
+func _court_never_met() -> int:
+	for tribe: int in FactionCatalog.tribe_ids():
+		if not screen.play.diplomacy.has_relation(screen.play.player_faction, tribe):
+			return tribe
+	return -1
 
 
 ## --- the colonies' own reading (DR-20261121-16) -----------------------------
@@ -5679,16 +5883,22 @@ func test_the_summary_names_where_nothing_stands() -> void:
 
 ## The note quotes the fort table itself (issue #1314's ladder: 40 × level wall
 ## HP, one gun a level), so a crown never reads a ladder the combat would not
-## fight (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery).
+## fight (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery). The
+## note prints one figure per rung the table holds: a three-value note beside a
+## five-level ladder told a crown the line topped out at Modern.
 func test_the_rule_note_states_what_a_wall_buys() -> void:
 	var note: String = WallLedger.rule_note()
+	var rungs: PackedStringArray = PackedStringArray()
+	for level in range(1, FortRules.MAX_LEVEL + 1):
+		rungs.append(str(roundi(FortRules.wall_hp(level))))
 	assert_true(
-		note.contains("%d / %d / %d wall hp" % [
-			roundi(FortRules.wall_hp(1)),
-			roundi(FortRules.wall_hp(2)),
-			roundi(FortRules.wall_hp(3)),
-		]),
-		"the wall's soak is the fort table's own: " + note
+		note.contains("%s wall hp" % " / ".join(rungs)),
+		"every rung of the wall's soak is printed, top of the ladder included: " + note
+	)
+	assert_eq(FortRules.MAX_LEVEL, 5, "the ladder the note is held to")
+	assert_true(
+		note.contains(str(roundi(FortRules.wall_hp(FortRules.MAX_LEVEL)))),
+		"the Star wall's 200 hp is among the figures: " + note
 	)
 	assert_true(
 		note.contains("1–%d emplaced guns" % FortRules.guns(FortRules.MAX_LEVEL)),

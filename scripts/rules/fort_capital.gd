@@ -16,17 +16,22 @@ extends RefCounted
 ##
 ## The bump reads the highest level its unlocks grant and only ever lifts the
 ## crown's **own** capital — the seat that mustered the realm's army — through
-## the line: Stone with Mine Engineering, Modern with Modern Forts, Bastion
-## with Bastion Forts, Star with Star Forts. Minors never receive it: their
-## walls are what an Engineer builds.
+## the line: Modern with Modern Forts, Bastion with Bastion Forts, Star with Star
+## Forts. Mine Engineering is **not** one of the steps: the start grant already
+## opens every capital at Stone, so its Stone is the wall the campaign began
+## with, never a raise owed later (wiki: siege-mechanics § Fort Levels — "Mine
+## Engineering's Stone step is already the start wall"; a capital taken down by a
+## siege is not restored). Minors never receive it: their walls are what an
+## Engineer builds.
 
 ## Start level of every Old World province of a walled crown (#1314).
 const START_LEVEL: int = 1
 ## Start level of an Old World capital, seat of the realm's army (#1314).
 const CAPITAL_START_LEVEL: int = 2
 ## Tech id -> the level its unlock raises the crown's own capital to, once.
+## Mine Engineering is deliberately absent: its Stone step is the start grant,
+## so researching it lifts nothing (wiki: siege-mechanics § Fort Levels).
 const LEVELS: Dictionary = {
-	"mine_engineering": 2,
 	"modern_forts": 3,
 	"bastion_forts": 4,
 	"star_forts": 5,

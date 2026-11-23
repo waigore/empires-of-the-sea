@@ -37,6 +37,36 @@ static func counsel(play: PlaySession) -> Dictionary:
 	return MapPlayDiplomacyPick.picks(play)
 
 
+## THE COURT on one court: the sheet a counsel line's own door opens, so a line
+## that names a court — THE COLONIES' chain does — has its presses one tap away
+## (wiki: diplomacy § The crown's own envoy; DR-20261123-05; REQ-P5-01,
+## REQ-P5-03). Reads only: it declares, offers, boycotts and signs nothing.
+##
+## Returns false when the crown is not in contact with that court (or a session
+## has no court sheet), so the caller can say so rather than leave the press
+## silent (REQ-P5-05).
+static func open_court(play: PlaySession, court: int) -> bool:
+	if play == null or play.hud == null or play.observer_mode:
+		return false
+	if not can_open_court(play.diplomacy, play.player_faction, court):
+		return false
+	open(play)
+	var panel: DiplomacyPanel = play.hud.panels.diplomacy_panel
+	if panel == null:
+		return false
+	panel.select_faction(court)
+	return true
+
+
+## Whether THE COURT can stand on one court: the crown holds a relation with it —
+## the one gate `DiplomacyPanel.select_faction` answers, read here so a door never
+## promises a sheet it cannot stand on (REQ-P5-05).
+static func can_open_court(state: DiplomacyState, player: int, court: int) -> bool:
+	if state == null or court < 0 or court == player:
+		return false
+	return state.has_relation(player, court)
+
+
 ## The published power score for every crown, from the public order of battle
 ## `MapPlayCourt` reads once. The panel compares each court against the reader
 ## with it; no screen reads an army or a hull itself.

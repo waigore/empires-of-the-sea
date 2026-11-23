@@ -117,16 +117,20 @@ static func level_text(level: int) -> String:
 ## (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery). Every figure
 ## is the fort table's own — the wall HP a level soaks and the guns it mounts —
 ## so the note can never quote a ladder the combat would not fight (#1314's
-## 40 × level and one gun a level).
+## 40 × level and one gun a level). The ladder is walked to
+## `FortRules.MAX_LEVEL`, so a rung the table gains is printed without this note
+## being edited: three values out of five told a crown the top of the line was a
+## Modern wall.
 static func rule_note() -> String:
+	var rungs: PackedStringArray = PackedStringArray()
+	for level in range(1, FortRules.MAX_LEVEL + 1):
+		rungs.append(str(roundi(FortRules.wall_hp(level))))
 	return (
-		"A wall soaks the attack before it tells: %d / %d / %d wall hp by level, "
+		"A wall soaks the attack before it tells: %s wall hp by level, "
 		+ "and 1–%d emplaced guns that fire with the garrison. The last gun falls "
 		+ "even when an assault is repelled, so a wall is worth the turn it takes."
 	) % [
-		roundi(FortRules.wall_hp(1)),
-		roundi(FortRules.wall_hp(2)),
-		roundi(FortRules.wall_hp(3)),
+		" / ".join(rungs),
 		FortRules.guns(FortRules.MAX_LEVEL),
 	]
 

@@ -2,7 +2,7 @@ class_name TechIcons
 extends RefCounted
 ## One brass medallion per research series (assets/art/tech), generated in the
 ## shell's family so the college ledger reads as one artefact (REQ-P1-02;
-## tools/art/tech-medallions.md). A tech chain shares one plate, so a 113-tech
+## tools/art/tech-medallions.md). A tech chain shares one plate, so a 115-tech
 ## catalog needs a few dozen images rather than one each.
 
 const DIR: String = "res://assets/art/tech/"
