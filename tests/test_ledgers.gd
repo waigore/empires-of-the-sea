@@ -5883,16 +5883,22 @@ func test_the_summary_names_where_nothing_stands() -> void:
 
 ## The note quotes the fort table itself (issue #1314's ladder: 40 × level wall
 ## HP, one gun a level), so a crown never reads a ladder the combat would not
-## fight (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery).
+## fight (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery). The
+## note prints one figure per rung the table holds: a three-value note beside a
+## five-level ladder told a crown the line topped out at Modern.
 func test_the_rule_note_states_what_a_wall_buys() -> void:
 	var note: String = WallLedger.rule_note()
+	var rungs: PackedStringArray = PackedStringArray()
+	for level in range(1, FortRules.MAX_LEVEL + 1):
+		rungs.append(str(roundi(FortRules.wall_hp(level))))
 	assert_true(
-		note.contains("%d / %d / %d wall hp" % [
-			roundi(FortRules.wall_hp(1)),
-			roundi(FortRules.wall_hp(2)),
-			roundi(FortRules.wall_hp(3)),
-		]),
-		"the wall's soak is the fort table's own: " + note
+		note.contains("%s wall hp" % " / ".join(rungs)),
+		"every rung of the wall's soak is printed, top of the ladder included: " + note
+	)
+	assert_eq(FortRules.MAX_LEVEL, 5, "the ladder the note is held to")
+	assert_true(
+		note.contains(str(roundi(FortRules.wall_hp(FortRules.MAX_LEVEL)))),
+		"the Star wall's 200 hp is among the figures: " + note
 	)
 	assert_true(
 		note.contains("1–%d emplaced guns" % FortRules.guns(FortRules.MAX_LEVEL)),
