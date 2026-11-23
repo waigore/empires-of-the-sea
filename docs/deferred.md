@@ -1,7 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1408 (REQ-P2-02).
-Default pick: largest gap, then REQ/wiki.
+Audited through #1412 (REQ-P2-02). Largest gap, then REQ/wiki.
 
 ## Already live
 
@@ -44,29 +43,29 @@ Default pick: largest gap, then REQ/wiki.
 
 ## Gaps (ranked)
 
-None.
+1. **Province harbour / Squadrons** — DR-20261123-14 dossier hull counts at a
+   charted port; no `ProvinceHarbour` on main (#1408 shipped Hosts).
 
 ## Next pick
 
-None; see `docs/rubric.md` / wiki.
+Province harbour / Squadrons (DR-20261123-14).
 
 ## Blocked
 
 - Predict-the-line (DR-12-02); era — no model (DR-11-08).
 - Healing at 0; last-known OOB (DR-12-04/09); general-grade trains (DR-12-07).
-- Soft priority weight — seed (DR-13-15). Phase resource-need reweight —
-  none; money-goal live (DR-16-09). War-desire need live (above).
+- Soft priority weight — seed (DR-13-15). Money-goal live (DR-16-09).
 - Alt victory, difficulty extras, ruleset loaders/borrowing, warehousing,
   loans — out of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
-- Cross-station folds / passenger transfers — out of scope. Further tongues
-  (DR-13-12); 30% floor data-gated (DR-15-18). QB placed figures / per-wing
-  orders — out of scope (DR-17-08).
+- Cross-station folds / passenger transfers; further tongues (DR-13-12);
+  30% floor data-gated (DR-15-18); QB placed figures / per-wing orders
+  (DR-17-08) — out of scope.
 
 ## Wiki drift
 
-`DR-20261111-05` Deferred still names Tribe contact and fleetless crowns;
-both live. `capital-choice-phase` “UI deferred” — stale; chart live. Soft
-weight seed (DR-13-15). Treasury-recovery / domain-dispatch “seed” —
-stale (DR-16-09; `SLOT_MARKET`/`SLOT_NAVAL`). #1400–#1408 — not backlog.
+`DR-20261111-05` still names Tribe contact and fleetless crowns (both live).
+`capital-choice-phase` “UI deferred” — stale. Soft weight (DR-13-15);
+treasury/domain “seed” (DR-16-09) — stale. DR-20261123-14 Impact names code
+not on main. #1409–#1412 — not backlog.

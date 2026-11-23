@@ -74,7 +74,7 @@ No node deps (`REQ-P3-03`).
 
 ## Deferred
 
-None — [`deferred.md`](deferred.md).
+See [`deferred.md`](deferred.md).
 
 ## Tests
 
