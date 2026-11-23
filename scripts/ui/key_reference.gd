@@ -151,7 +151,7 @@ static func groups() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for raw: Variant in GROUPS:
 		out.append(_resolve(raw as Dictionary))
-	if not OS.has_feature("mobile"):
+	if not PlatformHost.is_mobile():
 		for raw: Variant in DESKTOP_GROUPS:
 			out.append(_resolve(raw as Dictionary))
 	return out
@@ -196,7 +196,7 @@ static func primary(action: String) -> String:
 		var key := event as InputEventKey
 		if key == null:
 			continue
-		return OS.get_keycode_string(key.physical_keycode)
+		return PlatformHost.key_label(key)
 	return ""
 
 

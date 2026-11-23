@@ -55,6 +55,6 @@ static func refresh(
 static func copy_seed(shown_seed: int, status: Label) -> void:
 	if shown_seed == 0:
 		return
-	DisplayServer.clipboard_set(str(shown_seed))
+	PlatformHost.set_clipboard(str(shown_seed))
 	if status != null:
 		status.text = "Seed copied."

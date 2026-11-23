@@ -955,10 +955,9 @@ func test_every_dock_button_is_a_bare_glyph() -> void:
 	for i in range(1, panels.size()):
 		add_child(panels[i])
 	for panel: Variant in panels:
-		# Force dossiers keep the seal on their shared header; the sheets that
-		# still own it expose `_dock` directly.
-		var header: DossierHeader = panel.get("_header") as DossierHeader
-		var dock: Button = header.dock if header != null else panel.get("_dock") as Button
+		# Force dossiers keep the seal on their shared header, the province
+		# dossier on its shell, and the sheets that still own it expose `_dock`.
+		var dock: Button = _dock_of(panel)
 		assert_true(dock != null, "%s has a dock button" % panel.get_class())
 		panel.set_dock_affordance("▶", "Dock right")
 		assert_eq(dock.text, "▶", "the glyph and nothing else")
@@ -969,6 +968,44 @@ func test_every_dock_button_is_a_bare_glyph() -> void:
 		)
 	for i in range(1, panels.size()):
 		(panels[i] as Node).free()
+
+
+## The one dock seal a dossier wears, wherever its chrome keeps it.
+func _dock_of(panel: Variant) -> Button:
+	var header: DossierHeader = panel.get("_header") as DossierHeader
+	if header != null:
+		return header.dock
+	var shell: ProvinceSheetShell = panel.get("_shell") as ProvinceSheetShell
+	if shell != null:
+		return shell.dock
+	return panel.get("_dock") as Button
+
+
+## The dossier's frame prints its sections in reading order — head, the court's
+## line, the facts, the estates, the rail, the orders — and the dock seal under
+## them asks the panel to change sides (REQ-P3-01, REQ-P3-02).
+func test_the_dossier_shell_prints_its_sections_in_reading_order() -> void:
+	_setup_province_panel()
+	var shell: ProvinceSheetShell = _province_panel_panel._shell
+	assert_true(shell != null, "the dossier wears its own frame")
+	var order: Array[Node] = shell.column.get_children()
+	var wanted: Array[Node] = [
+		_province_panel_panel._head,
+		_province_panel_panel._counsel,
+		_province_panel_panel._grid,
+		_province_panel_panel._resources,
+		_province_panel_panel._rail,
+		_province_panel_panel._orders,
+	]
+	var at: int = 0
+	for node: Node in order:
+		if at < wanted.size() and node == wanted[at]:
+			at += 1
+	assert_eq(at, wanted.size(), "every section stands in reading order")
+	var heard: Array[bool] = []
+	_province_panel_panel.dock_side_pressed.connect(func() -> void: heard.append(true))
+	shell.dock.pressed.emit()
+	assert_eq(heard.size(), 1, "the shell's seal asks the panel to change sides")
 
 func _show(tech: Dictionary = {}) -> void:
 	_province_panel_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, tech)
@@ -2621,6 +2658,43 @@ func test_the_plan_reads_the_network_the_dossier_handed_in() -> void:
 	assert_eq(
 		(handed["route"] as Array).size(), (fresh["route"] as Array).size(),
 		"same route either way"
+	)
+
+
+## The whole province's Build road plans, keyed by tile: only the estates that
+## still need a road, so the dossier prints one press per row it can act on. The
+## network is resolved once for the sheet, not once per estate (REQ-P4-01).
+func test_the_province_plans_name_only_the_estates_that_need_a_road() -> void:
+	_setup_road_works()
+	var rows: Array[Dictionary] = [
+		{"tile": OFF_ROAD_TILE},
+		{"tile": LINKED_TILE},
+		{"tile": Fixture.BARE_TILE},
+	]
+	var plans: Dictionary = RoadWorks.province_plans(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, rows
+	)
+	assert_eq(plans.size(), 1, "one cut-off estate, one press")
+	assert_true(plans.has(OFF_ROAD_TILE), "the plan is keyed by the row's own tile")
+	assert_eq(int((plans[OFF_ROAD_TILE] as Dictionary)["gap"]), 1, "one road tile to lay")
+	assert_false(plans.has(LINKED_TILE), "a linked estate needs no press")
+	assert_false(plans.has(Fixture.BARE_TILE), "a bare estate needs no press")
+
+
+func test_the_province_plans_read_nothing_without_a_chart_or_a_crown() -> void:
+	_setup_road_works()
+	var rows: Array[Dictionary] = [{"tile": OFF_ROAD_TILE}]
+	assert_true(
+		RoadWorks.province_plans(null, _works, _roads_units, 0, Fixture.BARE_TILE, rows).is_empty(),
+		"no chart, no plan"
+	)
+	assert_true(
+		RoadWorks.province_plans(_model, _works, _roads_units, -1, Fixture.BARE_TILE, rows).is_empty(),
+		"no crown, no estate of ours"
+	)
+	assert_true(
+		RoadWorks.province_plans(_model, _works, _roads_units, 0, Fixture.BARE_TILE, []).is_empty(),
+		"no estate rows, no press"
 	)
 
 

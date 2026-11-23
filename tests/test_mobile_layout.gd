@@ -754,14 +754,14 @@ func test_phone_dossier_keeps_its_orders_reachable() -> void:
 		if button == null or not button.is_visible_in_tree():
 			continue
 		# Every live order is reachable by scrolling inside the sheet...
-		_fits(button.get_global_rect(), panel._column.get_global_rect(), "order %s" % button.text)
+		_fits(button.get_global_rect(), panel._shell.column.get_global_rect(), "order %s" % button.text)
 		_tappable(button, "order %s" % button.text)
 		if _contains(scroll.get_global_rect(), button.get_global_rect()):
 			immediate += 1
 	# ...and the build order plus one muster are there without scrolling.
 	assert_gt(immediate, 1, "primary orders visible on a phone without scrolling")
-	_fits(panel._dock.get_global_rect(), panel.get_global_rect(), "dock button")
-	_tappable(panel._dock, "dock button")
+	_fits(panel._shell.dock.get_global_rect(), panel.get_global_rect(), "dock button")
+	_tappable(panel._shell.dock, "dock button")
 
 
 func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:

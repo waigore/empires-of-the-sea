@@ -27,15 +27,12 @@ func before_all() -> void:
 	_bootstrap_world()
 	_advanced_before_all()
 	_generator_before_all()
-	# Clone the private advanced-live chart now (cheap); MapScreens for each
-	# tier still mount lazily in `_open` so ~250 pure cases never pay two
-	# mounts (~0.5–2 s each under coverage; docs/testing.md § Speed rules).
+	# Advanced-live chart + MapScreens mount lazily in `_open` so ~250 pure
+	# cases never pay a clone or two mounts (~0.5–2 s each under coverage;
+	# docs/testing.md § Speed rules). Census Standard chart warms on first
+	# census read — not here — so bootstrap stays the only heavy before_all
+	# generate on this suite's critical path.
 	_advanced_live_host = self
-	_ensure_advanced_live_world()
-	# Warm the published Standard census chart in suite setup so the first
-	# census case is not charged the cold `generate_world` under coverage.
-	_census_world()
-	_census_tile_scan()
 
 
 func test_world_has_two_regions_with_clean_setup() -> void:
@@ -475,19 +472,19 @@ func _zone_touches_edge(model: MapModel, zone_id: int) -> bool:
 ## tile-map-and-generation § Great Power starting grain).
 
 
-## Cases only need one region at a time. 64×48 still seats four grain farms per
-## Great Power and a thin capital (the 44×34 fixture world does not); under
-## coverage that is ~2× fewer tiles than the old 96×64 two-region boot.
-const BOOT_WIDTH: int = 64
-const BOOT_HEIGHT: int = 48
-const NEW_WORLD_SEED: int = Fixture.SEED + 7919
+## Cases only need one region at a time. Seed 42 at 52×40 still seats four grain
+## farms per Great Power and a thin capital (the 44×34 fixture world does not);
+## under coverage that is ~32% fewer tiles than the old 64×48 boot. New World
+## clones the suite fixture — no second `generate_region`.
+const BOOT_SEED: int = 42
+const BOOT_WIDTH: int = 52
+const BOOT_HEIGHT: int = 40
 
 ## Non-underscore so before_all state is copied onto each test instance. The
 ## post-pass is read-only in every case below, so region charts in before_all
 ## keep world generation (the suite's dominant cost under coverage) off the
-## hot path. Old World, its determinism twin, and the New World are each
-## generated once — never via `generate_world`, which would build discarded
-## charts.
+## hot path. Old World and its determinism twin are generated once; the New
+## World rides `Fixture.world()` — never a discarded `generate_world`.
 var model: MapModel = null
 var works: LandWorks = null
 var report: Dictionary = {}
@@ -503,16 +500,15 @@ func _bootstrap_world() -> void:
 	# twin is a deep copy applied separately, so the post-pass still proves it
 	# is stable without regenerating terrain under coverage.
 	model = MapGenerator.new().generate_region(
-		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
+		BOOT_SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	model_twin = _clone_model(model)
 	works = LandWorks.new()
 	report = WorldBootstrap.apply(model, works)
 	works_twin = LandWorks.new()
 	WorldBootstrap.apply(model_twin, works_twin)
-	new_world = MapGenerator.new().generate_region(
-		NEW_WORLD_SEED, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
-	)
+	# Fixture New World already passed fair-split; clone + post-pass only.
+	new_world = _clone_model(world.region(FactionCatalog.NEW_WORLD))
 	new_world_works = LandWorks.new()
 	new_world_report = WorldBootstrap.apply(new_world, new_world_works)
 
