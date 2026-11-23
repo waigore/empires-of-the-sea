@@ -38,6 +38,11 @@ const SPY_LEDGER := "spy_ledger"
 ## Opens the navy ledger: every hull the crown floats, squadron by squadron
 ## (DR-20261115-14).
 const NAVY_LEDGER := "navy_ledger"
+## Playtest capture mode (issue #1393): desktop-only tooling. The toggle always
+## answers; the shot and record keys only while the mode is on.
+const PLAYTEST_TOGGLE := "playtest_capture_toggle"
+const PLAYTEST_SHOT := "playtest_screenshot"
+const PLAYTEST_RECORD := "playtest_record"
 
 
 static func ensure_actions() -> void:
@@ -62,6 +67,9 @@ static func ensure_actions() -> void:
 	_bind(COMMAND_LEDGER, [KEY_G])
 	_bind(SPY_LEDGER, [KEY_I])
 	_bind(NAVY_LEDGER, [KEY_N])
+	_bind(PLAYTEST_TOGGLE, [KEY_F9])
+	_bind(PLAYTEST_SHOT, [KEY_F10])
+	_bind(PLAYTEST_RECORD, [KEY_F11])
 
 
 static func _bind(action: StringName, keys: Array) -> void:

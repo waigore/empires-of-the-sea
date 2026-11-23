@@ -56,4 +56,5 @@ Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Li
 | [android-build.md](android-build.md) | Android export presets, local build, signing |
 | [android-debug.md](android-debug.md) | Debug APK via PR into `android-debug` |
 | [agent-debug.md](agent-debug.md) | Localhost agent debug bridge: enable flag, ops, adb forward |
+| [playtest-capture.md](playtest-capture.md) | Desktop capture mode: screenshots, video, comments, report |
 | [skills.md](skills.md) | Project skills; Cursor/OpenCode/Grok facades; Hermes via `.agents` |
