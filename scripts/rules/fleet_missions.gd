@@ -95,16 +95,25 @@ static func _blockade_place(model: MapModel, fleet: FleetState) -> String:
 	return "the enemy coast"
 
 
-## Enemy provinces this squadron could blockade from its current zone.
+## Enemy provinces this squadron could blockade from its current zone: a hostile
+## coast whose **port** faces this water (wiki: ships-and-naval § Missions and
+## Movement — "the blockading fleet must be in a sea zone adjacent to that
+## province's port"). A coast that also runs along another water is no blockade
+## target from here, so no press and no planner names an order the rules refuse.
 static func blockade_targets(
 	model: MapModel, fleet: FleetState, hostile: Callable = Callable()
 ) -> Array[int]:
 	if fleet == null or not fleet.is_at_sea():
 		return []
-	return NavalTransport.hostile_coasts(model, fleet, hostile)
+	var coasts: Array[int] = []
+	for province_id: int in NavalTransport.hostile_coasts(model, fleet, hostile):
+		if NavalMovement.port_sea_zones(model, province_id).has(fleet.sea_zone):
+			coasts.append(province_id)
+	return coasts
 
 
-## True when the squadron is still on a valid blockade of a hostile coast.
+## True when the squadron is still on a valid blockade of a hostile coast whose
+## port faces its water.
 static func is_blockading(
 	model: MapModel, fleet: FleetState, hostile: Callable = Callable()
 ) -> bool:
@@ -116,7 +125,7 @@ static func is_blockading(
 	var owner: int = model.province_owner(province_id)
 	if owner == fleet.owner or not Hostility.between(hostile, fleet.owner, owner):
 		return false
-	return NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id)
+	return NavalMovement.port_sea_zones(model, province_id).has(fleet.sea_zone)
 
 
 ## The strongest station a group of squadrons is holding: blockade beats patrol.
@@ -171,8 +180,12 @@ static func can_assign(
 			return OrderVerdict.deny("That coast belongs to no crown.")
 		if not Hostility.between(hostile, fleet.owner, owner):
 			return OrderVerdict.deny("A blockade needs a declared war with %s." % FactionCatalog.name_of(owner))
-		if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
-			return OrderVerdict.deny("That coast does not border the fleet's sea zone.")
+		## The port gates the province, not its coastline: a coast may run along
+		## two waters, and only the water its harbour faces is a blockade
+		## (wiki: ships-and-naval § Missions and Movement; capital-and-connectivity
+		## § Blockade).
+		if not NavalMovement.port_sea_zones(model, province_id).has(fleet.sea_zone):
+			return OrderVerdict.deny("That coast's port does not border the fleet's sea zone.")
 	return OrderVerdict.allow()
 
 
