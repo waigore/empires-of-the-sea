@@ -216,7 +216,7 @@ func _report_turn(label: String) -> void:
 ## The courts the campaign is actually between: every Great Power's holdings and
 ## its land after the close, so a crown that stopped conquering reads.
 func _read_standing() -> void:
-	var orders: Dictionary = MapPlayCourt.public_orders(_play)
+	var orders: Dictionary = MapPlayCourtHoldings.public_orders(_play)
 	var strength: Dictionary = orders.get("strength", {}) as Dictionary
 	var ships: Dictionary = orders.get("ships", {}) as Dictionary
 	for faction: int in FactionCatalog.great_power_ids():

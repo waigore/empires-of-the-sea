@@ -80,9 +80,9 @@ static func plan_for(
 	)
 	var chest: Dictionary = MapPlayEconomyLarder.chest_rows(
 		play, faction, kind, config, economy, at_war,
-		MapPlayCourt.regiments(play, faction),
-		MapPlayCourt.warships(play, faction),
-		MapPlayCourt.navy_chest(play, faction),
+		MapPlayCourtHoldings.regiments(play, faction),
+		MapPlayCourtHoldings.warships(play, faction),
+		MapPlayCourtHoldings.navy_chest(play, faction),
 		int(pressure.get("extra_regiments", 0))
 	)
 	return AiBindEconomy.production_orders(

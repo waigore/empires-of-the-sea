@@ -158,7 +158,7 @@ static func _mouths(play: PlaySession, faction: int) -> Dictionary:
 			wards_food += ration
 	return {
 		"army": army,
-		"ships": MapPlayCourt.ships(play, faction),
+		"ships": MapPlayCourtHoldings.ships(play, faction),
 		"hospital": wards_food,
 		"wards": wards,
 	}
@@ -193,8 +193,8 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var income: Dictionary = AiIncome.plan(
 		config, economy, MapPlayCourt.at_war(play, faction),
 		play.army_layer.regiment_count_all(faction),
-		MapPlayCourt.navy_chest(play, faction),
-		MapPlayCourt.warships(play, faction),
+		MapPlayCourtHoldings.navy_chest(play, faction),
+		MapPlayCourtHoldings.warships(play, faction),
 		0,
 		AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE
 		and int(pressure["need"]) > 0,
@@ -206,12 +206,12 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		)
 	)
 	var strength: float = float(
-		MapPlayCourt.public_strength(play).get(faction, 0.0)
+		MapPlayCourtHoldings.public_strength(play).get(faction, 0.0)
 	)
-	var ships: int = MapPlayCourt.ships(play, faction)
+	var ships: int = MapPlayCourtHoldings.ships(play, faction)
 	# Fighting hulls alone: a merchant hull is cargo, not a predator, so the
 	# yard's claim and every naval aim are priced on these (issue #484).
-	var warships: int = MapPlayCourt.warships(play, faction)
+	var warships: int = MapPlayCourtHoldings.warships(play, faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
 	var new_world: int = play.world.owned_provinces(WorldMap.NEW_WORLD, faction)
 	var last: Dictionary = _last_turn(play, faction)

@@ -147,11 +147,11 @@ static func _wants_army(
 	if bool(court["conquest_bank"]):
 		return true
 	return AiArmyReinforce.muster_floor(
-		court["config"], economy, MapPlayCourt.regiments(play, faction),
+		court["config"], economy, MapPlayCourtHoldings.regiments(play, faction),
 		bool(court["at_war"]),
 		MapPlayArmyMusterAi.storm_chest(
 			play, play.model, faction,
-			MapPlayCourt.regiments(play, faction)
+			MapPlayCourtHoldings.regiments(play, faction)
 		)
 	) > 0
 

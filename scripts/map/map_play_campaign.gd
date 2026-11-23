@@ -4,9 +4,9 @@ extends RefCounted
 ## and computes the calendar's declared leader (wiki: victory § Victory Check;
 ## turn-time-mapping § Campaign calendar cap).
 ##
-## The published order of battle comes from one reader — `MapPlayCourt` — so the
-## turn, the setup intro and the observer panel never duplicate it (REQ-P3-02). Presentation only: every winner is
-## already decided by VictoryRules.
+## The published order of battle comes from one reader — `MapPlayCourtHoldings` —
+## so the turn, the setup intro and the observer panel never duplicate it
+## (REQ-P3-02). Presentation only: every winner is already decided by VictoryRules.
 
 
 ## Campaign decided: record the winner, mount the plate, and stop the calendar
@@ -39,11 +39,11 @@ static func close_calendar(play: PlaySession) -> void:
 
 
 ## Strongest crown by power score, or NO_ID when the top score is shared. The
-## public order of battle comes from `MapPlayCourt.public_orders`, so the
+## public order of battle comes from `MapPlayCourtHoldings.public_orders`, so the
 ## calendar, the court panel and the rival pass read one formula
 ## (wiki: victory § Calendar campaign end, diplomacy § Great Power power score).
 static func declared_leader(play: PlaySession) -> int:
-	var orders: Dictionary = MapPlayCourt.public_orders(play)
+	var orders: Dictionary = MapPlayCourtHoldings.public_orders(play)
 	return VictoryRules.declared_leader(
 		play.world,
 		orders.get("strength", {}) as Dictionary,

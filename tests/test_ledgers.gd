@@ -2058,9 +2058,9 @@ func _force_rows(panel: ForceLedgerPanel) -> Array[ForceLedgerRow]:
 func _force_moved_flags(play: PlaySession) -> Array:
 	var flags: Array = []
 	for region: int in play.world.region_count():
-		for army: ArmyState in MapPlayCourt.visible_armies(play, region):
+		for army: ArmyState in MapPlayCourtRoster.visible_armies(play, region):
 			flags.append("%d:army:%s" % [region, army.moved])
-		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+		for fleet: FleetState in MapPlayCourtRoster.region_fleets(play, region):
 			flags.append("%d:fleet:%s" % [region, fleet.moved])
 	return flags
 
@@ -6823,7 +6823,7 @@ func _sail_a_squadron(play: PlaySession) -> FleetState:
 	for region: int in play.ship_layer.regions.region_ids():
 		if play.world.region(region) != model:
 			continue
-		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+		for fleet: FleetState in MapPlayCourtRoster.region_fleets(play, region):
 			if fleet == null or fleet.owner != play.player_faction:
 				continue
 			if fleet.hulls.is_empty():
@@ -6842,7 +6842,7 @@ func _sail_a_squadron(play: PlaySession) -> FleetState:
 func _fleet_orders(play: PlaySession) -> Array:
 	var seen: Array = []
 	for region: int in play.ship_layer.regions.region_ids():
-		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+		for fleet: FleetState in MapPlayCourtRoster.region_fleets(play, region):
 			if fleet == null:
 				continue
 			seen.append("%d:%d:%s:%s:%s" % [
@@ -7479,7 +7479,7 @@ func test_the_army_names_the_orders_the_crowns_pass_would_give() -> void:
 func _army_orders(play: PlaySession) -> Array:
 	var seen: Array = []
 	for region: int in play.army_layer.regions.region_ids():
-		for army: ArmyState in MapPlayCourt.visible_armies(play, region):
+		for army: ArmyState in MapPlayCourtRoster.visible_armies(play, region):
 			if army == null:
 				continue
 			seen.append("%d:%d:%s" % [army.id, army.province, army.moved])

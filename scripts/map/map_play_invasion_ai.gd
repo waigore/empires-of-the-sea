@@ -21,8 +21,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var fleets: Array = MapPlayCourt.region_fleets(play, region)
-		var armies: Array[ArmyState] = MapPlayCourt.visible_armies(play, region)
+		var fleets: Array = MapPlayCourtRoster.region_fleets(play, region)
+		var armies: Array[ArmyState] = MapPlayCourtRoster.visible_armies(play, region)
 		var before: Array[ArmyState] = []
 		before.assign(armies)
 		for faction: int in MapPlayCourt.planning_factions(play):
@@ -73,7 +73,7 @@ static func _split(
 		kind, config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
 		wants_income
 	):
-		var home: ArmyState = MapPlayCourt.army_by_id(armies, int(action.get("army_id", -1)))
+		var home: ArmyState = MapPlayCourtRoster.army_by_id(armies, int(action.get("army_id", -1)))
 		if home == null:
 			continue
 		var ids: Array[String] = []
@@ -87,7 +87,7 @@ static func _split(
 		split_any = true
 		var field: ArmyState = split["army"] as ArmyState
 		trace.append(
-			MapPlayCourt.army_trace(model, faction, KIND_SPLIT, field.id, field.province)
+			MapPlayCourtRoster.army_trace(model, faction, KIND_SPLIT, field.id, field.province)
 		)
 	return split_any
 
@@ -101,7 +101,7 @@ static func _apply(
 	order: Dictionary
 ) -> Dictionary:
 	var kind: String = String(order.get("kind", ""))
-	var fleet: FleetState = MapPlayCourt.fleet_by_id(fleets, int(order.get("fleet", -1)))
+	var fleet: FleetState = MapPlayCourtRoster.fleet_by_id(fleets, int(order.get("fleet", -1)))
 	if fleet == null:
 		return {}
 	var entry: Dictionary = {
@@ -109,7 +109,7 @@ static func _apply(
 	}
 	match kind:
 		AiInvasionPlanner.KIND_EMBARK:
-			var army: ArmyState = MapPlayCourt.army_by_id(armies, int(order.get("army", -1)))
+			var army: ArmyState = MapPlayCourtRoster.army_by_id(armies, int(order.get("army", -1)))
 			if not bool(NavalTransport.embark(model, army, fleet).get("ok", false)):
 				return {}
 			entry["army"] = army.id
@@ -227,14 +227,14 @@ static func _report_landing(
 ## human's selections survive the rebuild when they are still in the region.
 static func _refresh_visible(play: PlaySession) -> void:
 	if play.ship_layer.model != null:
-		MapPlayCourt.refresh_hulls(play)
+		MapPlayCourtRoster.refresh_hulls(play)
 	if play.army_layer.model != null:
 		var selected: ArmyState = play.army_layer.selected_army
 		play.army_layer.spawn(play.army_layer.model)
 		if selected != null and play.army_layer.armies.has(selected):
 			play.army_layer.select(selected)
 	if play.hud != null:
-		play.hud.stats.set_fleets(MapPlayCourt.ships(play, play.player_faction))
+		play.hud.stats.set_fleets(MapPlayCourtHoldings.ships(play, play.player_faction))
 
 
 ## Writes the region's rosters back. An army roster the pass never touched is
@@ -244,11 +244,11 @@ static func _refresh_visible(play: PlaySession) -> void:
 static func _store(
 	play: PlaySession, region: int, fleets: Array, armies: Array, before: Array[ArmyState] = []
 ) -> void:
-	MapPlaySeaStep.merge_stored(MapPlayCourt.region_fleets(play, region), fleets)
+	MapPlaySeaStep.merge_stored(MapPlayCourtRoster.region_fleets(play, region), fleets)
 	play.ship_layer.regions.set_region(region, fleets)
 	if before == armies:
 		return
-	MapPlaySeaStep.merge_stored(MapPlayCourt.region_armies(play, region), armies)
+	MapPlaySeaStep.merge_stored(MapPlayCourtRoster.region_armies(play, region), armies)
 	ArmyTransport.store(play.army_layer, region, armies)
 
 

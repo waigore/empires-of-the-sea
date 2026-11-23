@@ -4,8 +4,8 @@ extends RefCounted
 ## and naval passes move hulls through the same rules instead of carrying three
 ## copies (REQ-P2-03, REQ-P3-01). The rules stay in NavalMovement, FleetSortie
 ## and WarpTravel; this only applies them and notes the water for the court's
-## own chart. Pure state reads live in [MapPlayCourt]; this module is the one
-## place a rival pass changes a roster.
+## own chart. Pure state reads live in [MapPlayCourt], [MapPlayCourtHoldings] and
+## [MapPlayCourtRoster]; this module is the one place a rival pass changes a roster.
 
 
 ## Puts a squadron to sea in `zone`: an ordinary move, or the one-zone sortie a
@@ -44,11 +44,11 @@ static func cross(play: PlaySession, region: int, fleet: FleetState) -> Dictiona
 	if not bool(result.get("ok", false)):
 		return result
 	var to_region: int = int(result["to_region"])
-	var source: Array = MapPlayCourt.region_fleets(play, region)
+	var source: Array = MapPlayCourtRoster.region_fleets(play, region)
 	source.erase(fleet)
 	play.ship_layer.regions.set_region(region, source)
 	fleet.id = FleetRosters.next_id_all(play.ship_layer.regions)
-	var destination: Array = MapPlayCourt.region_fleets(play, to_region)
+	var destination: Array = MapPlayCourtRoster.region_fleets(play, to_region)
 	destination.append(fleet)
 	play.ship_layer.regions.set_region(to_region, destination)
 	return result
@@ -73,9 +73,9 @@ static func earning(
 		AiBindEconomy.income_plan(
 			kind, config, play.ledger_for(faction),
 			MapPlayCourt.at_war(play, faction),
-			MapPlayCourt.regiments(play, faction),
-			MapPlayCourt.navy_chest(play, faction),
-			MapPlayCourt.warships(play, faction),
+			MapPlayCourtHoldings.regiments(play, faction),
+			MapPlayCourtHoldings.navy_chest(play, faction),
+			MapPlayCourtHoldings.warships(play, faction),
 			0,
 			conquest_gap
 		).get("goal", "")

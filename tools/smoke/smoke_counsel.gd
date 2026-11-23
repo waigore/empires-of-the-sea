@@ -649,7 +649,7 @@ static func _marked_yard_rows(block: ArmyMusterBlock, mark: String) -> int:
 static func _fleet_orders(screen: MapScreen) -> Array:
 	var seen: Array = []
 	for region: int in screen.play.ship_layer.regions.region_ids():
-		for fleet: FleetState in MapPlayCourt.region_fleets(screen.play, region):
+		for fleet: FleetState in MapPlayCourtRoster.region_fleets(screen.play, region):
 			if fleet == null:
 				continue
 			seen.append("%d:%s:%s" % [fleet.id, fleet.mission, fleet.moved])
@@ -670,7 +670,7 @@ static func _colony_overtures(screen: MapScreen) -> Array:
 static func _army_orders(screen: MapScreen) -> Array:
 	var seen: Array = []
 	for region: int in screen.play.army_layer.regions.region_ids():
-		for army: ArmyState in MapPlayCourt.visible_armies(screen.play, region):
+		for army: ArmyState in MapPlayCourtRoster.visible_armies(screen.play, region):
 			if army == null:
 				continue
 			seen.append("%d:%d:%s" % [army.id, army.province, army.moved])

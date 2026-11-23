@@ -9,7 +9,7 @@ extends RefCounted
 ## `navy.build` is priced on (`AiNavy.due`), the hull the yard would lay down
 ## today or the gate that refuses her (`AiNavy.laying`), and the hull the court
 ## means to lay while it waits (`AiNavy.saving_type`, `AiNavy.unlock_tech`).
-## `MapPlayCourt.navy_chest`, the campus's own fleet claim, reads the same three
+## `MapPlayCourtHoldings.navy_chest`, the campus's own fleet claim, reads the same three
 ## calls, so the advice and the chest cannot disagree (REQ-P2-03).
 ##
 ## A reading only: nothing here launches a hull, spends a ducat, takes a worker
@@ -47,10 +47,10 @@ static func pick(play: PlaySession) -> Dictionary:
 	return counsel(
 		economy,
 		MapPlayCourt.at_war(play, faction),
-		MapPlayCourt.warships(play, faction),
-		MapPlayCourt.hostile_warships(play, faction),
-		MapPlayCourt.hull_types(play, faction),
-		MapPlayCourt.navy_chest(play, faction)
+		MapPlayCourtHoldings.warships(play, faction),
+		MapPlayCourtHoldings.hostile_warships(play, faction),
+		MapPlayCourtHoldings.hull_types(play, faction),
+		MapPlayCourtHoldings.navy_chest(play, faction)
 	)
 
 

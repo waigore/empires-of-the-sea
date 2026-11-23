@@ -77,7 +77,7 @@ func _orders_pass(player: int) -> void:
 	_say("")
 	_say("--- the public order of battle the gate reads ---")
 	var power: Dictionary = MapPlayDiplomacy.public_power(_play)
-	var orders: Dictionary = MapPlayCourt.public_orders(_play)
+	var orders: Dictionary = MapPlayCourtHoldings.public_orders(_play)
 	for faction: int in FactionCatalog.great_power_ids():
 		_say("  %s: power %d · strength %.1f · hulls %d · provinces %d · %s" % [
 			FactionCatalog.name_of(faction),
@@ -440,7 +440,7 @@ func _tech() -> Dictionary:
 
 
 func _hulls(faction: int) -> int:
-	var orders: Dictionary = MapPlayCourt.public_orders(_play)
+	var orders: Dictionary = MapPlayCourtHoldings.public_orders(_play)
 	return int((orders.get("ships", {}) as Dictionary).get(faction, 0))
 
 

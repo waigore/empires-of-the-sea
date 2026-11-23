@@ -112,9 +112,9 @@ static func context(play: PlaySession, only: Array = []) -> Dictionary:
 	for raw: Dictionary in FactionCatalog.all():
 		var faction: int = int(raw["id"])
 		if play.army_layer != null:
-			regiments[faction] = MapPlayCourt.regiments(play, faction)
+			regiments[faction] = MapPlayCourtHoldings.regiments(play, faction)
 		if play.ship_layer != null:
-			ships[faction] = MapPlayCourt.ships(play, faction)
+			ships[faction] = MapPlayCourtHoldings.ships(play, faction)
 	var planning: Array[int] = []
 	for faction: int in FactionCatalog.great_power_ids():
 		if not AiControl.plans(play, faction):
@@ -128,8 +128,8 @@ static func context(play: PlaySession, only: Array = []) -> Dictionary:
 	var hull_chests: Dictionary = {}
 	var warships: Dictionary = {}
 	for faction: int in FactionCatalog.great_power_ids():
-		warships[faction] = MapPlayCourt.warships(play, faction)
-		hull_chests[faction] = MapPlayCourt.navy_chest(play, faction)
+		warships[faction] = MapPlayCourtHoldings.warships(play, faction)
+		hull_chests[faction] = MapPlayCourtHoldings.navy_chest(play, faction)
 	# The victory press each court carries into its war aim: a crown that can see
 	# the bar wants the war that takes the provinces it still needs
 	# (wiki: ai-architecture § victory pressure; DR-20261115-04, issue #601).
@@ -185,7 +185,7 @@ static func context(play: PlaySession, only: Array = []) -> Dictionary:
 		"conquest_gaps": conquest_gaps,
 		"storm_banks": storm_banks,
 		"frontier": frontier,
-		"strengths": MapPlayCourt.public_strength(play),
+		"strengths": MapPlayCourtHoldings.public_strength(play),
 		"planning": planning,
 		# The temperaments bound at creation, so every rival's turn plans on the
 		# profile the setup screen bound to it (wiki: ai-profile-overrides).

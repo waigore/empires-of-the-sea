@@ -166,7 +166,7 @@ static func _squadrons(play: PlaySession, faction: int) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+		var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
 		if roster.is_empty():
 			continue
 		var plan: Dictionary = AiBindCampaign.naval_orders(
@@ -194,7 +194,7 @@ static func _squadrons(play: PlaySession, faction: int) -> Array[Dictionary]:
 static func _waiting(play: PlaySession, faction: int) -> int:
 	var waiting: int = 0
 	for region: int in play.ship_layer.regions.region_ids():
-		var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+		var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
 		for fleet: FleetState in roster:
 			if fleet == null or fleet.owner != faction:
 				continue

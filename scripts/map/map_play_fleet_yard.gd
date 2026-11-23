@@ -23,7 +23,7 @@ static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 ## already in the crown's own water may be replaced without her study
 ## (issue #484; REQ-P2-03).
 static func flown(play: PlaySession) -> Array[String]:
-	return MapPlayCourt.hull_types(play, play.player_faction)
+	return MapPlayCourtHoldings.hull_types(play, play.player_faction)
 
 
 ## Opens the capital yard from the province dossier; with no home fleet afloat the

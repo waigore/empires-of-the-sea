@@ -2785,7 +2785,7 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 			seat = found
 			break
 	assert_gte(seat, 0, "the rival seats a capital on the chart")
-	var roster: Array[FleetState] = MapPlayCourt.region_fleets(_screen.play, region)
+	var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(_screen.play, region)
 	var home: FleetState = _rival_home(roster, rival, seat)
 	var stray := FleetState.in_port(
 		FleetRosters.next_id(roster), rival, seat, ["ship_91"], {"ship_91": "fluyte"}
@@ -2797,7 +2797,7 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 	var joined: int = MapPlayHomeMerge.settle_seats(_screen.play)
 
 	assert_gte(joined, 1, "the docked squadron joins the home fleet")
-	var after: Array[FleetState] = MapPlayCourt.region_fleets(_screen.play, region)
+	var after: Array[FleetState] = MapPlayCourtRoster.region_fleets(_screen.play, region)
 	assert_eq(_squadrons_at(after, rival, seat), 1)
 	assert_true(_hulls_at(after, rival, seat).has("ship_91"),
 		"the hull keeps its instance id through the merge")
@@ -2822,7 +2822,7 @@ func test_a_seat_merge_leaves_the_chart_in_step() -> void:
 			seat = found
 			break
 	assert_gte(rival, 0, "a rival seats a capital on the shown chart")
-	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+	var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
 	var home: FleetState = _rival_home(roster, rival, seat)
 	var kept: int = home.ship_count()
 	var stray := FleetState.in_port(
@@ -3013,7 +3013,7 @@ func test_settle_seats_lands_a_displaced_army() -> void:
 			seat = found
 			break
 	assert_gte(seat, 0, "the rival seats a capital on the chart")
-	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+	var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
 	var home: FleetState = _rival_home(roster, rival, seat)
 	var stray := FleetState.in_port(
 		FleetRosters.next_id(roster), rival, seat, ["ship_93"], {"ship_93": "fluyte"}

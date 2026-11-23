@@ -17,7 +17,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+		var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
 		if roster.is_empty():
 			continue
 		if not _run_region(play, model, roster, trace):
@@ -44,7 +44,7 @@ static func _run_region(
 			kind, config, play.diplomacy, model, roster, play.court_charts
 		)
 		for order: Dictionary in plan["orders"]:
-			var fleet: FleetState = MapPlayCourt.fleet_by_id(
+			var fleet: FleetState = MapPlayCourtRoster.fleet_by_id(
 				roster, int(order["fleet_id"]), faction
 			)
 			if fleet == null:

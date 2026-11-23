@@ -67,7 +67,7 @@ static func _step(play: PlaySession, faction: int, region: int) -> Dictionary:
 	var config: Variant = court["config"]
 	if config == null:
 		return {}
-	var fleets: Array = MapPlayCourt.region_fleets(play, region)
+	var fleets: Array = MapPlayCourtRoster.region_fleets(play, region)
 	var civilians: Array = []
 	civilians.assign(play.civilian_layer.regions.value(region, []))
 	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)

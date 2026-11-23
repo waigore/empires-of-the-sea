@@ -27,7 +27,7 @@ static func _idle_hulls(play: PlaySession, faction: int) -> int:
 	var total: int = 0
 	for region: int in play.ship_layer.regions.region_ids():
 		total += VoyageRead.free_count(
-			MapPlayCourt.region_fleets(play, region), faction
+			MapPlayCourtRoster.region_fleets(play, region), faction
 		)
 	return total
 
@@ -52,7 +52,7 @@ static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
 		return false
 	for region: int in play.ship_layer.regions.region_ids():
 		if VoyageRead.carrying(
-			MapPlayCourt.region_fleets(play, region), faction
+			MapPlayCourtRoster.region_fleets(play, region), faction
 		) != null:
 			return true
 	return false

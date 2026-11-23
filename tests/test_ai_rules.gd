@@ -7422,12 +7422,12 @@ func test_the_yard_chest_resumes_when_the_line_closes() -> void:
 	play.ai.note_objectives(0, {"objectives": rows}, play.turn)
 	play.ai.note_objectives(0, {"objectives": rows}, play.turn + 1)
 	ledger.treasury = 0
-	assert_eq(MapPlayCourt.navy_chest(play, 0), 0, "a stalled fill behind a due line yields")
+	assert_eq(MapPlayCourtHoldings.navy_chest(play, 0), 0, "a stalled fill behind a due line yields")
 
 	# The line closes (no spare hand prices a row): the chest resumes.
 	ledger.workers = WorkerPool.make(0)
 	assert_eq(
-		MapPlayCourt.navy_chest(play, 0), price,
+		MapPlayCourtHoldings.navy_chest(play, 0), price,
 		"the line is no longer due: the yard banks again"
 	)
 
@@ -7437,7 +7437,7 @@ func test_the_yard_chest_resumes_when_the_line_closes() -> void:
 	rows[0]["shortfall"] = {"treasury": price - 1}
 	play.ai.note_objectives(0, {"objectives": rows}, play.turn + 1)
 	assert_eq(
-		MapPlayCourt.navy_chest(play, 0), price,
+		MapPlayCourtHoldings.navy_chest(play, 0), price,
 		"a shrinking shortfall is not a stall — the chest stays reachable"
 	)
 	play.ship_layer.free()

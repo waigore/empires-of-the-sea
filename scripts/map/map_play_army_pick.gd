@@ -234,4 +234,4 @@ static func _model_of(play: PlaySession, region: int) -> MapModel:
 ## The roster the pass plans over: the chart's live armies when it is the chart on
 ## screen, else the region table's own (the same read the rival pass makes).
 static func _roster_of(play: PlaySession, region: int) -> Array[ArmyState]:
-	return MapPlayCourt.visible_armies(play, region)
+	return MapPlayCourtRoster.visible_armies(play, region)

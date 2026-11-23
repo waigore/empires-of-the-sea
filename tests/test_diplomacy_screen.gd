@@ -83,7 +83,7 @@ func test_court_panel_opens_and_closes() -> void:
 func test_the_court_reads_each_crowns_public_power() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
-	var orders: Dictionary = MapPlayCourt.public_orders(_screen.play)
+	var orders: Dictionary = MapPlayCourtHoldings.public_orders(_screen.play)
 	assert_eq(panel._power.size(), FactionCatalog.great_power_ids().size())
 	assert_eq(
 		int(panel._power[0]),

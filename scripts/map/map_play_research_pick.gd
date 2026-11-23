@@ -45,7 +45,7 @@ static func pick(play: PlaySession) -> Dictionary:
 	var door: Dictionary = MapPlayEconomyCourtBook.door(
 		play, faction, economy,
 		AiBind.phase_for(String(court["kind"]), config, play.diplomacy),
-		at_war, MapPlayCourt.warships(play, faction)
+		at_war, MapPlayCourtHoldings.warships(play, faction)
 	)
 	return counsel(config, economy, at_war, door)
 

@@ -118,7 +118,7 @@ static func _armies(play: PlaySession, faction: int) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		for army: ArmyState in MapPlayCourt.visible_armies(play, region):
+		for army: ArmyState in MapPlayCourtRoster.visible_armies(play, region):
 			if army == null or army.owner != faction:
 				continue
 			var order: Dictionary = MapPlayArmyPick.pick(play, army)
@@ -152,7 +152,7 @@ static func _armies(play: PlaySession, faction: int) -> Array[Dictionary]:
 static func _waiting(play: PlaySession, faction: int) -> int:
 	var waiting: int = 0
 	for region: int in play.army_layer.regions.region_ids():
-		for army: ArmyState in MapPlayCourt.visible_armies(play, region):
+		for army: ArmyState in MapPlayCourtRoster.visible_armies(play, region):
 			if army == null or army.owner != faction:
 				continue
 			if army.moved or army.is_embarked():

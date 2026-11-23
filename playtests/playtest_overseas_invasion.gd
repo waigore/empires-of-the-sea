@@ -72,8 +72,8 @@ func _read(play: PlaySession) -> void:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var fleets: Array = MapPlayCourt.region_fleets(play, region)
-		var armies: Array[ArmyState] = MapPlayCourt.visible_armies(play, region)
+		var fleets: Array = MapPlayCourtRoster.region_fleets(play, region)
+		var armies: Array[ArmyState] = MapPlayCourtRoster.visible_armies(play, region)
 		for raw: Variant in fleets:
 			var fleet: FleetState = raw
 			if fleet == null or fleet.embarked_army < 0:
@@ -119,9 +119,9 @@ func _order(
 	var earning: bool = str(AiBindEconomy.income_plan(
 		kind, config, play.ledger_for(fleet.owner),
 		MapPlayCourt.at_war(play, fleet.owner),
-		MapPlayCourt.regiments(play, fleet.owner),
-		MapPlayCourt.navy_chest(play, fleet.owner),
-		MapPlayCourt.warships(play, fleet.owner)
+		MapPlayCourtHoldings.regiments(play, fleet.owner),
+		MapPlayCourtHoldings.navy_chest(play, fleet.owner),
+		MapPlayCourtHoldings.warships(play, fleet.owner)
 	).get("goal", "")) == "earn"
 	return AiBindCampaign.invasion_plan(
 		kind, config, play.diplomacy, play.world, region, model, fleets, armies,
