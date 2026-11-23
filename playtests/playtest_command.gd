@@ -104,8 +104,8 @@ func _battle_pass() -> void:
 	_seat(_play.player_faction, province, 8, 40, true)
 	_say("before: %s" % _roster(province))
 	_say("pool before: %s" % _pool_text())
-	var battles: Array[Dictionary] = _play.army_layer.resolve_battles(
-		_play.world, MapPlayLandTurn.battle_context(_play)
+	var battles: Array[Dictionary] = ArmyTurnPass.resolve_battles(
+		_play.army_layer, _play.world, MapPlayLandTurn.battle_context(_play)
 	)
 	if battles.is_empty():
 		_say("no battle was fought")

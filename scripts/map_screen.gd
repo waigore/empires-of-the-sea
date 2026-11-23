@@ -206,6 +206,12 @@ func _ready() -> void:
 	bridge.name = "AgentDebugBridge"
 	bridge.play = play
 	add_child(bridge)
+	# Desktop-only playtest capture mode (issue #1393): inert on mobile and
+	# until the player toggles it on. The debug bridge above stays separate.
+	var capture: PlaytestCapture = PlaytestCapture.new()
+	capture.name = "PlaytestCapture"
+	capture.play = play
+	add_child(capture)
 
 
 func _process(_delta: float) -> void:

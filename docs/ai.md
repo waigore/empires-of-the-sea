@@ -24,7 +24,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   One order per rival (`AiTurn`).
 - **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
   Home regiment; armies save or storm, or walk a stranded host home
-  (DR-20261121-15).
+  (DR-20261121-15, DR-20261123-09).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron, else raid a hostile coast (DR-20261111-17); at peace, home
   (DR-20261110-30).

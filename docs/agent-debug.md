@@ -1,29 +1,29 @@
 # Agent debug bridge
 
 Opt-in localhost WebSocket for agents and playtest tooling: attach to a
-running campaign and query god-mode in-memory state — no screenshots, no save
+campaign and query god-mode state — no screenshots, no save
 files. Query-only: no orders, no turn advance, no writes (#699).
 
 ## Enable
 
-Off by default; refused on release player exports.
+Off by default; refused on release exports.
 
 ```bash
 godot --path . -- --agent-debug=8765   # everything after -- is a user arg
 ```
 
 - Binds `127.0.0.1` only. Never `0.0.0.0`; no Unix sockets in v1.
-- A bare `--agent-debug` takes port 8765. A malformed or out-of-range port
+- A bare flag takes 8765. A bad port
   leaves the bridge off. On Android the launch intent's `command_line` extra
   reaches the engine as plain args, so the full command line is scanned as a
   fallback when the user-arg list has no flag.
-- Android debug builds run the same in-app listener. The launcher alias drops
+- Android debug builds run the same listener. The launcher alias drops
   the launch intent's `command_line` extra (a Godot 4.7 template limitation
   its own instrumented tests assert), so Android's opt-in is a one-line
-  enable file instead: write the port into the app's `user://` storage and
+  enable file: write the port into the app's `user://` storage and
   restart the app, then `adb forward tcp:8765 tcp:8765` and connect to
-  `ws://127.0.0.1:8765` from the host (`forward`, not `reverse`: the listener
-  lives on the device, so the host→device tunnel is what agents need):
+  `ws://127.0.0.1:8765` from the host (`forward`, not `reverse`: the
+  listener lives on the device):
 
   ```bash
   adb shell run-as com.waigore.empiresofthesea.debug sh -c 'echo 8765 > files/agent_debug.enable'
@@ -80,3 +80,8 @@ surface for player data. Close the game (or omit the flag) when unattended.
 JSON shapes, the flag parser and a live in-process loopback round trip. The
 folded path is mapped under the `fold_map_screen` domain in
 `tests/impact_map.toml`.
+
+## See also
+
+Desktop capture lives in [playtest-capture.md](playtest-capture.md); the bridge
+stays separate and complementary.
