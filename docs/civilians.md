@@ -45,7 +45,7 @@ Units: explore, improve, colonize, spy.
   ground:** its colonist takes the charted coast its workshop can turn, and —
   once its chart crosses the Passage — mineral-bearing terrain by
   `economy.riches_route_weight`, never above a raw it is short of
-  ([DR-20261123-19](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261123-21)).
+  ([DR-20261123-21](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261123-21)).
   **The crown reads her own step:** the passenger block names the voyage and
   marks its press (DR-20261121-08/22-21).
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
