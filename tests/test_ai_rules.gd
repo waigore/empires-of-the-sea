@@ -9239,6 +9239,50 @@ func test_the_larder_reads_carry_their_shape_for_the_pass_and_the_picks() -> voi
 	assert_eq(MapPlayEconomyLarder.merge_rows({"cloth": 2}, {}).size(), 1, "an empty row adds nothing")
 
 
+## The hire's slack and the flow gate read one home: a session with no planner
+## has no note (the `-2` sentinel), a noted slack is read back as it stands, and a
+## court with no harvest in hand falls back to the pass's own note. The court's
+## turn and the WORKERS tab's counsel read the same two figures (REQ-P3-01,
+## REQ-P3-02; DR-20261122-01).
+func test_the_larder_owns_the_hire_slack_it_reads() -> void:
+	var empty := PlaySession.new()
+	assert_eq(MapPlayEconomyLarder.noted_slack(empty, 1), -2, "no pass, no note")
+	assert_eq(MapPlayEconomyLarder.noted_slack(null, 1), -2, "no session, no note")
+	var court := MapPlayEconomyCourt.new()
+	court.play = empty
+	court.faction = 1
+	court.overseas = {}
+	assert_eq(
+		MapPlayEconomyLarder.harvest_reading(court), -2,
+		"no harvest and no note, no reading"
+	)
+	court.play.ensure_ai().note_food_slack(1, 4)
+	assert_eq(
+		MapPlayEconomyLarder.noted_slack(empty, 1), 4, "the pass's note is the reading"
+	)
+	assert_eq(
+		MapPlayEconomyLarder.harvest_reading(court), 4,
+		"a court with no harvest hires against the note"
+	)
+
+
+## The chest the muster and the hull claim is the larder's row: a court with no
+## yard chest claims no hull, and the merged row keeps the muster's own cloth
+## (issue #484, #878).
+func test_the_larder_owns_the_chest_rows_the_plan_reads() -> void:
+	var economy: PlayerEconomy = _economy({"fabric": 8})
+	var chest: Dictionary = MapPlayEconomyLarder.chest_rows(
+		PlaySession.new(), CONFIG_FACTION, AiControl.KIND_SUBJECT, _config(),
+		economy, true, 2, 0, 0, 0
+	)
+	assert_false((chest["muster_row"] as Dictionary).is_empty(), "the muster names its row")
+	assert_eq((chest["navy_row"] as Dictionary).size(), 0, "no chest, no hull row")
+	assert_eq(
+		(chest["held"] as Dictionary), (chest["muster_row"] as Dictionary),
+		"with no hull the held row is the muster's own"
+	)
+
+
 func test_production_inputs_are_never_sold_under_the_court() -> void:
 	var economy: PlayerEconomy = _economy({"lumber": 30, "grain": 100})
 	var market := WorldMarket.with_default_prices()
