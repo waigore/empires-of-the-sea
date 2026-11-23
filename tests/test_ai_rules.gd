@@ -3249,6 +3249,7 @@ func test_the_bank_reads_earn_as_the_investments_goal() -> void:
 	earn["goal"] = AiIncome.GOAL_EARN
 	assert_true(AiIncome.invests(config, ai, earn))
 	assert_false(AiIncome.invests(config, ai, {}), "no ledger, no read")
+	assert_false(AiIncome.invests(null, ai, earn), "no config, no read")
 	var spend: Dictionary = earn.duplicate()
 	spend["goal"] = AiIncome.GOAL_SPEND
 	assert_false(AiIncome.invests(config, ai, spend))
