@@ -2287,6 +2287,65 @@ func test_the_province_sheet_reads_the_host_standing_on_the_seat() -> void:
 	play.visibility = fogless
 
 
+## The seat's province sheet names the squadrons riding its harbour — the hull
+## count the rules publish for a reading crown — read off the session the boot
+## seats, not off the sheet (wiki: fog-and-exploration § Order-of-battle
+## readings; DR-20261123-14).
+func test_the_province_sheet_reads_the_squadrons_in_the_seat_harbour() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	assert_true(panel.play != null, "the boot seats the harbour reading")
+	var seat: int = play.capital_province
+	panel.refresh(screen.model, seat)
+	assert_eq(
+		panel.harbour_text(),
+		MapPlayProvinceHarbour.line(play, screen.model, seat),
+		"the sheet prints the boot's own reading",
+	)
+	# The guards: no province, no chart, no play and no ship layer name nothing.
+	assert_eq(MapPlayProvinceHarbour.line(play, screen.model, -1), "")
+	assert_eq(MapPlayProvinceHarbour.line(null, screen.model, seat), "")
+	assert_eq(MapPlayProvinceHarbour.line(play, null, seat), "")
+	var layer: ShipLayer = play.ship_layer
+	play.ship_layer = null
+	assert_eq(MapPlayProvinceHarbour.line(play, screen.model, seat), "")
+	play.ship_layer = layer
+	# A session that runs no fog reads every harbour, as the fogged session reads
+	# its own hulls alone.
+	var fogless: VisibilityModel = play.visibility
+	play.visibility = null
+	assert_eq(
+		MapPlayProvinceHarbour.line(play, screen.model, seat),
+		ProvinceHarbour.line(
+			layer.regions.value(play.model.region_id, []),
+			seat, play.model.province_data(seat).owner, play.player_faction, true,
+		),
+		"no fog reads every squadron, as the session with no fog model does",
+	)
+	play.visibility = fogless
+	# A squadron the crown keeps in the seat's berth is counted on the sheet, so
+	# the row prints the court and its hulls rather than hiding.
+	var table: MapRegionTable = layer.regions
+	var region: int = play.model.region_id
+	var roster: Array = table.value(region, [])
+	var planted: FleetState = FleetState.in_port(
+		9901, play.player_faction, seat, ["harbour_1", "harbour_2"], {}
+	)
+	table.set_region(region, roster + [planted])
+	panel.refresh(screen.model, seat)
+	assert_true(
+		panel.harbour_text().begins_with("%s " % FactionCatalog.name_of(play.player_faction)),
+		"the seat's row names the crown's own squadron first: %s" % panel.harbour_text(),
+	)
+	assert_true(
+		panel.harbour_text().contains("hull"),
+		"the row counts hulls: %s" % panel.harbour_text(),
+	)
+	table.set_region(region, roster)
+	panel.refresh(screen.model, seat)
+
+
 ## The realm's own reading: the crown's provinces the civilian and land passes
 ## would act in this turn, worded off data alone — one line that names the count
 ## against the realm it holds, then the first places (wiki: world-model § The

@@ -220,7 +220,11 @@ static func _court(
 	)
 	var deed: Dictionary = AiMerchantWork.openable_deed(
 		play.world.region(home), faction,
-		{"diplomacy": play.diplomacy, "visibility": MapPlayCourtFog.view_for(play, faction, home)}
+		{
+			"diplomacy": play.diplomacy,
+			"visibility": MapPlayCourtFog.view_for(play, faction, home),
+			"land_works": _works_for(play, home),
+		}
 	)
 	return {
 		"posture": posture,
@@ -247,3 +251,12 @@ static func _court(
 		# the row (DR-20261116-11).
 		"tribe_closed": AiTribeColony.closed_reason(posture),
 	}
+
+
+## The region's own surveys, or null when the session holds no civilian layer
+## (a headless read, a fixture): the deed price never names a deposit the court
+## has not dug (issue #1383).
+static func _works_for(play: PlaySession, region: int) -> LandWorks:
+	if play.civilian_layer == null:
+		return null
+	return play.civilian_layer.works_regions.value(region, null)

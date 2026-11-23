@@ -10174,6 +10174,80 @@ func test_a_riches_deed_outranks_a_crop_deed_of_the_same_price() -> void:
 	)
 
 
+## A deposit is named and priced only once the court's own survey has landed: a
+## Minor's headline iron offers no deed until the Explorer's dig is recorded, and
+## the survey then prices it at the published 15 x base (issue #1383; wiki:
+## fog-and-exploration § Prospect-Required Resources; REQ-P2-03).
+func test_the_deed_read_names_no_deposit_before_its_survey() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var iron: Vector2i = IRON
+	var minor: ProvinceState = model.provinces[1]
+	minor.resource = model.resource_at(iron.x, iron.y)
+	minor.resource_tile = iron
+	var works := LandWorks.new()
+	var view: VisibilityModel = Fixture.visibility(model)
+	var context: Dictionary = {
+		"diplomacy": Fixture.merchant_court(),
+		"visibility": view,
+		"treasury": 5000,
+		"land_works": works,
+	}
+	assert_true(
+		AiMerchantWork.openable_deed(model, 0, context).is_empty(),
+		"no price is named for ground the court has not surveyed"
+	)
+	assert_eq(
+		AiMerchantWork.priced_offer(model, 0, MINOR, view, works), 0,
+		"the coarse read names no deposit either"
+	)
+	assert_false(AiMerchantWork.deed_known(model, 0, iron, works))
+	assert_false(
+		AiMerchantWork.deed_known(model, 0, iron, null),
+		"a caller with no survey reads no deposit"
+	)
+	assert_false(
+		AiMerchantWork.buyable_tiles(model, 0, works, context).has(iron),
+		"and no unprospected mineral stands on the deed book"
+	)
+	works.set_prospected(0, model, iron)
+	var deed: Dictionary = AiMerchantWork.openable_deed(model, 0, context)
+	assert_eq(int(deed.get("price", 0)), 1200, "the surveyed iron deed prices")
+	assert_eq(int(deed.get("seller", -1)), MINOR)
+	assert_true(
+		AiMerchantWork.buyable_tiles(model, 0, works, context).has(iron),
+		"the surveyed deposit is the deed the Merchant may sign"
+	)
+
+
+## The boycott that bars the deed bars the ground its deposit lies in: the
+## Explorer's survey gate answers the same commercial sever the purchase does
+## (issue #1383; wiki: diplomacy § GP–Tribe — Boycott, R6).
+func test_a_boycott_closes_the_survey_ground() -> void:
+	var model: MapModel = Fixture.build_minor()
+	model.provinces[1].owner = BOYCOTTED_COLONY_TRIBE
+	var court := DiplomacyState.new()
+	court.initialize(1)
+	court.ensure_relation(0, BOYCOTTED_COLONY_TRIBE, 1)
+	court.set_overture(0, BOYCOTTED_COLONY_TRIBE, DiplomacyCatalog.STAGE_EMBASSY)
+	court.set_colony(BOYCOTTED_COLONY_TRIBE, BOYCOTT_ISSUER)
+	court.ensure_relation(BOYCOTT_ISSUER, 0, 1)
+	assert_true(
+		AiExplorerWork.deed_ground(model, 0, IRON, {"diplomacy": court}),
+		"the embassy opens the ground before the boycott"
+	)
+	assert_true(bool(DiplomacyTrade.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_false(
+		AiExplorerWork.deed_ground(model, 0, IRON, {"diplomacy": court}),
+		"a boycott closes the survey as it closes the deed"
+	)
+	court.end_turn()
+	assert_true(bool(DiplomacyTrade.revoke_boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_true(
+		AiExplorerWork.deed_ground(model, 0, IRON, {"diplomacy": court}),
+		"lifting the boycott reopens the ground"
+	)
+
+
 # --- fixtures ----------------------------------------------------------------
 
 func _merchant(tile: Vector2i, owner: int = 0) -> CivilianState:
@@ -13088,8 +13162,12 @@ func test_the_deed_seller_scan_names_one_seller() -> void:
 	state.initialize(1)
 	state.ensure_relation(0, DEED_MINOR, 1)
 	state.ensure_relation(0, DEAR_MINOR, 1)
+	# Venice's deed is its hills deposit, priced only once the buyer has dug it
+	# (issue #1383), so the scan reads a survey that has.
+	var works := LandWorks.new()
+	works.set_prospected(0, world.region(WorldMap.OLD_WORLD), Vector2i(5, 0))
 	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
+		AiMerchantWork.deed_seller(world, 0, null, state, works), DEED_MINOR,
 		"the cheaper deed names the court's one seller"
 	)
 	# A war with the seller leaves no deed to price, so nothing to warm.
@@ -13101,7 +13179,7 @@ func test_the_deed_seller_scan_names_one_seller() -> void:
 		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
 	)
 	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
+		AiMerchantWork.deed_seller(world, 0, null, war_court, works), DEAR_MINOR,
 		"the war closes the cheap seller and the next offer names the other"
 	)
 

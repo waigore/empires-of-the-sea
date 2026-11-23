@@ -88,6 +88,12 @@ static func region_context(
 				"diplomacy": play.diplomacy,
 				"visibility": MapPlayCourtFog.view_for(play, faction, region),
 				"treasury": int(court["spendable"]),
+				# The region's own survey, so a deposit is priced only once the
+				# court's Explorer has dug it (issue #1383).
+				"land_works": (
+					play.civilian_layer.works_regions.value(region, null)
+					if play.civilian_layer != null else null
+				),
 			}
 		)
 		context["deed_price"] = int(deed.get("price", 0))

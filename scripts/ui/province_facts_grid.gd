@@ -20,6 +20,12 @@ var wall: Label = null
 ## than printing a zero. Its reading is the panel's, handed in as a callable, so
 ## this grid owns no session.
 var hosts: Label = null
+## The squadrons standing in the province's harbour, by court and in hulls — the
+## count the rules let a crown read in a charted port (wiki: fog-and-exploration
+## § Order-of-battle readings; DR-20261123-14). The row hides for a harbour no
+## squadron rides rather than printing a zero. Its reading is the panel's, handed
+## in as a callable, so this grid owns no session.
+var harbour: Label = null
 var hospital: Label = null
 ## The courts that have bought land in this province (wiki: factions § Tribe —
 ## "unless another GP has invested in the province"; DR-20261120-05). The row
@@ -43,6 +49,7 @@ func _ready() -> void:
 	fort = _add_row("Fort")
 	wall = _add_row("Wall")
 	hosts = _add_row("Hosts")
+	harbour = _add_row("Squadrons")
 	hospital = _add_row("Hospital")
 	deeds = _add_row("Deeds")
 
@@ -63,6 +70,8 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	# The hosts are the panel's own reading (it alone may ask the session), so a
 	# fresh province clears the row until that call arrives.
 	set_hosts("")
+	# The harbour is the panel's own reading too, so it clears with the hosts.
+	set_harbour("")
 	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
 	_show_row(
 		deeds, DeedBar.holders(DeedProtection.province_holders(model, province_id))
@@ -84,6 +93,7 @@ func fill(values: Dictionary) -> void:
 	fort.text = String(values.get("fort", ""))
 	_show_row(wall, String(values.get("wall", "")))
 	set_hosts(String(values.get("hosts", "")))
+	set_harbour(String(values.get("harbour", "")))
 	hospital.text = String(values.get("hospital", ""))
 	_show_row(deeds, String(values.get("deeds", "")))
 
@@ -106,6 +116,13 @@ func set_estate_roads(
 ## the row leaves the grid rather than printing an absence.
 func set_hosts(text: String) -> void:
 	_show_row(hosts, text)
+
+
+## The Squadrons row: the courts riding this harbour, each with its hulls
+## (`England 3 hulls · Spain 1 hull`), or `""` for a harbour no squadron rides —
+## the row leaves the grid rather than printing an absence.
+func set_harbour(text: String) -> void:
+	_show_row(harbour, text)
 
 
 ## Repaints the live crown rows after a road completed or a town grew, without
