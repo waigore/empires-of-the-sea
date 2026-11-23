@@ -3,10 +3,10 @@
 Stations, interception, retreat and raids; movement and the yard live in
 [fleets.md](fleets.md).
 
-**Pillars:** P2, P3, P4 (turn-end only), P5 (stations and raids on the dossier).
+**Pillars:** P2–P5 (stations and raids read on the dossier).
 **Wiki:** [ships-and-naval](https://github.com/waigore/empires-of-the-sea/wiki/ships-and-naval)
 § Missions and Movement, § Naval Interception Probability, § Trade and Transport
-Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02.
+Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02, DR-20261124-04.
 
 ## Stations
 
@@ -17,10 +17,10 @@ Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02.
 | Defend | at sea | Holds; no interception |
 | Beachhead | at sea beside a hostile coast | One-turn landing site |
 
-A station spends the move and persists until the squadron sails, docks or
-retakes one; the home fleet holds none; a target no longer hostile lapses it.
+A station spends the move and persists until the squadron sails or docks; the
+home fleet holds none; a target no longer hostile lapses it.
 
-A sealed harbour severs the coast, and the capital harbour cuts every sea path
+A sealed harbour severs the coast; the capital harbour cuts every sea path
 (wiki: capital-and-connectivity § Blockade). The dossier names it (`REQ-P5-05`).
 
 ## Interception
@@ -33,8 +33,8 @@ missionFactor = 0.5 Patrol, 0.9 Blockade
 ```
 
 Deterministic from seed, turn, zone and owners. Success makes the patroller the
-attacker; a miss leaves the mover. Only Patrol or a standing Blockade
-rolls, and only against a hostile.
+attacker; a miss leaves the mover. Only Patrol or a standing Blockade rolls,
+and only against a hostile.
 
 **The dossier prices the catch (DR-20261120-02):** a station at sea prints its
 chance — `Interception: 62% to catch 4 hulls if they stay.` — over its holders
@@ -52,8 +52,8 @@ chance = 0.6 + (ownAvgMV − enemyAvgMV) × 0.1 − enemyAggression
 enemyAggression = 0.1 Patrol, 0.2 Blockade, else 0
 ```
 
-A haven is a zone no hostile fleet holds. Success moves every beaten hull there
-and clears its station; failure is a rout, and no safe water means no retreat.
+A haven is a zone no hostile fleet holds. Success moves every beaten hull there;
+failure is a rout, and no safe water means no retreat.
 
 ## Raids
 
@@ -75,16 +75,19 @@ home-fleet warships, cargo its merchant hulls.
 **civilian hull** down (richest hold first). Warships are never prizes; the
 raider loses none.
 
+**The market sheet names the cover (DR-20261124-04):** `CONVOY  1 warship cuts a
+raid by 20%.`
+
 **Raids cut both ways.** Any crown's station off a hostile coast raids a
 declared enemy by the same formulas: **prize cargo** leaves the victim's
-stockpile for the raider's, never booked as an import (DR-20261111-20). Cargo and
-hull roll on separate salts. The crown's raids reach its despatch. The dossier
-prices that group over its at-war coasts, naming the coast a patrol works and the
+stockpile for the raider's, never an import (DR-20261111-20). Cargo and hull
+roll on separate salts. The crown's raids reach its despatch. The dossier
+prices that group over its at-war coasts, naming the patrol's coast and the
 hull a hit sinks (DR-20261120-01).
 
 ## Deferred (REQ-P2-02)
 
-Rival raids shipped (DR-20261111-20); gaps: [`deferred.md`](deferred.md).
+Raids are live; gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 
@@ -92,7 +95,7 @@ Rival raids shipped (DR-20261111-20); gaps: [`deferred.md`](deferred.md).
 |------|------|
 | `scripts/rules/{fleet_state,fleet_missions}.gd` | mission, blockade target, station gates |
 | `scripts/rules/blockades.gd` | sealed coasts, the paths they cut |
-| `scripts/rules/{naval_station,naval_interception,naval_retreat,naval_raid,naval_hull_loss}.gd` | station read, chance, roll, retreat, raids, hulls |
+| `scripts/rules/{naval_station,naval_interception,naval_retreat,naval_raid,naval_hull_loss,convoy_read}.gd` | station, chance, retreat, raids, hulls, convoy |
 | `scripts/rules/world_market.gd` | crown cargo books |
 | `scripts/map/{map_play_raids,map_play_fleet_missions,map_play_station_notes}.gd` | ledger, dossier, prices, reports |
 
@@ -102,7 +105,7 @@ rows ([fleets.md](fleets.md) for map controls).
 ## Tests
 
 `test_naval_rules`, `test_fleet_orders`,
-`test_battle_rules`, `test_a_map_screen`.
+`test_battle_rules`, `test_a_map_screen`, `test_economy_screen`.
 
 ```bash
 gd-tools test --coverage --min 80
