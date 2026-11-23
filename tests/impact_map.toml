@@ -2257,11 +2257,11 @@ suites = [
 ]
 
 # Playtest capture mode (issue #1393): the metadata/report helpers, the overlay
-# and the controller. Its own suite keeps the capture state machine off the
-# heavy chart boot.
+# and the controller. Folded into the lean chrome boot so coverage never pays a
+# second Godot process (~35 s) for a pure/state-machine suite.
 [domains.playtest_capture]
 suites = [
-  "test_playtest_capture.gd",
+  "test_hud_campaign_plate.gd",
 ]
 
 [domains.fold_diplomacy_screen]
@@ -4687,11 +4687,24 @@ domain = "menu"
 match = "scripts/input_actions.gd"
 domain = "crown_road"
 
-# Playtest capture mode (issue #1393): its own suite, before the broad debug
+# Playtest capture mode (issue #1393): lean chrome boot, before the broad debug
 # rule below, so a capture change never pays the whole chart boot.
 [[rules]]
 match = "scripts/debug/playtest_capture*.gd*"
 domain = "playtest_capture"
+
+# Folded micro-suites (optimize-tests): deletions must hit the host boot only.
+[[rules]]
+match = "tests/test_playtest_capture.gd*"
+domain = "fold_chrome"
+
+[[rules]]
+match = "tests/test_order_motion.gd*"
+domain = "fold_map_screen"
+
+[[rules]]
+match = "scripts/map/order_motion.gd*"
+domain = "fold_map_screen"
 
 # Agent Debug Bridge (issue #699): the pure projector and the thin loopback
 # WebSocket node. Query-only debug tooling, so a change here runs its own suite
