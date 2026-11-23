@@ -121,7 +121,11 @@ static func refresh_options(play: PlaySession, army: ArmyState) -> void:
 	play.overlay.clear_move_options()
 	if army == null or army.owner != play.player_faction:
 		return
-	var provinces: Array[int] = ArmyMovement.destinations(play.model, army)
+	# Ground the crown has never charted is no march target, so the map draws no
+	# offer over it (wiki: fog-and-exploration § Order Visibility Requirements).
+	var provinces: Array[int] = ArmyMovement.destinations(
+		play.model, army, play.visibility
+	)
 	if provinces.is_empty():
 		return
 	var no_zones: Array[int] = []
@@ -137,9 +141,11 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	var province_id: int = play.model.province_at(tile.x, tile.y)
 	if province_id == MapModel.NO_ID:
 		return false
-	if not ArmyMovement.destinations(play.model, army).has(province_id):
+	if not ArmyMovement.destinations(play.model, army, play.visibility).has(province_id):
 		return false
-	var result: Dictionary = play.army_layer.order(army, province_id, may_invade(play, province_id))
+	var result: Dictionary = play.army_layer.order(
+		army, province_id, may_invade(play, province_id), play.visibility
+	)
 	if bool(result.get("ok", false)):
 		return true
 	play.hud.toast(refusal(play, province_id, String(result.get("reason", ""))))
