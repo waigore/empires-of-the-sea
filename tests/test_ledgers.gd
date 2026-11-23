@@ -2324,6 +2324,26 @@ func test_the_province_sheet_reads_the_squadrons_in_the_seat_harbour() -> void:
 		"no fog reads every squadron, as the session with no fog model does",
 	)
 	play.visibility = fogless
+	# A squadron the crown keeps in the seat's berth is counted on the sheet, so
+	# the row prints the court and its hulls rather than hiding.
+	var table: MapRegionTable = layer.regions
+	var region: int = play.model.region_id
+	var roster: Array = table.value(region, [])
+	var planted: FleetState = FleetState.in_port(
+		9901, play.player_faction, seat, ["harbour_1", "harbour_2"], {}
+	)
+	table.set_region(region, roster + [planted])
+	panel.refresh(screen.model, seat)
+	assert_true(
+		panel.harbour_text().begins_with("%s " % FactionCatalog.name_of(play.player_faction)),
+		"the seat's row names the crown's own squadron first: %s" % panel.harbour_text(),
+	)
+	assert_true(
+		panel.harbour_text().contains("hull"),
+		"the row counts hulls: %s" % panel.harbour_text(),
+	)
+	table.set_region(region, roster)
+	panel.refresh(screen.model, seat)
 
 
 ## The realm's own reading: the crown's provinces the civilian and land passes

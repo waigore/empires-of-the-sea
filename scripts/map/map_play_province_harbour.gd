@@ -8,10 +8,12 @@ extends RefCounted
 ## fog change reaches the row without a second home (REQ-P3-02, REQ-P3-03).
 
 
-## The row for one province of the chart on screen, or `""` when the session
-## keeps no ship layer or the id names no province of `model`.
+## The row for one province of the chart on screen, or `""` when the session is
+## gone or keeps no ship layer, or the id names no province of `model`.
 static func line(play: PlaySession, model: MapModel, province_id: int) -> String:
-	if play == null or model == null or play.ship_layer == null:
+	if play == null or not is_instance_valid(play) or model == null:
+		return ""
+	if play.ship_layer == null:
 		return ""
 	var province: ProvinceState = model.province_data(province_id)
 	if province == null:

@@ -475,6 +475,12 @@ func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
 	assert_eq(_province_panel_panel.harbour_text(), "England 3 hulls · Spain 1 hull")
 	grid.set_harbour("")
 	assert_false(grid.harbour.visible, "the row leaves with the squadron")
+	# The observatory's province sheet fills the same grid from its own reading,
+	# so the row rides that path too.
+	grid.fill({"harbour": "England 2 hulls"})
+	assert_eq(grid.harbour.text, "England 2 hulls")
+	grid.fill({})
+	assert_false(grid.harbour.visible, "a reading with no harbour prints no row")
 
 
 ## The province sheet names what the wall soaks and what it spares the garrison
