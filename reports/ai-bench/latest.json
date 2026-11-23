@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:c4dbcf650bf7346d6888a5d9ab2c129b11e630ea3b5ba9ee0592b12d4e8b0bbe",
-  "submission_git": "refactor/map-play-court-holdings-roster@d4fbad4b",
+  "submission_hash": "sha256:ed36ba329456d64b08284a0734a0f58217199937fb7d19e41f29731308a7e9a8",
+  "submission_git": "refactor/map-play-court-holdings-roster@c139a4e7",
   "passed": true,
   "config": [
     {
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T16:08:58Z",
+  "timestamp": "2026-11-23T16:22:07Z",
   "report_version": 1,
-  "signature": "hmac-sha256:2ef1c28a113647df16858daa0ffbb5acb291dabcd8efadb29841b6c7ee85b8ed"
+  "signature": "hmac-sha256:6f722d9f726a5c4c677d0eec207667252cd94c02fc8147b42a08c708d31fc9ef"
 }
