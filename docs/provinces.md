@@ -74,8 +74,11 @@ Visit, back and key.
 ## The dossier's facts
 
 A tap opens the province: ground, harbour, town, roads, fort, **Wall**
-(DR-20261120-06), **Hosts** — every court's regiments, a rival's where the fog
-holds the province `fogged` or better (DR-20261123-13) — **Squadrons** — the
-same read for hulls (DR-20261123-14) — hospital and **Deeds**; empty rows hide.
-A Tribe shore with another crown's deed refuses an undeclared march in those
-words (`DeedBar`, DR-20261120-05).
+(DR-20261120-06), **Hosts** (DR-20261123-13), **Squadrons** — the hulls in the
+harbour, the same fog gate (DR-20261123-14) — hospital and **Deeds**; empty rows
+hide. A Tribe shore with another crown's deed refuses an undeclared march in
+those words (`DeedBar`, DR-20261120-05).
+
+## Deferred (REQ-P2-02)
+
+None — [`deferred.md`](deferred.md).
