@@ -30,6 +30,18 @@ static func best_candidate(query: AiWorkQuery) -> Dictionary:
 		return {}
 	if query.works == null:
 		return {}
+	# The crew the next voyage carries waits at the harbour instead of working
+	# the home ground (wiki: civilian-units § Overseas deployment; issue #1422).
+	if CivilianMuster.held_for_voyage(query.unit, query.context):
+		return {}
+	# An overseas region roots its network at a port: no capital tile stands
+	# there, so no estate the court raises pays and no road it lays connects
+	# until one does (wiki: extraction-and-improvements § Overseas delivery;
+	# issue #1422).
+	if _rootless(query):
+		var root: Dictionary = _port_candidate(query)
+		if not root.is_empty():
+			return root
 	var connected: Dictionary = ImprovementSystem.connected_tiles(
 		query.model, query.works, query.unit.owner,
 		query.context.get("capital_tile", CivilianState.NO_TILE)
@@ -118,7 +130,9 @@ static func _touches_connected(
 # --- harbour and fort -------------------------------------------------------
 
 
-## The first coastal tile of the crown's first province without a port.
+## The first coastal tile of the crown's first province without a port — the root
+## an overseas region's network grows from (wiki: extraction-and-improvements
+## § Overseas delivery; issue #1422).
 static func _port_candidate(query: AiWorkQuery) -> Dictionary:
 	if query.config == null:
 		return {}
@@ -137,6 +151,30 @@ static func _port_candidate(query: AiWorkQuery) -> Dictionary:
 				query.config.parameter("civilian.port_weight")
 			)
 	return {}
+
+
+## True while this region can root nothing: it is not the court's own, and its
+## owned ground still lacks the port that roots a network. The home region is
+## rooted at its capital tile, so only an overseas region asks for a port to
+## lead (wiki: extraction-and-improvements § Overseas delivery; issue #1422).
+## `VoyageRead.needs_port` is the one reading of the port the ground lacks.
+static func _rootless(query: AiWorkQuery) -> bool:
+	if query.model.region_id == FactionCatalog.region_of(query.unit.owner):
+		return false
+	return VoyageRead.needs_port(query.model, query.works, query.unit.owner)
+
+
+## One legal march to the harbour the next voyage boards at. An Engineer the
+## voyage waits for answers the muster (`CivilianMuster.held_for_voyage`), so it
+## walks to the port instead of taking work (issue #1422).
+static func best_move(
+	model: MapModel, unit: CivilianState, context: Dictionary = {}
+) -> Dictionary:
+	if not CivilianMuster.held_for_voyage(unit, context):
+		return {}
+	return CivilianMuster.muster_move(
+		model, unit, context, context.get("visibility", null)
+	)
 
 
 ## A fort on the province's own site — the town, as CivilianWork rules it — so

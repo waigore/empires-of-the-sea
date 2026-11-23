@@ -75,7 +75,17 @@ static func training_order(
 	# banked 193 turns while the college re-hired an Explorer roughly every
 	# tenth turn — a chest fill of ~16 ducats a turn against a 2,200 muster
 	# chest. A caller with no bank reading keeps the published purses.
+	#
+	# The banked ladder retuned (issue #1384): the region's own asks —
+	# `own_targets`, the staff the work itself calls for — are the income
+	# investments the court banks *for*: they prospect the mine that refills
+	# the chest, raise the estate that sells, and chart the ground the deed
+	# waits on. They keep the works purse while the court banks; the court's
+	# own taste beyond them (`AiStaffTaste.raises`, the extra crew the
+	# archetype keeps) is the spending that can wait, and stands behind the
+	# chest with every other deferrable purchase.
 	var banked: bool = bool(context.get("conquest_bank", false))
+	var asks: Dictionary = context.get("own_targets", {})
 	var queue: Array[String] = _hire_queue(
 		own,
 		targets,
@@ -95,6 +105,12 @@ static func training_order(
 		type_id = queue[0]
 	if type_id.is_empty() or not CivilianCatalog.is_implemented(type_id):
 		return {}
+	# The banked ladder's own split (issue #1384): the crew the region's own
+	# work asks for keeps the works purse; a hire the court's own taste alone
+	# wanted stands behind the chest.
+	var own_ask: bool = (
+		int(asks.get(type_id, 0)) > held_of(own, type_id)
+	)
 	# The claim crew's own carve-out (issue #1139): a voyage already stranded is
 	# the one case the claim pays for — #1127 / #1132 kept the aim open exactly
 	# for it, and docs/ai.md names the claim's Merchant in the same clause. While
@@ -133,7 +149,12 @@ static func training_order(
 	# ladder stands behind the chest with every other deferrable spend. The
 	# stranded claim's Merchant rides the same provision (#1139), and so does
 	# the deed Merchant while the court's own ledger funds its deed (#1135).
-	if banked and not PROVISION_CREWS.has(type_id) and not claim_crew and not deed_crew:
+	# The banked ladder retuned (issue #1384): the region's own ask joins the
+	# provision — the mine, the survey and the chart the chest's own income
+	# engines refill it with — while the taste's extra crew keeps the bank's
+	# face.
+	if banked and not PROVISION_CREWS.has(type_id) and not claim_crew \
+			and not deed_crew and not own_ask:
 		return {"ok": false, "reason": REASON_BANK}
 	var purse: int = hire_purse
 	if type_id == "builder" or type_id == "engineer" or type_id == "explorer":
@@ -192,6 +213,14 @@ static func owned_units(units: Array, owner: int) -> Array[CivilianState]:
 			roster.append(unit)
 	roster.sort_custom(func(a: CivilianState, b: CivilianState) -> bool: return a.id < b.id)
 	return roster
+
+
+## How many of one type a roster already fields: the count the region's own
+## ask is measured against — `AiStaffTaste.held`'s own read, on the hire's
+## own home so the banked ladder (#1384) and the taste table measure one
+## roster the same way.
+static func held_of(roster: Array[CivilianState], type_id: String) -> int:
+	return AiStaffTaste.held(roster, type_id)
 
 
 ## The crew the hire order would take if the purse allowed: the first name in

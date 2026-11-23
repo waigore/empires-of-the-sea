@@ -6907,6 +6907,83 @@ func test_a_storm_loses_its_weakest_regiments_first() -> void:
 	)
 
 
+## A storm is a battle, so the men who cross the wall come home with what a won
+## field leaves: a chevron each, the ground on their colours, and the wear the
+## ladder's dead cost them (wiki: siege-mechanics § Storming an empty walled
+## province — "A storm is a **battle**"; combat § Chevrons won, § Battle honours,
+## § Wounds in auto-resolve). The despatch names it, so the cost is never silent
+## (REQ-P2-03, REQ-P5-05).
+func test_a_storm_that_crosses_leaves_its_survivors_a_chevron_and_the_field() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	# Four guards (22 each = 88) cross the 51 ladder by 37: three pay it and one
+	# rides on.
+	var host := army_field_rules_Fixture.army(2, 0, 2, _regiment_types("guards", 4))
+	host.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_true(bool(battle["captured"]))
+	assert_eq(int(battle["attacker_chevrons"]), 1, "the survivor rises a chevron")
+	assert_eq(int(battle["attacker_honours"]), 1, "the field joins its colours")
+	assert_eq(int(battle["attacker_mauled"]), 1, "the ladder's dead wear the survivor")
+	assert_eq(host.count(), 1)
+	var survivor: String = host.regiments[0]
+	var condition: Dictionary = host.condition_of(survivor)
+	assert_eq(int(condition["medals"]), 1)
+	assert_eq(int(condition["hp"]), 75, "0.5 × 3 of 4 lost of a 120 pool is 45")
+	assert_true(
+		(host.regiment_honours.get(survivor, []) as Array).has(2),
+		"the province it took is on its colours"
+	)
+	var line: String = BattleReport.describe_land(battle, "Province 2", FACTIONS)
+	assert_true(line.contains("1 chevron won"), line)
+	assert_true(line.contains("1 regiment mauled"), line)
+
+
+## A repelled storm is no win for anyone: the host loses nobody, rises nobody and
+## takes no wear, and the despatch names the wall alone (wiki: siege-mechanics
+## § Storming an empty walled province — "the host loses nobody").
+func test_a_repelled_storm_leaves_its_host_untouched() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	thin.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [thin])
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(int(battle["attacker_chevrons"]), 0)
+	assert_eq(int(battle["attacker_mauled"]), 0)
+	assert_eq(int(battle["attacker_honours"]), 0)
+	for regiment_id: String in thin.regiments:
+		var condition: Dictionary = thin.condition_of(regiment_id)
+		assert_eq(int(condition["hp"]), int(condition["max"]), "the wall costs no wound")
+		assert_eq(int(condition["medals"]), 0)
+	var line: String = BattleReport.describe_land(battle, "Province 2", FACTIONS)
+	assert_false(line.contains("chevron"), line)
+
+
+## An unopposed walk-in on open ground is no battle: it takes the province and
+## earns no chevron, no honour and no wear (wiki: combat § Unopposed capture;
+## DR-20261112-02 — "an unopposed occupation award[s] none").
+func test_an_unopposed_walk_in_still_earns_nothing() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	var host := army_field_rules_Fixture.army(2, 0, 2, _regiment_types("guards", 3))
+	host.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(model.province_owner(2), 0)
+	assert_false(battle.has("attacker_chevrons"), "an occupation is no battle")
+	for regiment_id: String in host.regiments:
+		var condition: Dictionary = host.condition_of(regiment_id)
+		assert_eq(int(condition["medals"]), 0)
+		assert_eq(int(condition["hp"]), int(condition["max"]))
+
+
 ## The storm prices the wall's own battery (wiki: siege-mechanics § Storming an
 ## empty walled province — "wall HP + the standing battery's strength"), and the
 ## battery's line is the **defender's** studies (wiki: § Emplaced Artillery —
@@ -7090,7 +7167,8 @@ func test_a_storm_despatches_the_wall_and_names_no_zero_dead() -> void:
 	)
 
 	# Three cuirassiers (54) clear the 51 ladder and lose nobody: no "0
-	# regiments" tail. A fresh chart, so the repulsed host is not still there.
+	# regiments" tail, and the survivors rise a chevron each (DR-20261123-24).
+	# A fresh chart, so the repulsed host is not still there.
 	_setup_army_field_rules()
 	var open_model: MapModel = _army_field_rules_model
 	open_model.province_data(2).fort_level = 1
@@ -7100,11 +7178,13 @@ func test_a_storm_despatches_the_wall_and_names_no_zero_dead() -> void:
 	bare.moved = true
 	var taken: Array[Dictionary] = ArmyCombat.resolve_turn(open_model, [bare])
 	assert_true(bool(taken[0]["captured"]))
-	assert_eq(
-		BattleReport.describe_land(taken[0], "Badajoz", FACTIONS),
-		"France storms the walls of Badajoz",
-		"a storm that spends no regiment names no dead"
+	var line: String = BattleReport.describe_land(taken[0], "Badajoz", FACTIONS)
+	assert_true(
+		line.begins_with("France storms the walls of Badajoz"),
+		"the crossing names the walls it took: %s" % line
 	)
+	assert_false(line.contains("lost"), "a storm that spends no regiment names no dead")
+	assert_true(line.contains("3 chevrons won"), "its survivors rise one each: %s" % line)
 
 
 ## The calibration anchor (issue #1314): the opening Great Power muster —

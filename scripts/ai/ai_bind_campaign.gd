@@ -131,14 +131,15 @@ static func colonisation_plan(
 	charts: Variant,
 	posture: String,
 	earning: bool,
-	appetite: Dictionary = {}
+	appetite: Dictionary = {},
+	needs_port: bool = false
 ) -> Dictionary:
 	return _call(
 		kind, "ai_colonisation_planner.gd", "plan",
 		[config, world, region, model, fleets, civilians, abroad, charts, posture, earning],
 		func() -> Dictionary: return AiColonisationPlanner.plan(
 			config, world, region, model, fleets, civilians, abroad, charts, posture,
-			earning, appetite
+			earning, appetite, needs_port
 		)
 	)
 

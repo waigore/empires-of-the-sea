@@ -88,8 +88,14 @@ static func storm_one(
 	for army: ArmyState in storming:
 		host_strength += army.strength()
 	var threshold: float = FortRules.storm_threshold(tech, level)
+	## The men the ladder draws from, read before the dead are spent: a storm
+	## deals no line and keeps no reserve — every regiment marches on the wall —
+	## so the wear below is one share of the whole host
+	## (wiki: combat § Wounds in auto-resolve).
+	var host_count: int = ArmyForce.side_regiments(storming)
 	var lost: Array[String] = []
 	var taken: bool = host_strength > threshold
+	var atk_up: int = 0
 	if taken:
 		## The ladder's price is drawn **weakest first**, the casualty rule every
 		## battle reads (wiki: siege-mechanics § Storming an empty walled province
@@ -99,6 +105,21 @@ static func storm_one(
 		lost = ArmyForce.apply_losses(
 			armies, storming, FortRules.storm_losses(host_strength, tech, level)
 		)
+		## A storm is a battle, so the men who crossed it come home with what a
+		## won field leaves: a chevron each and the ground on their colours
+		## (wiki: siege-mechanics § Storming an empty walled province — "A storm
+		## is a **battle**"; combat § Chevrons won, § Battle honours). Only the
+		## survivors rise, exactly as after an exchange.
+		atk_up = RegimentCondition.award_side(storming)
+	## The ladder's dead are dead, so the side that lost them carries the field's
+	## wear into the chain's next engagement — the host that took the wall meets
+	## the next attacker worn, never fresh
+	## (wiki: combat § Wounds in auto-resolve; § Multi-Attacker Chain — "the
+	## wounds and the chevrons the exchange left it").
+	RegimentCondition.wear(
+		storming,
+		RegimentCondition.WOUND_SHARE * float(lost.size()) / float(maxi(host_count, 1))
+	)
 	var report: Dictionary = BattleSettlement.report_skeleton(
 		model, province, attacker, holder, ArmyCombat.Outcome.CAPTURE,
 		lost, [] as Array[String], {}, {"fort": level}
@@ -111,6 +132,13 @@ static func storm_one(
 		"threshold": threshold,
 		"taken": taken,
 	}
+	## The aftermath every land battle record carries — each survivor's condition,
+	## the chevrons it won and the ground on its colours — so the land despatch
+	## names what the storm cost and bought instead of going silent once the wall
+	## is named (wiki: combat § Chevrons won, § Battle honours; REQ-P2-03,
+	## REQ-P5-05). `taken` is the win the record's CAPTURE outcome cannot name.
+	var none: Array[ArmyState] = []
+	RegimentCondition.attach(report, storming, none, atk_up, 0, taken)
 	if not taken:
 		## The wall stands: no flip, no capture — the report names the repulse.
 		report["outcome"] = ArmyCombat.Outcome.DEFENDER_VICTORY
