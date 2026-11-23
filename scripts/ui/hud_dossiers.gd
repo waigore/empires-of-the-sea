@@ -30,16 +30,12 @@ static func _province(hud: GameHud) -> void:
 	hud._panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud.panels.province = HudPanelSlot.build(hud, hud._panel, GameHud.PANEL_WIDTH, true)
 	hud._panel_wrap = hud.panels.province.wrap
-	# The dossier's head owns the realm door (DR-20261115-09); the panel builds
-	# the head in its own first frame, so the HUD wires the door after the slot
-	# has mounted it.
-	for node: Node in hud._panel.find_children("*", "ProvinceSheetHead", true, false):
-		var head := node as ProvinceSheetHead
-		if head != null:
-			head.realm_pressed.connect(
-				func() -> void: hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
-			)
-			break
+	# The dossier's head owns the realm door (DR-20261115-09); the panel forwards
+	# it as its own signal, so the HUD wires one door instead of searching the
+	# sheet for the head it built (REQ-P3-02).
+	hud._panel.realm_pressed.connect(
+		func() -> void: hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	)
 
 
 static func _fleet(hud: GameHud) -> void:
