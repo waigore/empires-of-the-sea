@@ -75,7 +75,7 @@ static func _batch_receipt(result: Dictionary) -> String:
 ## Detaches a batch of regiments in one order (single detach and Detach all
 ## share this path, so repeated chores stay batched — REQ-P5-04).
 static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> void:
-	var result: Dictionary = play.army_layer.split(army, ids)
+	var result: Dictionary = ArmyMusterOps.split(play.army_layer, army, ids)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The regiments stay.")))
 		return
@@ -106,7 +106,9 @@ static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> vo
 static func dismiss(play: PlaySession, army: ArmyState, ids: Array[String]) -> void:
 	if play.economy == null or play.economy.economy == null:
 		return
-	var result: Dictionary = play.army_layer.dismiss(army, ids, play.economy.economy)
+	var result: Dictionary = ArmyMusterOps.dismiss(
+		play.army_layer, army, ids, play.economy.economy
+	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The regiments stay.")))
 		MapPlayArmies.show_panel(play, army)
@@ -168,7 +170,7 @@ static func pitch_hospital(play: PlaySession, army: ArmyState) -> void:
 
 ## Combines the selected standard with the friendly army sharing its province.
 static func merge(play: PlaySession, army: ArmyState) -> void:
-	var result: Dictionary = play.army_layer.combine(army)
+	var result: Dictionary = ArmyMusterOps.combine(play.army_layer, army)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The armies stay apart.")))
 		return
