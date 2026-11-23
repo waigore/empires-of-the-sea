@@ -2476,6 +2476,29 @@ domain = "map_mount"
 match = "playtests/playtest_station_prices.gd*"
 domain = "hostility"
 
+# Army turn / muster call sites: keep them on army (battle + orders) so a
+# drive that only swaps ArmyLayer for ArmyTurnPass / ArmyMusterOps never
+# pulls misc's generated_world boot past the tier-1 5 min budget.
+[[rules]]
+match = "playtests/playtest_combat_chain.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_command.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_field_train.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_routed_host.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_siege.gd*"
+domain = "army"
+
 [[rules]]
 match = "playtests/**"
 domain = "misc"
@@ -3157,8 +3180,11 @@ domain = "advanced"
 match = "scripts/map/map_play_advanced*.gd*"
 domain = "advanced"
 
+# `.gd*` keeps companion `.uid` files on the army domain. A bare `.gd` glob
+# lets a new army module's uid fall through to scripts/map/** and pull the
+# full map suite past the tier-1 5 min budget.
 [[rules]]
-match = "scripts/map/army_*.gd"
+match = "scripts/map/army_*.gd*"
 domain = "army"
 
 # `map_play_armies.gd` is plural — `army*` does not match `armies` under fnmatch.

@@ -47,8 +47,8 @@ static func _war_query(play: PlaySession) -> Callable:
 ## same pass (wiki: capital-and-connectivity § Capital loss). Returns the records.
 static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var before: Array = CapitalLoss.snapshot_world(play.world)
-	var battles: Array[Dictionary] = play.army_layer.resolve_battles(
-		play.world, battle_context(play)
+	var battles: Array[Dictionary] = ArmyTurnPass.resolve_battles(
+		play.army_layer, play.world, battle_context(play)
 	)
 	if battles.is_empty():
 		return battles

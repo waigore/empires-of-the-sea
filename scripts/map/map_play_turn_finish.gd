@@ -171,7 +171,7 @@ static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 static func _begin_layers(play: PlaySession) -> void:
 	ShipTurnPass.expire_beachheads(play.ship_layer, play.turn)
 	ShipTurnPass.begin_turn(play.ship_layer)
-	play.army_layer.begin_turn(play.world)
+	ArmyTurnPass.begin_turn(play.army_layer, play.world)
 	MapPlayHomeMerge.settle_seats(play)
 	play.last_falls.clear()
 	MapPlayFleets.refresh_visibility(play)

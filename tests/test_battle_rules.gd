@@ -6194,7 +6194,7 @@ func test_the_army_layer_rests_each_region_by_its_own_hospital() -> void:
 	var layer := ArmyLayer.new()
 	layer.regions.set_region(model.region_id, [army] as Array[ArmyState])
 
-	layer.begin_turn(world)
+	ArmyTurnPass.begin_turn(layer, world)
 
 	assert_eq(int(army.condition_of(regiment)["hp"]), 99, "the region's hospital applies")
 	layer.free()
