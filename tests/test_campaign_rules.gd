@@ -532,6 +532,61 @@ func test_the_hosts_row_counts_what_the_rules_let_a_crown_read() -> void:
 	)
 
 
+## The squadrons riding one province's harbour, counted for a reading crown: its
+## own everywhere, another court's only where its grid holds the port at
+## `fogged` or better, and a squadron at sea names no harbour (wiki:
+## fog-and-exploration § Order-of-battle readings; DR-20261123-14).
+func test_the_squadrons_row_counts_what_the_rules_let_a_crown_read() -> void:
+	var own: FleetState = FleetState.in_port(
+		1, FactionCatalog.PLAYER_FACTION, 5, ["a1", "a2"], {}
+	)
+	var rival: FleetState = FleetState.in_port(
+		2, BUYER, 5, ["b1", "b2", "b3"], {}
+	)
+	var elsewhere: FleetState = FleetState.in_port(3, BUYER, 6, ["c1"], {})
+	var at_sea: FleetState = FleetState.at_sea(4, BUYER, 1, ["d1", "d2"], {})
+	var slip: FleetState = FleetState.empty_in_port(5, BUYER, 5)
+	var fleets: Array = [own, rival, elsewhere, at_sea, slip]
+	# A fogged port reads the crown's own hulls alone.
+	assert_eq(
+		ProvinceHarbour.line(fleets, 5, BUYER, FactionCatalog.PLAYER_FACTION, false),
+		"%s 2 hulls" % FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION)
+	)
+	# Charted, the province's own court leads and every other court follows.
+	assert_eq(
+		ProvinceHarbour.line(fleets, 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"%s 3 hulls · %s 2 hulls" % [
+			FactionCatalog.name_of(BUYER),
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+		]
+	)
+	assert_eq(
+		ProvinceHarbour.counts(fleets, 5, FactionCatalog.PLAYER_FACTION, true)[BUYER], 3
+	)
+	# A harbour no squadron rides, a squadron at sea and a slip with no hulls
+	# name nothing; a null entry in the table reads as no squadron.
+	assert_eq(
+		ProvinceHarbour.line(fleets, 9, BUYER, FactionCatalog.PLAYER_FACTION, true), ""
+	)
+	assert_eq(
+		ProvinceHarbour.line([at_sea, slip], 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"",
+		"a squadron at sea rides no harbour, and a slip with no hulls names none"
+	)
+	assert_eq(
+		ProvinceHarbour.line([] as Array, 5, BUYER, FactionCatalog.PLAYER_FACTION, true), ""
+	)
+	var holed: Array = fleets.duplicate()
+	holed.append(null)
+	assert_eq(
+		ProvinceHarbour.line(holed, 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"%s 3 hulls · %s 2 hulls" % [
+			FactionCatalog.name_of(BUYER),
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+		]
+	)
+
+
 func test_one_deed_is_worth_protecting_and_two_are_serious() -> void:
 	var world: WorldMap = _minor_world()
 	assert_true(DeedProtection.worth_protecting(world, BUYER, MINOR))

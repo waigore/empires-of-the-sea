@@ -7016,18 +7016,21 @@ func test_the_war_chest_banks_the_storm_host() -> void:
 	var config := AiConfig.build(0, 1500)
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var guard: int = AiArmyReinforce.guard_regiments(config, true)
-	var cheapest: int = AiArmyReinforce.cheapest_line_price(economy)
 	config.storm_read = {"want": guard + 3, "extra": 3}
 	var own: int = guard - 3
 	var want: int = AiArmyReinforce.storm_want_read(config, own)
 	assert_eq(want, guard + 3 - own, "the read is the wall's own want, net")
-	# The war chest the income goal holds is the storm host priced on the
-	# court's own line, not one regiment under the wall.
-	var host_chest: int = want * cheapest
+	# The bank holds the next man of the host, priced on the line it is raised
+	# with — never the whole host, which no court can hold and pay its
+	# government (issue #1381: a 24,200 chest froze three crowns at the wall).
+	var price: int = maxi(
+		AiArmyReinforceLine.storm_price(config, economy),
+		AiArmyReinforceLine.cheapest_line_price(economy)
+	)
 	assert_eq(
 		AiArmyReinforce.muster_floor(config, economy, own, true, want),
-		config.parameter("army.min_treasury") + host_chest,
-		"the floor names the storm host the wall prices"
+		config.parameter("army.min_treasury") + price,
+		"the floor holds the next man of the storm host"
 	)
 	assert_eq(
 		AiIncome.reserve(config, economy, true, own, 0, -1, 0, false, want),
@@ -7057,50 +7060,89 @@ func test_the_storm_bank_at_peace_asks_the_line_first() -> void:
 		config.parameter("economy.min_treasury"),
 		"a poorer court banks no storm chest"
 	)
-	# In reach, the storm bank stands: the chest is the larger of the line's
-	# own price and the storm host it prices — never one under the wall.
+	# In reach, the storm bank stands: one man of the host, priced on the line
+	# the host is raised with — never one under the wall, never the whole host
+	# (issue #1381: a chest no purse could fill froze three crowns).
 	var purse: PlayerEconomy = _purse(price)
 	var chest: int = AiIncome.reserve(config, purse, false, 1, 0, -1, 0, false, 4)
-	assert_true(
-		chest >= config.parameter("army.min_treasury") + 4 * price
-		and chest >= config.parameter("army.min_treasury") + price,
-		"the storm chest is the line and the wall, not one under the other"
+	var host_man: int = maxi(price, AiArmyReinforceLine.storm_price(config, purse))
+	assert_eq(
+		chest, config.parameter("army.min_treasury") + host_man,
+		"the storm bank holds the next man of the host"
 	)
 
 
-## The wall never moves (issue #1314, kept): the peace-time muster target is
-## the published guard even with a reading in the config, and the storm bank
-## raises no muster the rules refuse — it only prices the purse. The muster
-## reads the larger chest, so a storm-priced purse does not block the line.
-func test_the_storm_bank_prices_the_purse_not_the_target() -> void:
+## At peace the wall is a reading too (issue #1381): a court that can see the
+## wall in front of it arms before it declares, and the storm-priced purse
+## never blocks the line it is raising. The wall itself never moves.
+func test_the_peace_muster_arms_for_the_wall_it_can_see() -> void:
 	var config := AiConfig.build(0, 1500)
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var guard: int = AiArmyReinforce.guard_regiments(config, false)
 	config.storm_read = {"want": guard + 5, "extra": 5}
 	assert_eq(
-		AiArmyReinforce.desired_regiments(config, false), guard,
-		"peace musters the published target"
+		AiArmyReinforce.desired_regiments(config, false), guard + 5,
+		"a peace court arms for the host the wall prices"
 	)
-	# A court under its target on a storm-priced purse still musters — the
+	# A court under that host on a storm-priced purse still musters — the
 	# bank is the war chest it holds, not a block on the line. The host rides
-	# as regiments (4), priced at the cheapest line inside the floor.
+	# as regiments (4), priced at the line inside the floor.
 	var plan: Dictionary = AiArmyReinforce.plan(
 		config, economy, 1, false, 0, -1, 0, {}, -1, -2, false, 4
 	)
-	assert_eq(int(plan["target"]), guard, "the target is the published guard")
-	assert_eq(String(plan["muster"]), AiArmyReinforce.next_type(config, economy),
-		"the storm-priced purse raises the line")
+	assert_eq(int(plan["target"]), guard + 5, "the target is the wall's host")
+	assert_eq(
+		String(plan["muster"]),
+		AiArmyReinforceLine.storm_line(config, economy),
+		"the storm-priced purse raises the line the host is sized with"
+	)
 	# The row keeps its cloth while the court banks for the storm host.
 	assert_true(
 		AiArmyReinforce.muster_reserve(config, economy, guard, false, 0, 4).size() > 0,
 		"the storm bank keeps the line's own cloth row"
 	)
-	# At the published target the row is genuinely quiet: the bank adds no
-	# muster past it — the storm host arms at war, where the read raises the
-	# target itself.
+	# At the wall's own host the row is genuinely quiet: the bank asks for no
+	# man the court already fields.
 	assert_true(
-		AiArmyReinforce.muster_reserve(config, economy, guard, false, 0, 0).is_empty(),
-		"no bank, no row past the target"
+		AiArmyReinforce.muster_reserve(config, economy, guard + 5, false, 0, 0).is_empty(),
+		"a court at the wall's host prices no row"
+	)
+
+
+## The bank holds the next man of the storm host (issue #1381): one man of the
+## line the host is sized with, never the whole host — a chest nothing could
+## spend froze the measured run at the wall's price and raised no one.
+func test_the_storm_bank_is_paid_out_as_the_host_forms() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(300)
+	var price: int = maxi(
+		AiArmyReinforceLine.storm_price(config, economy),
+		AiArmyReinforceLine.cheapest_line_price(economy)
+	)
+	assert_true(price > 0, "the techs open a line to price the host on")
+	assert_eq(
+		AiArmyReinforceChest.storm_line_hold(config, economy, 4), price,
+		"the bank holds one man of the host, not the whole host"
+	)
+	assert_eq(
+		AiArmyReinforceChest.storm_line_hold(config, economy, 1), price,
+		"the last man of the host is priced the same"
+	)
+	assert_eq(
+		AiArmyReinforceChest.storm_line_hold(config, economy, 0), 0,
+		"no host due, no chest"
+	)
+	# The floor the money goal reads holds that same man: the next one of the
+	# host while a wall stands above the court, the published line otherwise.
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, 1, false, 4),
+		config.parameter("army.min_treasury") + price,
+		"the floor holds the next man of the host"
+	)
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, 1, false, 0),
+		config.parameter("army.min_treasury") + AiArmyReinforce.cheapest_line_price(economy),
+		"no storm host keeps the published line"
 	)
 
 
@@ -8864,6 +8906,10 @@ func _play(treasury: int = 12000, with_ledger: bool = true) -> PlaySession:
 	if with_ledger:
 		play.ai = AiState.new()
 		play.ai.economies[WORK_OWNER] = _work_economy(treasury)
+	else:
+		# No ledger means no planner: every read fabricates a starting purse
+		# (`AiState.economy_for`), so the no-plan case is the NOOP control.
+		play.ai_mode = AiControl.NOOP
 	return play
 
 
@@ -10171,6 +10217,80 @@ func test_a_riches_deed_outranks_a_crop_deed_of_the_same_price() -> void:
 	assert_true(
 		int(spice.get("score", 0)) > int(grain.get("score", 0)),
 		"the same price, and the rich tile wins"
+	)
+
+
+## A deposit is named and priced only once the court's own survey has landed: a
+## Minor's headline iron offers no deed until the Explorer's dig is recorded, and
+## the survey then prices it at the published 15 x base (issue #1383; wiki:
+## fog-and-exploration § Prospect-Required Resources; REQ-P2-03).
+func test_the_deed_read_names_no_deposit_before_its_survey() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var iron: Vector2i = IRON
+	var minor: ProvinceState = model.provinces[1]
+	minor.resource = model.resource_at(iron.x, iron.y)
+	minor.resource_tile = iron
+	var works := LandWorks.new()
+	var view: VisibilityModel = Fixture.visibility(model)
+	var context: Dictionary = {
+		"diplomacy": Fixture.merchant_court(),
+		"visibility": view,
+		"treasury": 5000,
+		"land_works": works,
+	}
+	assert_true(
+		AiMerchantWork.openable_deed(model, 0, context).is_empty(),
+		"no price is named for ground the court has not surveyed"
+	)
+	assert_eq(
+		AiMerchantWork.priced_offer(model, 0, MINOR, view, works), 0,
+		"the coarse read names no deposit either"
+	)
+	assert_false(AiMerchantWork.deed_known(model, 0, iron, works))
+	assert_false(
+		AiMerchantWork.deed_known(model, 0, iron, null),
+		"a caller with no survey reads no deposit"
+	)
+	assert_false(
+		AiMerchantWork.buyable_tiles(model, 0, works, context).has(iron),
+		"and no unprospected mineral stands on the deed book"
+	)
+	works.set_prospected(0, model, iron)
+	var deed: Dictionary = AiMerchantWork.openable_deed(model, 0, context)
+	assert_eq(int(deed.get("price", 0)), 1200, "the surveyed iron deed prices")
+	assert_eq(int(deed.get("seller", -1)), MINOR)
+	assert_true(
+		AiMerchantWork.buyable_tiles(model, 0, works, context).has(iron),
+		"the surveyed deposit is the deed the Merchant may sign"
+	)
+
+
+## The boycott that bars the deed bars the ground its deposit lies in: the
+## Explorer's survey gate answers the same commercial sever the purchase does
+## (issue #1383; wiki: diplomacy § GP–Tribe — Boycott, R6).
+func test_a_boycott_closes_the_survey_ground() -> void:
+	var model: MapModel = Fixture.build_minor()
+	model.provinces[1].owner = BOYCOTTED_COLONY_TRIBE
+	var court := DiplomacyState.new()
+	court.initialize(1)
+	court.ensure_relation(0, BOYCOTTED_COLONY_TRIBE, 1)
+	court.set_overture(0, BOYCOTTED_COLONY_TRIBE, DiplomacyCatalog.STAGE_EMBASSY)
+	court.set_colony(BOYCOTTED_COLONY_TRIBE, BOYCOTT_ISSUER)
+	court.ensure_relation(BOYCOTT_ISSUER, 0, 1)
+	assert_true(
+		AiExplorerWork.deed_ground(model, 0, IRON, {"diplomacy": court}),
+		"the embassy opens the ground before the boycott"
+	)
+	assert_true(bool(DiplomacyTrade.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_false(
+		AiExplorerWork.deed_ground(model, 0, IRON, {"diplomacy": court}),
+		"a boycott closes the survey as it closes the deed"
+	)
+	court.end_turn()
+	assert_true(bool(DiplomacyTrade.revoke_boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_true(
+		AiExplorerWork.deed_ground(model, 0, IRON, {"diplomacy": court}),
+		"lifting the boycott reopens the ground"
 	)
 
 
@@ -13088,8 +13208,12 @@ func test_the_deed_seller_scan_names_one_seller() -> void:
 	state.initialize(1)
 	state.ensure_relation(0, DEED_MINOR, 1)
 	state.ensure_relation(0, DEAR_MINOR, 1)
+	# Venice's deed is its hills deposit, priced only once the buyer has dug it
+	# (issue #1383), so the scan reads a survey that has.
+	var works := LandWorks.new()
+	works.set_prospected(0, world.region(WorldMap.OLD_WORLD), Vector2i(5, 0))
 	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
+		AiMerchantWork.deed_seller(world, 0, null, state, works), DEED_MINOR,
 		"the cheaper deed names the court's one seller"
 	)
 	# A war with the seller leaves no deed to price, so nothing to warm.
@@ -13101,7 +13225,7 @@ func test_the_deed_seller_scan_names_one_seller() -> void:
 		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
 	)
 	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
+		AiMerchantWork.deed_seller(world, 0, null, war_court, works), DEAR_MINOR,
 		"the war closes the cheap seller and the next offer names the other"
 	)
 
@@ -15935,6 +16059,10 @@ func planner__play(
 	if with_ledger:
 		play.ai = AiState.new()
 		play.ai.economies[ai_army_reinforce_OWNER] = _ai_army_reinforce_economy(treasury)
+	else:
+		# No ledger means no planner: every read fabricates a starting purse
+		# (`AiState.economy_for`), so the no-plan case is the NOOP control.
+		play.ai_mode = AiControl.NOOP
 	return play
 
 func test_planner_the_map_pass_musters_a_rival_from_its_own_ledger() -> void:
@@ -18880,6 +19008,48 @@ func test_one_storm_gate_reads_for_the_land_and_the_landing() -> void:
 	assert_false(AiStormGate.admits(config, null, [weak], weak, 1))
 
 
+## The gate prices the battery the wall mounts (issue #1381): the resolver
+## storms with the **defender's** emplaced line, so the gate reads the same
+## campaign table. A Minor Nation mounts the Royal floor (a Wood wall's 51); a
+## Great Power's studies price the top (59). Without the table the gate keeps
+## the top, which is what it always read.
+func test_the_storm_gate_prices_the_battery_the_wall_mounts() -> void:
+	var model: MapModel = AiFixture.land_world([PHASE_OWNER, PHASE_RIVAL]).region(0)
+	model.provinces[1].fort_level = 1
+	assert_eq(model.province_owner(1), PHASE_RIVAL, "the rival holds the wall")
+	var config := AiConfig.build(PHASE_OWNER, 1500)
+	var types: Array[String] = []
+	for _index in 9:
+		types.append("arquebusiers")
+	var host: ArmyState = ArmyState.muster(2, PHASE_OWNER, 0, false, types, 101)
+	assert_true(
+		host.strength() > FortRules.storm_threshold({}, 1),
+		"nine arquebusiers clear a Wood wall's Royal battery"
+	)
+	assert_true(
+		host.strength() < FortRules.storm_ceiling(1),
+		"and still stand under the top of the emplaced line"
+	)
+	# No table: the gate keeps the top of the ladder, as every planner read it.
+	assert_false(
+		AiStormGate.admits(config, model, [host], host, 1),
+		"no table, the top battery"
+	)
+	# The holder mounts no emplaced pieces: the storm the resolver would run is
+	# the storm the gate admits.
+	config.wall_techs = {PHASE_OWNER: {}}
+	assert_true(
+		AiStormGate.admits(config, model, [host], host, 1),
+		"a Minor Nation's Wood wall is a Royal floor"
+	)
+	# A crown with siege guns behind the same wall prices the top again.
+	config.wall_techs = {PHASE_RIVAL: {"emplaced_siege_guns": true}}
+	assert_false(
+		AiStormGate.admits(config, model, [host], host, 1),
+		"a crown's own emplaced line prices the top"
+	)
+
+
 ## The wall reading rides the court's own target (issue #1314): the muster, its
 ## labour floor and the chest all ask for the same host, and a court with no
 ## reading keeps the published target.
@@ -18902,9 +19072,8 @@ func test_the_wall_raises_the_musters_own_target() -> void:
 		"the reading is the one the target raised the guard by"
 	)
 	assert_eq(
-		AiArmyReinforce.desired_regiments(config, false),
-		AiArmyReinforce.guard_regiments(config, false),
-		"peace musters the published target"
+		AiArmyReinforce.desired_regiments(config, false), guard + 3,
+		"peace arms for the same wall the war does"
 	)
 
 

@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1412 (REQ-P2-02). Largest gap, then REQ/wiki.
+Audited through #1415 (REQ-P2-02). Largest gap, then REQ/wiki.
 
 ## Already live
 
@@ -40,15 +40,15 @@ Audited through #1412 (REQ-P2-02). Largest gap, then REQ/wiki.
 | AI win / border front (#995) | `AiBorderFronts`; bench t101 (DR-19-16) |
 | Passengers whole-berth press | `EmbarkBatch` (DR-19-18, #1104) |
 | Station raid/catch dossier prices | `NavalRaid`/`NavalInterception` preview |
+| Province harbour Squadrons | `ProvinceHarbour` (DR-20261123-14) |
 
 ## Gaps (ranked)
 
-1. **Province harbour / Squadrons** — DR-20261123-14 dossier hull counts at a
-   charted port; no `ProvinceHarbour` on main (#1408 shipped Hosts).
+None.
 
 ## Next pick
 
-Province harbour / Squadrons (DR-20261123-14).
+None; see `docs/rubric.md` / wiki.
 
 ## Blocked
 
