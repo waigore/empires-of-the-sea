@@ -94,12 +94,14 @@ static func plan(
 	if harvest_slack >= -1 and harvest_slack < 1:
 		result["reasons"].append(REASON_HARVEST)
 		return result
-	# The storm chest rides above the hull's (issue #1381): the host × line.
+	# The storm host's next man rides above the hull's (issue #1381): the host
+	# is the target, the purse keeps one man of it — never the whole host,
+	# which no court could hold and pay its government too.
 	var chest: int = maxi(
 		AiIncome.hull_held(
 			config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
 		),
-		maxi(storm_bank, 0) * AiArmyReinforceLine.cheapest_line_price(economy)
+		AiArmyReinforceChest.storm_line_hold(config, economy, storm_bank)
 	)
 	# The hull's row is the fleet's once the chest is full: the muster spends
 	# only what stands above it, exactly as it spends only the purse above the
@@ -111,7 +113,17 @@ static func plan(
 	)
 
 	var candidates: Array[Dictionary] = []
+	# A court arming toward a wall (issue #1381) raises the very line its host
+	# is sized with: twelve men carrying levies' strength filled a target the
+	# wall wanted arquebusiers for and still stood under it (measured 48 against
+	# a ceiling of 59). A man of a weaker pattern is not the host the wall
+	# prices, so the court banks for the one that is.
+	var storm_line: String = ""
+	if storm_bank > 0:
+		storm_line = AiArmyReinforceLine.storm_line(config, economy)
 	for entry: Dictionary in AiArmyReinforceLine.candidates(config, economy, chest):
+		if not storm_line.is_empty() and String(entry["type_id"]) != storm_line:
+			continue
 		if not RegimentEconomy.missing_inputs(String(entry["type_id"]), stores).is_empty():
 			continue
 		candidates.append(entry)
