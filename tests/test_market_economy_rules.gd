@@ -6555,11 +6555,13 @@ func test_the_recruit_pick_names_no_tier_the_rules_refuse() -> void:
 
 
 ## A court with no harvest in hand has no slack to read: the sentinel keeps the
-## hire's food gate out of a phase that never harvested (issue #489).
+## hire's food gate out of a phase that never harvested (issue #489). The
+## reading is the larder's own, so it needs no court to stand behind it.
 func test_the_harvest_slack_is_unread_without_a_harvest() -> void:
-	var court := MapPlayEconomyCourt.new()
-	court.overseas = {}
-	assert_eq(court.harvest_slack(), -2, "no harvest, no reading")
+	assert_eq(
+		MapPlayEconomyLarder.harvest_slack(null, 1, {}, null), -2,
+		"no harvest, no reading"
+	)
 
 
 ## No tier named, no clause: the line never prints a headless sentence

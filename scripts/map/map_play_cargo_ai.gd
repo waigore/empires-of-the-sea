@@ -113,10 +113,7 @@ static func _scrap_idle(
 	var config: Variant = AiControl.court(play, faction).get("config")
 	if config == null:
 		return {}
-	var slack: int = (
-		int(play.ai.food_slack[faction])
-		if play.ai.food_slack.has(faction) else -2
-	)
+	var slack: int = MapPlayEconomyLarder.noted_slack(play, faction)
 	var idle: Dictionary = AiNavy.idle_hull(config, economy, roster, seat, slack)
 	if idle.is_empty():
 		return {}

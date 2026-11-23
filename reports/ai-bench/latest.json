@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:42dd7578afc8962e88a7862af86eff9ee138be3e190075d3c5fbbb836f177fff",
-  "submission_git": "fix/ai-labour-floor@dd407b7c",
+  "submission_hash": "sha256:955f23af7aa866fa60816b93c094618cde2a4dcd38449f21b341b02a470cab84",
+  "submission_git": "refactor/ai-objectives-plan-homes@64c004e1+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:3ff2c9adce330f4ae1735592dbbe3a380662243da5524ba8203fb3de21829231",
+    "ai_surface_hash": "sha256:2def1e257dafe703998187f0a3e0390790996e4b76f09baa69400534b7eb2669",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T20:29:34Z",
+  "timestamp": "2026-11-23T01:15:34Z",
   "report_version": 1,
-  "signature": "hmac-sha256:c36ee257a534fb3dffa5803d1e18799fda2d1f252e1ec86a07bd6357247b2f3b"
+  "signature": "hmac-sha256:986e622e85acc6d970895dc5d579ee46d2f2a9abdcae7b1d650c4c85ba2114c0"
 }

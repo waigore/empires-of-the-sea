@@ -4060,6 +4060,11 @@ func test_the_yard_drawer_prints_the_courts_claim_under_its_heading() -> void:
 		"the drawer words the claim it was handed"
 	)
 	assert_eq(yard.mark_type(), "sloop", "the mark is the pick's own hull")
+	assert_eq(
+		yard.legend_text(), FleetYardBlock.MARK_LEGEND,
+		"the slip says what its mark means"
+	)
+	assert_true(yard.legend_shown(), "the legend stands while a hull is named")
 	var printed: Array[String] = []
 	for child: Node in yard._box.get_children():
 		var label := child as Label
@@ -4085,9 +4090,15 @@ func test_the_yard_drawer_prints_the_courts_claim_under_its_heading() -> void:
 		"a hull the line does not name keeps its plain name"
 	)
 
+	yard.show_rows(null, rows, true, true, {})
+	assert_eq(yard.pick_line(), "", "an empty read prints no claim")
+	assert_false(yard.legend_shown(), "and the legend leaves the slip's list")
+	assert_eq(yard._legend.get_parent(), null, "so the list holds no stray sentence")
+
 	yard.show_rows(null, rows, false, true, pick)
 	assert_eq(yard.pick_line(), "", "a rival answers to her own court")
 	assert_eq(yard.mark_type(), "", "and marks no hull")
+	assert_false(yard.legend_shown(), "and explains no glyph")
 	yard.queue_free()
 
 

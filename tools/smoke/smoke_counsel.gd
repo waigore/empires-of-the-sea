@@ -79,6 +79,17 @@ static func _estates(run, screen: MapScreen) -> void:
 		_marked_estates(screen.improvements) == (pick.get("keys", {}) as Dictionary).size(),
 		"every estate the court would raise wears the mark"
 	)
+	# The card says what that mark means beside it, where a phone that drops the
+	# footer still reads it (DR-20261123-03/07).
+	run.check(
+		screen.improvements.legend_text() == ImprovementPanel.MARK_LEGEND,
+		"the estates card names its mark"
+	)
+	run.check(
+		screen.improvements.legend_shown()
+			== not (pick.get("keys", {}) as Dictionary).is_empty(),
+		"the estates legend stands with the marks it explains"
+	)
 	screen.improvements.close()
 
 
@@ -280,6 +291,18 @@ static func _colonies(run, screen: MapScreen) -> void:
 		colonies._counsel.visible == not counsel.is_empty(),
 		"the colonies' counsel stands with its reading"
 	)
+	# The door the line's own court answers (DR-20261123-05): a reading that names
+	# a court stands the press; a footing that shuts new chains stands none.
+	var door: Button = colonies.follow_press()
+	var door_court: int = MapPlayColonyPick.door(MapPlayColonyPick.pick(screen.play))
+	run.check(
+		door != null and door.visible == (door_court >= 0),
+		"the colonies' door follows its line"
+	)
+	run.check(
+		door_court < 0 or colonies.door_court() == door_court,
+		"the door names the court its line names"
+	)
 	run.check(_colony_overtures(screen) == before, "the colonies' reading signs nothing")
 	colonies.close()
 
@@ -413,6 +436,17 @@ static func _workers(run, screen: MapScreen) -> void:
 			page._counsel.visible == not counsel.is_empty(),
 			"the workers' counsel stands with its reading"
 		)
+		# The tab keeps no footer, so the sentence that says what a marked tier
+		# means stands under the line (DR-20261123-08).
+		var tiers: Dictionary = MapPlayRecruitPick.pick(screen.play).get("tiers", {})
+		run.check(
+			page.legend_text() == LedgerWorkers.MARK_LEGEND,
+			"the workers' tab names its mark"
+		)
+		run.check(
+			page.legend_shown() == not tiers.is_empty(),
+			"the workers' legend stands with the marks it explains"
+		)
 	run.check(
 		screen.economy.economy.workers.counts == before,
 		"the workers' reading enlists nobody"
@@ -455,6 +489,16 @@ static func _yards(run, screen: MapScreen) -> void:
 			== (1 if not yard.mark_type().is_empty() else 0),
 			"and paints the mark on that pattern's row alone"
 		)
+		# The yard keeps no footer: the sentence that says what the mark means
+		# stands directly under the line (DR-20261123-08).
+		run.check(
+			yard.legend_text() == ArmyMusterBlock.MARK_LEGEND,
+			"the drill yard names its mark"
+		)
+		run.check(
+			yard.legend_shown() == not yard.mark_type().is_empty(),
+			"and its legend stands with the mark it explains"
+		)
 	# The capital slip, from the door the province dossier opens (DR-20261121-02).
 	MapPlayFleetYard.open(play)
 	await run.tree.process_frame
@@ -470,6 +514,14 @@ static func _yards(run, screen: MapScreen) -> void:
 		run.check(
 			slip.mark_type() == String(laid.get("type", "")),
 			"the slip marks the hull its line names"
+		)
+		run.check(
+			slip.legend_text() == FleetYardBlock.MARK_LEGEND,
+			"the slip names its mark"
+		)
+		run.check(
+			slip.legend_shown() == not slip.mark_type().is_empty(),
+			"and its legend stands with the mark it explains"
 		)
 	# The capital rail's craft rows (DR-20261121-06).
 	var seat: int = int(MapPlayCourt.crown_seat(play).get("province", -1))
