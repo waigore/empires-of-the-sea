@@ -488,6 +488,19 @@ func test_the_log_sheet_prints_every_kept_line_oldest_first() -> void:
 		rows[rows.size() - 1].ends_with(String(play.auto_log[play.auto_log.size() - 1])),
 		"the newest line is at the foot"
 	)
+	# The note counts the kept lines, and a log of one reads in the singular
+	# (issue #1435).
+	assert_eq(
+		sheet._note.text,
+		"%d lines kept, oldest first." % play.auto_log.size(),
+		"the note counts what it kept"
+	)
+	var kept: Array[String] = play.auto_log.duplicate()
+	play.auto_log.assign(["The court returns to your hand."])
+	sheet._paint()
+	assert_eq(sheet._note.text, "1 line kept, oldest first.")
+	play.auto_log.assign(kept)
+	sheet._paint()
 
 
 ## A log that grew under the reader would move the lines they opened it to read,

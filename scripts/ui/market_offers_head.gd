@@ -128,7 +128,9 @@ func _build_seller_chips(offers: Array, present: Array[int]) -> void:
 		var count: int = int(entry.get("rows", 0))
 		_seller_chips[id] = _chip(
 			_seller_flow, "%s %d" % [FactionCatalog.name_of(id), tons],
-			"%d tons across %d offers." % [tons, count],
+			"%d ton%s across %d offer%s." % [
+				tons, MoneyText.plural(tons), count, MoneyText.plural(count)
+			],
 			_press_seller.bind(id)
 		)
 	_set_pressed(_seller_chips, seller)
@@ -147,7 +149,9 @@ func _build_good_chips(offers: Array, present: Array[String]) -> void:
 		var count: int = int(entry.get("rows", 0))
 		_good_chips[id] = _chip(
 			_good_flow, "%s %d" % [CommodityCatalog.label(id), tons],
-			"%d tons across %d sellers." % [tons, count],
+			"%d ton%s across %d seller%s." % [
+				tons, MoneyText.plural(tons), count, MoneyText.plural(count)
+			],
 			_press_good.bind(id)
 		)
 	_set_pressed(_good_chips, commodity)
@@ -234,7 +238,8 @@ func _status_text(shown: int, total: int) -> String:
 	if total <= 0:
 		return ""
 	var count: String = (
-		"%d of %d offers" % [shown, total] if shown != total else "%d offers" % total
+		"%d of %d offers" % [shown, total] if shown != total
+		else "%d offer%s" % [total, MoneyText.plural(total)]
 	)
 	return "%s  ·  %s" % [count, String(SORT_LABELS.get(sort_key, ""))]
 
