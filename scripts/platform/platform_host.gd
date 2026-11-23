@@ -74,10 +74,14 @@ static func set_clipboard(text: String) -> void:
 ## Starts a program with its arguments. Returns its process id, or NO_PROCESS
 ## when none started.
 static func start_process(program: String, args: PackedStringArray) -> int:
-	var pid: int = OS.create_process(program, args)
-	if pid <= 0:
+	return pid_or_none(OS.create_process(program, args))
+
+
+## Pure: the id a start hands back, read as "a process to wait on" or none.
+static func pid_or_none(raw_pid: int) -> int:
+	if raw_pid <= 0:
 		return NO_PROCESS
-	return pid
+	return raw_pid
 
 
 ## True while the process `pid` is still running. NO_PROCESS never runs.

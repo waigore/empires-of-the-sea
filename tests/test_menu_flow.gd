@@ -817,6 +817,9 @@ func test_the_host_answers_what_the_game_asks_of_it() -> void:
 	assert_false(PlatformHost.key_label(key).is_empty(), "a real key prints its cap")
 	var pid: int = PlatformHost.start_process("sh", PackedStringArray(["-c", "exit 0"]))
 	assert_true(pid > 0, "a program starts and hands back its id")
+	assert_eq(PlatformHost.pid_or_none(0), PlatformHost.NO_PROCESS, "no id is no process")
+	assert_eq(PlatformHost.pid_or_none(pid), pid, "a real id passes through")
+	assert_eq(typeof(PlatformHost.is_running(pid)), TYPE_BOOL, "a real id gets an answer")
 	PlatformHost.set_clipboard("eots")
 
 # --- the crown's charge (campaign intro) ---
