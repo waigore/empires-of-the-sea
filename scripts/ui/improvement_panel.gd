@@ -17,6 +17,11 @@ signal focus_pressed(tile: Vector2i)
 ## keep the walk (REQ-P3-03, REQ-P5-04; DR-20261116-06).
 signal raise_all_pressed(tiles: Array)
 
+## What the card's mark means, printed beside the mark on the sheet itself: a
+## phone drops the footer hint, and a card that keeps the meaning only there
+## shows a glyph with no sentence (REQ-P1-07, REQ-P5-07; DR-20261123-08).
+const MARK_LEGEND: String = "A ▸ marks the estates the court would raise this phase."
+
 var model: MapModel = null
 var works: LandWorks = null
 var units: Array[CivilianState] = []
@@ -42,6 +47,9 @@ var _batch: RaiseBatchPress = null
 ## The gold counsel line above the press: the estates the court would raise
 ## (CounselLine; DR-20261121-10, REQ-P5-06).
 var _counsel: CounselLine = null
+## What the card's mark means, mounted under the line it marks rows for: a phone
+## drops the footer hint, so the meaning stands beside the mark (DR-20261123-08).
+var _legend: Label = null
 ## What the press would spend, under it: the stores the ready estates take, or the
 ## rows the stores and the free Builders leave waiting (DR-20261118-12).
 var _line: Label = null
@@ -109,21 +117,36 @@ func refresh_if_open() -> void:
 
 ## The court's own raise reading, asked at every refresh: the estates the
 ## published Builder pass would raise this phase, or the gate that leaves the
-## page with nothing to name (DR-20261121-10). The pick's own keys mark the rows
-## it names, so the line and the marks come off one read (DR-20261122-04;
-## CounselLine, REQ-P4-01). Unwired prints nothing and marks nothing.
+## page with nothing to name (DR-20261121-10). The pick also keys the tiles it
+## names, so the rows it answers wear the counsel's mark (DR-20261122-04).
+## Unwired prints nothing and marks nothing. The legend under the line stands
+## exactly while that reading names an estate, so a quiet card explains no mark
+## it does not print (DR-20261123-08).
 func _sync_counsel() -> void:
 	if _counsel == null:
 		return
 	_counsel.source = counsel_source
 	_counsel.args = [_data]
 	_counsel.sync()
+	MarkLegend.stand(_legend, _counsel.visible and not _counsel.keys().is_empty())
 
 
 ## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
 ## the card carries no reading.
 func counsel_text() -> String:
 	return "" if _counsel == null else _counsel.text
+
+
+## The sentence that says what the card's mark means, for tests and tooling
+## (REQ-P3-02, DR-20261123-08). Empty when the card carries no legend.
+func legend_text() -> String:
+	return "" if _legend == null else _legend.text
+
+
+## Whether the legend stands beside the marks it explains (REQ-P1-07). A card
+## whose reading names no estate prints neither glyph nor sentence.
+func legend_shown() -> bool:
+	return _legend != null and _legend.visible
 
 
 # --- shell hooks -------------------------------------------------------------
@@ -155,6 +178,9 @@ func _build_plate(host: VBoxContainer) -> void:
 	# that repaints the sheet behind it must not pay for a line nobody sees
 	# (REQ-P4-02).
 	_counsel.gate = is_open
+	# What the mark on those rows means, beside the mark: a phone drops the footer
+	# hint, so the sentence cannot live only there (DR-20261123-03/07).
+	_legend = MarkLegend.make(MARK_LEGEND, host)
 
 	# The one press under the chips: it names how many estates the view would
 	# order and files them on the second tap (REQ-P5-04; DR-20261116-06).
@@ -195,6 +221,8 @@ func _apply_profile(compact: bool, _narrow: bool) -> void:
 		_subtitle.visible = not compact
 	if _footer_box != null:
 		_footer_box.visible = not compact
+	# The legend is the body's, not the footer's, so a compact card keeps it
+	# beside the marks it explains (DR-20261123-03/07, REQ-P5-07).
 
 
 ## Rows are built for one geometry, so an open card repaints for the new one.
@@ -236,11 +264,12 @@ func _footer() -> Control:
 	var footer := VBoxContainer.new()
 	footer.add_theme_constant_override("separation", 4)
 	var hint := Label.new()
+	# The mark's sentence is not repeated here: it stands beside the marks it
+	# explains, where a phone that drops this hint still reads it (DR-20261123-08).
 	hint.text = (
 		"Build orders place the nearest idle Builder on the estate; materials are "
 		+ "spent on assignment and are not refunded if the work is cancelled. "
-		+ "Roads and ports carry yields to the crown. A ▸ marks the estates the "
-		+ "court would raise this phase."
+		+ "Roads and ports carry yields to the crown."
 	)
 	hint.add_theme_font_size_override("font_size", 10)
 	hint.add_theme_color_override("font_color", Color(0.80, 0.74, 0.62, 0.76))

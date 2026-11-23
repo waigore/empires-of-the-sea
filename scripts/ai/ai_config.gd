@@ -14,9 +14,11 @@ var agenda_traits: Dictionary = {}
 ## The wall the court faces at war, read by the map layer (issue #1314): the
 ## smallest host that would storm the thinnest wall it does not own, already
 ## net of its guard target and its standing regiments
-## ([method AiStormGate.extra]). Empty until a live pass reads it, and for
-## every court the bench's frozen mainline leaves untouched — a court with no
-## reading musters its published target.
+## ([method AiStormGate.extra]). The config is the court's one shared instance
+## for the run (issue #1356), so the reading a live pass notes is what every
+## reader in the turn — the counsel, the ledger, the observer — sees. The
+## bench's frozen mainline builds its own configs and carries no reading, and
+## a court with none musters its published target.
 var storm_read: Dictionary = {}
 
 

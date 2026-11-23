@@ -18,14 +18,18 @@ const LINE_CATEGORIES: Array[int] = [
 ]
 
 
-## True while the fields can spare the levy's own hand above `army.min_peasants`,
-## so the muster, the pattern it saves for and the war chest it holds all gate on
-## one labour reading (wiki: ai-architecture § Land reinforcement).
+## True while the pool holds the `army.min_peasants` free hands the levy draws
+## from: the floor names the hands the levy may draw, the fields keep the rest
+## (wiki: ai-architecture § Land reinforcement; the parameter's own meaning in
+## `ai_parameter_army.gd`; issue #1355). The pool already nets the hands a build
+## reserved, so the levy's own hand is never subtracted again here — that read
+## the real floor as `min_peasants + 1` and held the muster all campaign.
+## The muster, the pattern it saves for and the war chest it holds all gate on
+## one labour reading.
 static func labour_floor_ok(config: AiConfig, economy: PlayerEconomy) -> bool:
 	if config == null or economy == null:
 		return false
-	var spare: int = economy.available_peasants() - RegimentEconomy.WORKER_COST
-	return spare >= int(config.parameter("army.min_peasants"))
+	return economy.available_peasants() >= int(config.parameter("army.min_peasants"))
 
 
 ## The line regiment this court would raise if its stores could pay for it:

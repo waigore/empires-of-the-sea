@@ -78,22 +78,18 @@ func _counsel_block() -> Control:
 
 ## The mark's meaning, mounted where the mark is read: hidden until the sheet's
 ## reading names a row, so a quiet sheet never explains a glyph it does not print
-## (REQ-P1-07, REQ-P5-07).
+## (REQ-P1-07, REQ-P5-07). The dress is MarkLegend's, so a card and a drawer that
+## keep no footer say it the same way a sheet does (DR-20261123-08).
 func _make_legend(host: Container) -> Label:
-	if host == null or mark_legend.is_empty():
-		return null
-	var legend := UiRowBuilder.wrapped_line(mark_legend, 10, Palette.TEXT_DIM)
-	legend.visible = false
-	host.add_child(legend)
-	return legend
+	return MarkLegend.make(mark_legend, host)
 
 
 ## Stands the legend beside the marks it explains: shown only while the reading
 ## that paints them names a row.
 func _paint_legend() -> void:
-	if _legend_label == null or _counsel == null:
+	if _counsel == null:
 		return
-	_legend_label.visible = _counsel.visible and not _counsel.keys().is_empty()
+	MarkLegend.stand(_legend_label, _counsel.visible and not _counsel.keys().is_empty())
 
 
 ## The gold line's text, for tests and tooling (REQ-P3-02). Empty when the sheet

@@ -2829,9 +2829,11 @@ func test_ai_economy_keeps_the_musters_own_hand() -> void:
 	var economy := PlayerEconomy.starting()
 	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
 	economy.treasury = 5000
-	# The retuned floor is 1 spare hand (issue #1314 companion), so the
-	# reservation is the floor plus the levy's hand — two heads — and the
-	# published last-peasant throttle holds while the pool stands at it.
+	# The retuned floor is 1 free hand (issue #1314 companion; issue #1355), so
+	# the reservation is the floor plus the levy's hand — two heads — and the
+	# published last-peasant throttle holds while the pool stands at it. The
+	# extra head is the reservation's own point: a levy that drew the floor's
+	# hand to the head would leave an empty pool behind it.
 	economy.stockpile = {"fabric": 10, "castIron": 10, "lumber": 10}
 	economy.add("paper", 10)
 	var hands: int = AiArmyReinforce.muster_hands(config, economy, 0, true)
@@ -8458,18 +8460,47 @@ func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 	assert_eq(String(full["muster"]), "", "the war target is a ceiling too")
 
 
+## The levy's own hand (issue #1355): `army.min_peasants` names the free hands
+## the levy draws from, so a court at war with one free peasant raises its levy,
+## and the reservation and the war chest read the same floor.
+func test_the_levy_draws_the_floors_own_hand() -> void:
+	var config: AiConfig = _work_config()
+	assert_true(
+		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 1)),
+		"one free peasant is the floor the levy draws from"
+	)
+	assert_false(
+		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 0)),
+		"an empty pool holds the floor"
+	)
+	var muster: Dictionary = AiArmyReinforce.plan(config, _work_economy(12000, 1), 3, true)
+	assert_eq(String(muster["muster"]), "arquebusiers", "a war-time court with one free hand arms up")
+	# The reservation keeps a head above the floor so a levy that drew the pool
+	# to its head would not strand the next muster with an empty pool.
+	var economy: PlayerEconomy = _work_economy(12000, 1)
+	economy.stockpile = {"fabric": 10, "castIron": 10, "lumber": 10}
+	assert_eq(
+		AiArmyReinforce.muster_hands(config, economy, 0, true),
+		config.parameter("army.min_peasants") + 1,
+		"the fields keep the floor plus the levy's hand"
+	)
+	assert_true(
+		AiArmyReinforce.muster_floor(config, _work_economy(12000, 1), 3, true) > 0,
+		"the war chest reads the same floor"
+	)
+
+
 func test_a_thin_labour_pool_stops_the_muster() -> void:
-	# The retuned floor is 1 spare hand (issue #1314 companion), so a pool of
-	# two cannot spare one: the labour floor holds with the levy's own hand
-	# the only head above it.
+	# The retuned floor is 1 free hand (issue #1314 companion; issue #1355): the
+	# floor names the hands the levy draws, so a pool of one raises the levy and
+	# an empty pool is where the labour floor holds.
 	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 1), 3, false)
 
-	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
-	assert_true((plan["reasons"] as Array).has("labour floor"))
-	# One spare head over the floor and the muster fires again — the floor is
-	# a reservation, not a wall (the retune's own point).
-	var spare: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 2), 3, false)
-	assert_eq(String(spare["muster"]), "arquebusiers", "one hand above the floor musters")
+	assert_eq(String(plan["muster"]), "arquebusiers", "the levy's own hand is drawn")
+	# An empty pool and the muster fires nothing — the floor holds.
+	var empty: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 0), 3, false)
+	assert_eq(String(empty["muster"]), "", "no hand, no levy")
+	assert_true((empty["reasons"] as Array).has("labour floor"))
 
 
 func test_a_researched_pattern_is_the_one_that_musters() -> void:
@@ -9049,6 +9080,37 @@ func test_a_rule_with_no_order_row_reads_never_exercised() -> void:
 	)
 
 
+## The naval rows' own gates (issue #1357): the seed-1500 batch never meets
+## either — the opening raids and battles take every court's hulls by t20 and
+## the frozen pool rebuilds none, so no port warship has a hostile squadron in
+## reach and nothing is afloat to bring home. Both rows name the gate that held
+## every court instead of failing the checklist as defects.
+func test_the_naval_rows_name_the_gate_that_holds_them() -> void:
+	var rows: Array[Dictionary] = AiCoverage.scan(_records())
+	var sortie: Dictionary = _row(rows, "navy.sortie")
+	assert_false(bool(sortie["major"]), "the sortie is gated, not a defect")
+	assert_eq(int(sortie["count"]), 0, "no port squadron sortied")
+	assert_true(
+		String(sortie["gate"]).contains("hostile squadron"),
+		"the sortie names the gate that held every court",
+	)
+	var home: Dictionary = _row(rows, "navy.home")
+	assert_false(bool(home["major"]), "the homeward leg is gated, not a defect")
+	assert_eq(int(home["count"]), 0, "no squadron came home")
+	assert_true(
+		String(home["gate"]).contains("harbour to reach"),
+		"the homeward leg names the gate that held every court",
+	)
+	assert_true(
+		not AiCoverage.missing_major(rows).has("navy.sortie"),
+		"a gated sortie never fails the checklist",
+	)
+	assert_true(
+		not AiCoverage.missing_major(rows).has("navy.home"),
+		"a gated homeward leg never fails the checklist",
+	)
+
+
 func test_an_aim_ranked_but_never_funded_reads_starved() -> void:
 	var fixed: Array[Dictionary] = _records()
 	var court: Dictionary = fixed[1]["rows"][1]
@@ -9214,6 +9276,50 @@ func test_the_larder_reads_carry_their_shape_for_the_pass_and_the_picks() -> voi
 	var merged: Dictionary = MapPlayEconomyLarder.merge_rows({"cloth": 2}, {"cloth": 3})
 	assert_eq(int(merged["cloth"]), 5, "the muster's cloth and the hull's add up")
 	assert_eq(MapPlayEconomyLarder.merge_rows({"cloth": 2}, {}).size(), 1, "an empty row adds nothing")
+
+
+## The hire's slack and the flow gate read one home: a session with no planner
+## has no note (the `-2` sentinel), a noted slack is read back as it stands, and a
+## court with no harvest in hand falls back to the pass's own note. The court's
+## turn and the WORKERS tab's counsel read the same two figures (REQ-P3-01,
+## REQ-P3-02; DR-20261122-01).
+func test_the_larder_owns_the_hire_slack_it_reads() -> void:
+	var empty := PlaySession.new()
+	assert_eq(MapPlayEconomyLarder.noted_slack(empty, 1), -2, "no pass, no note")
+	assert_eq(MapPlayEconomyLarder.noted_slack(null, 1), -2, "no session, no note")
+	var court := MapPlayEconomyCourt.new()
+	court.play = empty
+	court.faction = 1
+	court.overseas = {}
+	assert_eq(
+		MapPlayEconomyLarder.harvest_reading(court), -2,
+		"no harvest and no note, no reading"
+	)
+	court.play.ensure_ai().note_food_slack(1, 4)
+	assert_eq(
+		MapPlayEconomyLarder.noted_slack(empty, 1), 4, "the pass's note is the reading"
+	)
+	assert_eq(
+		MapPlayEconomyLarder.harvest_reading(court), 4,
+		"a court with no harvest hires against the note"
+	)
+
+
+## The chest the muster and the hull claim is the larder's row: a court with no
+## yard chest claims no hull, and the merged row keeps the muster's own cloth
+## (issue #484, #878).
+func test_the_larder_owns_the_chest_rows_the_plan_reads() -> void:
+	var economy: PlayerEconomy = _economy({"fabric": 8})
+	var chest: Dictionary = MapPlayEconomyLarder.chest_rows(
+		PlaySession.new(), CONFIG_FACTION, AiControl.KIND_SUBJECT, _config(),
+		economy, true, 2, 0, 0, 0
+	)
+	assert_false((chest["muster_row"] as Dictionary).is_empty(), "the muster names its row")
+	assert_eq((chest["navy_row"] as Dictionary).size(), 0, "no chest, no hull row")
+	assert_eq(
+		(chest["held"] as Dictionary), (chest["muster_row"] as Dictionary),
+		"with no hull the held row is the muster's own"
+	)
 
 
 func test_production_inputs_are_never_sold_under_the_court() -> void:
@@ -15324,16 +15430,14 @@ func test_the_victory_pressure_raises_the_muster_target() -> void:
 
 
 func test_planner_a_thin_labour_pool_stops_the_muster() -> void:
-	# The retuned floor is 1 spare hand (issue #1314 companion): two heads in
-	# the fields cannot spare one, the levy's own hand is all that stands.
+	# The retuned floor is 1 free hand (issue #1314 companion; issue #1355): a
+	# pool of one draws the levy, an empty pool is where the floor holds.
 	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 1), 3, false)
 
-	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
-	assert_true((plan["reasons"] as Array).has("labour floor"))
-	# One head over the floor and the muster fires — the floor reserves, the
-	# wall the retune removed was permanent.
-	var spare: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 2), 3, false)
-	assert_eq(String(spare["muster"]), "arquebusiers", "one hand above the floor musters")
+	assert_eq(String(plan["muster"]), "arquebusiers", "the levy's own hand is drawn")
+	var empty: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 0), 3, false)
+	assert_eq(String(empty["muster"]), "", "no hand, no levy")
+	assert_true((empty["reasons"] as Array).has("labour floor"))
 
 func test_planner_a_researched_pattern_is_the_one_that_musters() -> void:
 	var economy: PlayerEconomy = _ai_army_reinforce_economy()
@@ -16524,7 +16628,7 @@ func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:
 	var chain: AiObjective = _by_id(objectives, "colonise.tribe_chain")
 
 	assert_true(chain != null, "a colony in reach is a priced aim")
-	assert_eq(int(chain.utility), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain.utility), AiObjectiveExpeditionPlan.W_TRIBE_COLONY)
 	assert_eq(int(chain.cost["treasury"]), DiplomacyCatalog.EMBASSY_COST)
 	assert_eq(int(chain.cost["orders"]), 1, "the chain spends the court's one order")
 	var report: Dictionary = AiObjectiveLedger.run(
@@ -16556,7 +16660,7 @@ func test_the_deed_the_court_saves_for_is_a_priced_aim() -> void:
 	var deed: AiObjective = _by_id(objectives, "market.deed")
 
 	assert_true(deed != null, "a priced deed is an aim")
-	assert_eq(int(deed.utility), AiObjectivesPlan.W_DEED)
+	assert_eq(int(deed.utility), AiObjectiveTreasuryPlan.W_DEED)
 	assert_eq(int(deed.cost["treasury"]), 750, "the published 15 x base price")
 	AiObjectiveLedger.run(
 		objectives,
@@ -16852,7 +16956,7 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
 
 	assert_true(build != null, "a court at war with no fighting hull builds one")
-	assert_eq(int(build.utility), AiObjectivesPlan.W_NAVY_BUILD, "the yard leads")
+	assert_eq(int(build.utility), AiObjectiveNavyPlan.W_NAVY_BUILD, "the yard leads")
 	assert_eq(int(build.cost["treasury"]), 5500, "priced at the cheapest warship")
 	assert_false(
 		(build.cost as Dictionary).has("hull"),
@@ -16877,7 +16981,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 
 	assert_true(build != null, "the yard is still the court's aim")
 	assert_eq(
-		int(build.utility), AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		int(build.utility), AiObjectiveNavyPlan.W_NAVY_BUILD_WAITING,
 		"but the yard waits behind the army it would starve"
 	)
 	assert_true(
@@ -16901,7 +17005,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	readings["treasury"] = 5500
 	assert_true(
 		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility)
-		> AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		> AiObjectiveNavyPlan.W_NAVY_BUILD_WAITING,
 		"the chest is in hand: the yard is no longer parked behind the line"
 	)
 	# Fleetless rebuild never yields the yard to the muster (#484).
@@ -16909,7 +17013,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	readings["treasury"] = 5342
 	assert_eq(
 		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility),
-		AiObjectivesPlan.W_NAVY_BUILD,
+		AiObjectiveNavyPlan.W_NAVY_BUILD,
 		"a lost last sloop keeps the yard ahead of the line"
 	)
 
@@ -16993,7 +17097,7 @@ func test_a_court_outmatched_on_its_own_coast_replaces_before_it_expands() -> vo
 
 	assert_true(build != null, "outmatched, the court replaces its hulls")
 	assert_true(
-		int(build.utility) > int(AiObjectivesPlan.W_NAVY),
+		int(build.utility) > int(AiObjectiveNavyPlan.W_NAVY),
 		"and the replacement outranks a sortie"
 	)
 
@@ -17178,7 +17282,7 @@ func test_the_adapter_reads_a_charted_tribe_as_a_colony_in_reach() -> void:
 		if String(row["id"]) == "colonise.tribe_chain":
 			chain = row
 	assert_false(chain.is_empty(), "the envoy chain is priced")
-	assert_eq(int(chain["utility"]), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain["utility"]), AiObjectiveExpeditionPlan.W_TRIBE_COLONY)
 	assert_eq(int(chain["cost"]["treasury"]), DiplomacyCatalog.EMBASSY_COST)
 	assert_ne(String(chain["status"]), AiObjective.STATUS_BLOCKED, "the shore and the purse both stand")
 	play.ship_layer.free()
@@ -18346,3 +18450,48 @@ func test_the_wall_raises_the_musters_own_target() -> void:
 		AiArmyReinforce.guard_regiments(config, false),
 		"peace musters the published target"
 	)
+
+
+## The config every reader shares (issue #1356): the state builds it once per
+## court and hands the same instance back, so the reading one pass notes on it
+## — the storm read — is the reading the next reader sees, not a fresh build
+## that forgot it.
+func test_the_courts_config_is_one_instance_for_every_reader() -> void:
+	var state := AiState.new()
+	var first: Variant = state.court_config(
+		AiControl.KIND_SUBJECT, 1, 1500, AiProfile.roster()
+	)
+	assert_true(first is AiConfig, "the bind builds the court's run config")
+	var second: Variant = state.court_config(
+		AiControl.KIND_SUBJECT, 1, 1500, AiProfile.roster()
+	)
+	assert_true(first == second, "the second read is the same config, not a new build")
+	var guard: int = AiArmyReinforce.guard_regiments(first, true)
+	(first as AiConfig).storm_read = {"want": guard + 3, "extra": 3}
+	assert_eq(
+		AiArmyReinforce.desired_regiments(second, true), guard + 3,
+		"the reading the pass noted is the target the next reader sees"
+	)
+	assert_eq(
+		AiArmyReinforce.desired_regiments(first, true), guard + 3,
+		"and the pass's own target is the same host"
+	)
+
+
+## The court read opens the same shared config the pass reads (issue #1356): a
+## second `AiControl.court` in one turn reads the storm reading the muster pass
+## set, so the counsel and the pass cannot name two hosts.
+##
+## Without a materialized `scripts/ai_mainline/` (CI and a plain checkout) the
+## bind falls back to the submission profile builder, so a baseline court gets
+## the same shared host as any other. The frozen mainline path is exercised by
+## the bench, not here: asserting it would only pass on a synced tree.
+func test_a_court_read_back_hands_the_same_config() -> void:
+	var state := AiState.new()
+	var mainline: Variant = state.court_config(
+		AiControl.KIND_BASELINE, 1, 1500, AiProfile.roster()
+	)
+	assert_true(mainline is AiConfig, "the bind falls back to the profile builder")
+	assert_true(mainline == state.court_config(
+		AiControl.KIND_BASELINE, 1, 1500, AiProfile.roster()
+	), "a baseline court hands back the one config it built")

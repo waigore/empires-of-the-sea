@@ -10,7 +10,7 @@ Research turns gold into advances: caps, upgrades, cheaper attacks.
 
 ## Implemented
 
-- **Catalog:** 113 techs; `TechAudit.validate()` checks ids, prerequisites,
+- **Catalog:** 115 techs; `TechAudit.validate()` checks ids, prerequisites,
   DAG, reachability, caps.
 - **Research state:** three slots (four with University), per-slot funding,
   `<techUnlocked>`, saved.

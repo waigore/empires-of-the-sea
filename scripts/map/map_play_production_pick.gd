@@ -8,7 +8,7 @@ extends RefCounted
 ## The reading is not a second opinion: it is `AiEconomyPlanner.production_orders`
 ## — the call `MapPlayEconomyCourt.plan_turn` books every court's manufacture
 ## from — asked with the crown's own ledger, its best town, and the chest rows
-## the muster and the hull claim, read through `MapPlayEconomyCourt.chest_rows`
+## the muster and the hull claim, read through `MapPlayEconomyLarder.chest_rows`
 ## so the plan and the pass cannot price two different chests (issue #484, #878).
 ##
 ## A reading only: nothing here sets a run, spends an input or a hand, and the
@@ -78,7 +78,7 @@ static func plan_for(
 	var pressure: Dictionary = AiVictoryPressure.read(
 		play.world, faction, play.human_faction_id(), play.difficulty, config
 	)
-	var chest: Dictionary = MapPlayEconomyCourt.chest_rows(
+	var chest: Dictionary = MapPlayEconomyLarder.chest_rows(
 		play, faction, kind, config, economy, at_war,
 		MapPlayCourt.regiments(play, faction),
 		MapPlayCourt.warships(play, faction),

@@ -28,7 +28,7 @@ own fort order.
 
 The press names the price and prints what the wall buys under it, in words a
 phone reads without a hover. The sheet states the rule off the fort table:
-40 / 80 / 120 wall hp by level and 1–5 emplaced guns.
+40 / 80 / 120 / 160 / 200 wall hp by level and 1–5 emplaced guns.
 
 ## Raise
 
