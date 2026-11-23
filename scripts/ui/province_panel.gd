@@ -1,9 +1,9 @@
 class_name ProvincePanel
 extends PanelContainer
-## Slide-in dossier for the selected province. The sheet's title block, its fact
-## grid, the estates it holds and the order rail are sections of their own, so no
-## build method grows into a god method (REQ-P3-01). Every row is a fact the
-## player can act on; the rules decide what an order may do (REQ-P3-02).
+## Slide-in dossier for the selected province. The frame, the title block, the
+## fact grid, the estates it holds and the order rail are sections of their own,
+## so no build method grows into a god method (REQ-P3-01). Every row is a fact
+## the player can act on; the rules decide what an order may do (REQ-P3-02).
 
 signal action_pressed(action: String)
 signal close_pressed
@@ -29,8 +29,9 @@ var _grid: ProvinceFactsGrid = null
 var _orders: ProvinceOrdersSection = null
 var _resources: ProvinceResources = null
 var _rail: ProvinceRailBlock = null
-var _dock: Button = null
-var _column: VBoxContainer = null
+## The frame the sections print into: the scrolling column, the hairlines, the
+## hint and the dock seal (ProvinceSheetShell; REQ-P3-01).
+var _shell: ProvinceSheetShell = null
 var _orders_index: int = -1
 
 ## Live state the dossier reads (set by MapPlaySetup, like the estates ledger).
@@ -66,76 +67,39 @@ func _fit_to_viewport() -> void:
 
 
 func _build() -> void:
-	var shell := VBoxContainer.new()
-	shell.add_theme_constant_override("separation", 8)
-	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(shell)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	shell.add_child(scroll)
-
-	var column := VBoxContainer.new()
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_theme_constant_override("separation", 10)
-	scroll.add_child(column)
-	_column = column
+	_shell = ProvinceSheetShell.new()
+	_shell.dock_pressed.connect(func() -> void: dock_side_pressed.emit())
+	add_child(_shell)
 
 	_head = ProvinceSheetHead.new()
 	_head.close_pressed.connect(func() -> void: close_pressed.emit())
-	column.add_child(_head)
+	_shell.add_block(_head)
 
 	# The court's own reading sits under the head and above the facts it answers:
 	# what its staff would do with this province's ground this turn (CounselLine;
 	# DR-20261121-19). A dossier with no province on show asks nothing.
-	_counsel = CounselLine.make(column)
+	_counsel = CounselLine.make(_shell.column)
 	_counsel.gate = func() -> bool: return _model != null and _province_id >= 0
 
-	column.add_child(UiRowBuilder.rule())
-
 	_grid = ProvinceFactsGrid.new()
-	column.add_child(_grid)
-
-	column.add_child(UiRowBuilder.rule())
+	_shell.add_section(_grid)
 
 	_resources = ProvinceResources.new()
 	_resources.road_pressed.connect(_on_road_pressed)
-	column.add_child(_resources)
-
-	column.add_child(UiRowBuilder.rule())
+	_shell.add_section(_resources)
 
 	# The rail block sits under the estates: a railroad upgrades a road, so the
 	# press that lays one belongs beside the ground it serves (DR-20261117-10).
 	_rail = ProvinceRailBlock.new()
 	_rail.rail_pressed.connect(_on_rail_pressed)
-	column.add_child(_rail)
-
-	column.add_child(UiRowBuilder.rule())
+	_shell.add_section(_rail)
 
 	_orders = ProvinceOrdersSection.new()
 	_orders.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
-	column.add_child(_orders)
+	_shell.add_section(_orders)
 	_orders_index = _orders.get_index()
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 4)
-	column.add_child(spacer)
-
-	var hint := UiRowBuilder.wrapped_line(
-		"Civilians muster at the capital; estates are managed from the ledger.",
-		11,
-		Palette.with_alpha(Palette.TEXT_DIM, 0.6)
-	)
-	column.add_child(hint)
-
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 8)
-	shell.add_child(footer)
-
-	_dock = UiRowBuilder.small_button("◀", "Dock left")
-	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
-	footer.add_child(_dock)
+	_shell.add_hint()
 	_fit_to_viewport()
 
 
@@ -178,23 +142,22 @@ func set_data(
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
-	if _dock == null:
+	if _shell == null:
 		return
-	_dock.text = glyph
-	_dock.tooltip_text = tip
+	_shell.set_dock_affordance(glyph, tip)
 
 
 ## A phone sheet is short, so orders move above the survey table: every action
 ## stays one tap away and only the details scroll. Idempotent.
 func set_compact(compact: bool) -> void:
-	if _orders == null or _grid == null or _column == null:
+	if _orders == null or _grid == null or _shell == null:
 		return
 	# Recruit is a live order now, so it stays on the phone sheet too.
 	var orders_at: int = _orders.get_index()
 	var grid_at: int = _grid.get_index()
 	if compact == (orders_at < grid_at):
 		return
-	_column.move_child(_orders, grid_at if compact else _orders_index)
+	_shell.column.move_child(_orders, grid_at if compact else _orders_index)
 
 
 func set_training_visible(visible: bool) -> void:
@@ -251,7 +214,10 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
 		model, _works, _faction, province_id, _visibility
 	).size()
-	_resources.render(rows, unsurveyed, _road_plans(model, rows))
+	_resources.render(
+		rows, unsurveyed, _road_plans(model, rows),
+		MapPlayProvinceHarvest.line(play, model, province_id)
+	)
 	_rail.render(RailWorks.province_plans(
 		model, _works, _units, _faction, province_id, _tech_unlocked
 	))
@@ -326,19 +292,9 @@ func press_text(key: String) -> String:
 ## the crown network is resolved once for the whole province, so a dossier of
 ## five estates costs one BFS (REQ-P4-01).
 func _road_plans(model: MapModel, rows: Array[Dictionary]) -> Dictionary:
-	var plans: Dictionary = {}
-	if _faction < 0 or _works == null:
-		return plans
-	var resolved: Dictionary = LandConnectivity.resolve(
-		model, _works, _faction, _capital_tile
+	return RoadWorks.province_plans(
+		model, _works, _units, _faction, _capital_tile, rows
 	)
-	for row: Dictionary in rows:
-		var plan: Dictionary = RoadWorks.plan(
-			model, _works, _units, _faction, _capital_tile, row["tile"], resolved
-		)
-		if bool(plan["needed"]):
-			plans[row["tile"]] = plan
-	return plans
 
 
 ## The estate block's Build road: the order travels as one intent string, the

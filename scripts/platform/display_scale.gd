@@ -18,7 +18,7 @@ const MAX_SCALE := 5.0
 
 
 static func is_handheld() -> bool:
-	return OS.has_feature("mobile")
+	return PlatformHost.is_mobile()
 
 
 ## Applies the point scale to a handheld window; a no-op on desktop.
@@ -86,7 +86,7 @@ static func safe_insets(window: Window) -> Vector4:
 		return Vector4.ZERO
 	var screen: Vector2 = Vector2(DisplayServer.screen_get_size())
 	var units: Vector2 = point_size(window)
-	if OS.has_feature("android"):
+	if PlatformHost.is_android():
 		return insets_for(true, DisplayServer.get_display_cutouts(), Rect2(), screen, units)
 	return insets_for(false, [] as Array[Rect2], Rect2(DisplayServer.get_display_safe_area()), screen, units)
 

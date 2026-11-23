@@ -53,12 +53,9 @@ const PARCHMENT := Color(0.10, 0.08, 0.06)
 const PARCHMENT_ROW := Color(0.13, 0.11, 0.08)
 ## The gold a hairline and a marker ring are drawn in, under a sheet's gold inks.
 const GOLD_RULE := Color(0.831, 0.686, 0.216)
-
-
-## The same ink at another strength, so one colour serves a fill, a fade and a
-## hairline without a second constant.
-static func with_alpha(ink: Color, alpha: float) -> Color:
-	return Color(ink.r, ink.g, ink.b, alpha)
+## The hairline between a sheet's blocks: the rule gold at a third strength, so
+## it reads on parchment without a second ink (REQ-P1-02).
+const RULE_INK := Color(0.831, 0.686, 0.216, 0.35)
 
 ## Regiment condition: a healthy line reads green, a mauled one red (REQ-P1-07).
 const HEALTH_HIGH := Color(0.361, 0.612, 0.322)
@@ -130,6 +127,13 @@ const TERRAIN_COLORS: Array[Color] = [
 	Color(0.655, 0.680, 0.585),
 	Color(0.755, 0.815, 0.435),
 ]
+
+
+## The same ink at another strength, so one colour serves a fill, a fade and a
+## hairline without a second constant.
+static func with_alpha(ink: Color, alpha: float) -> Color:
+	return Color(ink.r, ink.g, ink.b, alpha)
+
 
 static func terrain_color(terrain: int) -> Color:
 	if terrain < 0 or terrain >= TERRAIN_COLORS.size():

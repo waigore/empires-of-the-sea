@@ -53,18 +53,38 @@ static func wants_voyage(
 
 
 ## The colonist kind this court's next voyage carries (`VoyageRead.voyage_kind`):
-## a Builder once it holds ground across the water, else a Merchant while its
-## Explorer is ashore there, else an Explorer (wiki: civilian-units § Overseas
-## deployment; #1127). The muster and the colonisation planner read this one
-## home, so neither names a crew the other will not board.
+## a Builder once it holds ground across the water, then an Engineer while that
+## ground has no port to root its network, else a Merchant while its Explorer is
+## ashore there, else an Explorer (wiki: civilian-units § Overseas deployment;
+## extraction-and-improvements § Overseas delivery; #1127, #1422). The muster and
+## the colonisation planner read this one home, so neither names a crew the other
+## will not board.
 static func voyage_kind(play: PlaySession, faction: int, region: int) -> String:
 	if play.world == null:
 		return "explorer"
 	var other: int = _other_region(region)
 	return VoyageRead.voyage_kind(
 		VoyageRead.holds_ground_in(play.world, other, faction),
-		abroad_counts(play, other, faction)
+		abroad_counts(play, other, faction),
+		needs_port(play, other, faction)
 	)
+
+
+## True when the crown's ground in `region` still has no port to root its
+## network, so a voyage must carry the Engineer that raises one (wiki:
+## extraction-and-improvements § Overseas delivery; issue #1422). A region no crew
+## has landed in holds no works record, which reads as no port: the ground is
+## there and nothing roots it. One home for the muster, the planner and the map
+## adapter.
+static func needs_port(play: PlaySession, region: int, faction: int) -> bool:
+	if play.world == null:
+		return false
+	var works := LandWorks.new()
+	if play.civilian_layer != null:
+		var held: LandWorks = play.civilian_layer.works_regions.value(region, null)
+		if held != null:
+			works = held
+	return VoyageRead.needs_port(play.world.region(region), works, faction)
 
 
 ## This court's civilians in one region, counted by kind — the reading the
@@ -176,13 +196,18 @@ static func muster_colonist(roster: Array, faction: int, kind: String = "explore
 ## gate the voyage now musters behind, instead of looking for a squadron a
 ## second time (issue #491 T2). A court with no ledger yet (the opening turn, an
 ## old save, a fixture) falls back to the free-squadron check, so the muster
-## behaves as published until the first ledger exists. A deferred claim leaves
-## the Explorer ashore, and the ledger's line already names the shortfall.
+## behaves as published until the first ledger exists. A court whose claim has
+## given up on the hull — the escalation names a stall the aim never funds again
+## — falls back to the same reading: an idle squadron the court owns is a hull
+## the rules let it send, and a colony nobody sails to is no colony (issue
+## #1422). The claim's own shortfall stays on the ledger's line while it defers.
 static func hull_claimed(play: PlaySession, faction: int, region: int) -> bool:
 	var claim: Dictionary = play.ai.objectives_for(faction) if play.ai != null else {}
 	if claim.is_empty():
 		return has_free_squadron(play, region, faction)
-	return (claim.get("funded_ids", []) as Array).has("expedition.hull")
+	if (claim.get("funded_ids", []) as Array).has("expedition.hull"):
+		return true
+	return has_free_squadron(play, region, faction)
 
 
 ## A squadron of this court that could take a colonist: hulls aloft, no troops
