@@ -159,6 +159,17 @@ static func war_block(
 	var check: Dictionary = DiplomacyRules.can_declare_war(state, config.faction, target)
 	if not bool(check.get("ok", false)):
 		return String(check.get("reason", "illegal"))
+	# The bank holds the declaration too (issue #1384): a court saving for the
+	# army its conquest still needs opens no new war. The pact break and the
+	# envoy rung already wait behind this bank (#995, #1135) — the declaration
+	# is the purchase those waits were for, and the issue's deferrable-purchase
+	# veto names it. The bank releases the turn its host can be paid for; the
+	# war leads again then, as the pact break does.
+	var banked: String = AiIncome.bank_refusal(
+		config, ai_state, context.get("income", {}) as Dictionary
+	)
+	if not banked.is_empty():
+		return banked
 	var crown: bool = FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
 	if crown and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR) \
 			and not outmatches(config, target, context):
