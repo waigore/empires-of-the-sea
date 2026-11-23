@@ -447,6 +447,10 @@ domain = "hostility"
 match = "scripts/rules/naval_combat.gd*"
 domain = "hostility"
 
+[[rules]]
+match = "scripts/rules/naval_exchange.gd*"
+domain = "hostility"
+
 # The turn's battles across every region (one pass, node-free): the fleet and
 # naval suites prove it, so it rides with the same domain instead of the rules
 # catch-all.
@@ -3776,6 +3780,10 @@ domain = "civilian"
 # 5 min budget.
 [[rules]]
 match = "scripts/rules/naval_combat.gd*"
+domain = "naval_feeding"
+
+[[rules]]
+match = "scripts/rules/naval_exchange.gd*"
 domain = "naval_feeding"
 
 [[rules]]
