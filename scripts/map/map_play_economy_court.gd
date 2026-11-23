@@ -248,7 +248,7 @@ func apply_turn() -> Dictionary:
 ## REQ-P2-03); `apply_turn` adds a rival's resolution to the same row.
 func book_orders() -> Dictionary:
 	economy.production.clear_assignments()
-	for assignment: Dictionary in production["assignments"]:
+	for assignment: Dictionary in production.get("assignments", []):
 		economy.production.set_assignment(
 			String(assignment["recipe"]), int(assignment["units"])
 		)
