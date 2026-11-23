@@ -16,13 +16,19 @@ var agenda_traits: Dictionary = {}
 ## strongest line, `extra` the part above its guard target at war. The config
 ## is the court's one shared instance for the run (issue #1356), so the
 ## reading a live pass notes is what every reader in the turn — the counsel,
-## the ledger, the observer — sees. At war the read raises the muster target
-## (`AiArmyReinforceHost.target`); at peace it prices only money — the conquest
-## bank sizes the storm chest from it, so the war the court plans is funded
-## for the host the wall wants before it declares (issue #1381). The bench's
-## frozen mainline builds its own configs and carries no reading, and a court
-## with none musters its published target and banks the published chest.
+## the ledger, the observer — sees. The wall raises the muster target, at peace
+## as at war (issue #1381); the purse keeps the price of the next man of that
+## host. The bench's frozen mainline builds its own configs and carries no
+## reading, and a court with none musters its published target.
 var storm_read: Dictionary = {}
+## The battery behind every wall, keyed by the court that holds it (issue
+## #1381): the map layer notes the campaign's own tech table each turn
+## (`MapPlayCampaign.tech_by_faction`), so the storm gate prices the wall the
+## storm will actually face — a Minor Nation mounts the Royal floor, a Great
+## Power its own emplaced line — instead of the top of the ladder for every
+## province. Empty keeps the top ([method FortRules.storm_ceiling]), which is
+## what a caller with no world has always read.
+var wall_techs: Dictionary = {}
 
 
 static func build(

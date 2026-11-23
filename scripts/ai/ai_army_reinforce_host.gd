@@ -23,26 +23,36 @@ static func guard_regiments(config: AiConfig, at_war: bool) -> int:
 	return target
 
 
-## Regiments the court aims at: the guard plus the host the thinnest wall ahead
-## asks for (issue #1314). Every gate that reads the target — the muster, its
-## labour floor, the chest it holds — asks for the same host.
+## Regiments the court aims at: the guard, or the host the thinnest wall ahead
+## prices when that host is larger (issues #1314, #1381). Every gate that reads
+## the target — the muster, its labour floor, the chest it holds — asks for the
+## same host. A court that plans conquest arms before it declares: the wall's
+## host is a peace reading too, because the men a storm needs cannot be raised
+## in the turn the war opens (#1381 measured a court at its guard target never
+## crossing a wall it could see). Pure policy: config in, count out
+## (REQ-P2-03).
 static func target(config: AiConfig, at_war: bool) -> int:
-	return guard_regiments(config, at_war) + AiStormGate.extra_regiments(
-		_storm_read(config, at_war)
-	)
+	var guard: int = guard_regiments(config, at_war)
+	var read: Variant = _storm_read(config)
+	if read == null or not (read is Dictionary):
+		return guard
+	# The wall's own host, never the guard plus a net extra: a court already
+	# past its guard must still arm on to the host the wall prices, so the
+	# target is the larger of the two sizes — not the extra re-net of a host
+	# it has partly raised (which would stop it short of the wall).
+	return maxi(guard, int((read as Dictionary).get("want", 0)))
 
 
-## The wall reading the map layer hands in ([method
-## MapPlayArmyMusterAi.storm_extra]); a court with no world passes none, and the
-## published target stands. At war the reading raises the muster target — the
-## wall is a war reading. At peace the reading prices only money: the conquest
-## bank sizes the storm chest from it (`AiIncome.storm_bank`), so a court that
-## plans conquest banks for the host its thinnest wall prices before it
-## declares (issue #1381) — the purse cannot be the reason a war never starts,
-## and the bank cannot freeze the economy a war is fought with (issue #1384,
-## the retuned stand-down). The peace target stays published.
-static func _storm_read(config: AiConfig, at_war: bool) -> Variant:
-	if config == null or not at_war:
+## The wall reading the map layer notes on the court's shared config
+## ([method MapPlayArmyMusterAi.storm_extra]): the host the thinnest wall ahead
+## prices, at peace as at war. A court with no world passes none, and the
+## published target stands. At war the reading has always raised the muster
+## target; since #1381 it does so at peace too, because a court that banks for
+## a storm it never arms for reaches the war with a chest and no host — the
+## measured deadlock the issue names. The wall itself never moves: the reading
+## only sizes what the court raises and what its money goal holds.
+static func _storm_read(config: AiConfig) -> Variant:
+	if config == null:
 		return null
 	return config.storm_read
 
