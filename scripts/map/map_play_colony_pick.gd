@@ -68,6 +68,15 @@ static func line(play: PlaySession, _snapshot: Dictionary = {}) -> String:
 	return MapPlayPickProse.sentence_of(pick(play))
 
 
+## The court the sheet's own door opens: the Tribe the reading names, or -1 when
+## it names none (a footing that shuts new chains, an empty read). The chain the
+## line speaks of is pressed on THE COURT — a Tribe the crown has not bought has
+## no colony row — so the door names the court whose envoy rows the crown is told
+## about (wiki: diplomacy § The crown's own envoy; DR-20261123-05; REQ-P5-01).
+static func door(pick: Dictionary) -> int:
+	return int(pick.get("target", -1))
+
+
 ## The colony sheet's pick as THE COLONIES prints it: `{kind, target, stage,
 ## cost, line}` for a link the court would press, `{kind, target, study, line}`
 ## for a chain its studies hold, `{kind, line}` for a footing that shuts new

@@ -9041,6 +9041,37 @@ func test_a_rule_with_no_order_row_reads_never_exercised() -> void:
 	)
 
 
+## The naval rows' own gates (issue #1357): the seed-1500 batch never meets
+## either — the opening raids and battles take every court's hulls by t20 and
+## the frozen pool rebuilds none, so no port warship has a hostile squadron in
+## reach and nothing is afloat to bring home. Both rows name the gate that held
+## every court instead of failing the checklist as defects.
+func test_the_naval_rows_name_the_gate_that_holds_them() -> void:
+	var rows: Array[Dictionary] = AiCoverage.scan(_records())
+	var sortie: Dictionary = _row(rows, "navy.sortie")
+	assert_false(bool(sortie["major"]), "the sortie is gated, not a defect")
+	assert_eq(int(sortie["count"]), 0, "no port squadron sortied")
+	assert_true(
+		String(sortie["gate"]).contains("hostile squadron"),
+		"the sortie names the gate that held every court",
+	)
+	var home: Dictionary = _row(rows, "navy.home")
+	assert_false(bool(home["major"]), "the homeward leg is gated, not a defect")
+	assert_eq(int(home["count"]), 0, "no squadron came home")
+	assert_true(
+		String(home["gate"]).contains("harbour to reach"),
+		"the homeward leg names the gate that held every court",
+	)
+	assert_true(
+		not AiCoverage.missing_major(rows).has("navy.sortie"),
+		"a gated sortie never fails the checklist",
+	)
+	assert_true(
+		not AiCoverage.missing_major(rows).has("navy.home"),
+		"a gated homeward leg never fails the checklist",
+	)
+
+
 func test_an_aim_ranked_but_never_funded_reads_starved() -> void:
 	var fixed: Array[Dictionary] = _records()
 	var court: Dictionary = fixed[1]["rows"][1]

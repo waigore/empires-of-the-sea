@@ -4003,6 +4003,74 @@ func test_the_wall_towers_over_the_garrison() -> void:
 	)
 
 
+## The ladder runs to five and the plate draws it (wiki: siege-mechanics
+## § Fort Levels — wall HP 40 × level and guns = level; DR-20261122-16). A
+## curtain capped at Modern drew a Bastion or a Star fort exactly as a Modern
+## one, beside a wall block that named the higher level.
+func test_every_fort_level_stands_taller_on_the_plate() -> void:
+	var previous: float = BattlePlate.wall_height(600.0, 0)
+	for fort in range(1, FortRules.MAX_LEVEL + 1):
+		var wall: float = BattlePlate.wall_height(600.0, fort)
+		assert_true(
+			wall > previous, "level %d stands above level %d" % [fort, fort - 1]
+		)
+		assert_true(
+			BattlePlate.parapet_y(600.0, fort) < 600.0 * BattlePlate.GROUND,
+			"the garrison stands above the field at level %d" % fort
+		)
+		previous = wall
+	assert_true(
+		BattlePlate.wall_height(600.0, FortRules.MAX_LEVEL)
+			> BattlePlate.wall_height(600.0, FortRules.MAX_LEVEL - 2),
+		"the Star wall stands above the Modern one"
+	)
+	# Three paintings ship: the ladder's last two eras stand on the Modern one
+	# and never index past the shelf.
+	assert_eq(
+		BattlePlate.wall_art(FortRules.MAX_LEVEL),
+		BattlePlate.wall_art(FortRules.MAX_LEVEL - 2)
+	)
+	assert_true(ResourceLoader.exists(BattlePlate.wall_art(FortRules.MAX_LEVEL)))
+
+
+## The Simulator's rail names every level the ladder has, so a level above
+## Modern can be played without a second press (wiki: siege-mechanics
+## § Fort Levels; DR-20261122-16).
+func test_the_simulator_rail_names_every_fort_level() -> void:
+	assert_eq(
+		BattleSimSetup.FORT_LABELS.size(), FortRules.MAX_LEVEL + 1, "one row a level"
+	)
+	assert_eq(String(BattleSimSetup.FORT_LABELS[0]), "No fort")
+	for fort in range(1, FortRules.MAX_LEVEL + 1):
+		assert_true(
+			String(BattleSimSetup.FORT_LABELS[fort]).to_lower().contains(
+				FortRules.level_name(fort).to_lower()
+			),
+			"level %d reads as the ladder names it" % fort
+		)
+
+
+## The sandbox holds the top of the ladder: the province reaches the level asked
+## and its wall and battery are the table's own (wiki: siege-mechanics
+## § Wall Protection, § Emplaced Artillery — 160 hp and 4 guns at Bastion, 200
+## and 5 at Star, a gate every ceil(wall HP / 3) wall casualties).
+func test_the_scenario_holds_the_top_of_the_ladder() -> void:
+	for fort in [4, 5]:
+		var scene: Dictionary = BattleScenario.build({
+			"attacker": ["musketeers"], "defender": ["pikemen"], "fort": fort,
+		})
+		var model: MapModel = scene["model"]
+		assert_eq(
+			FortRules.level_at(model, 0), fort, "the sandbox reaches level %d" % fort
+		)
+		assert_eq(FortRules.guns(fort), fort, "one emplaced gun a level")
+		assert_eq(roundi(FortRules.wall_hp(fort)), 40 * fort, "40 wall hp a level")
+		assert_eq(
+			SiegeGates.breach_threshold(fort), ceili(40.0 * float(fort) / 3.0),
+			"three gates share one wall's HP"
+		)
+
+
 func test_the_simulator_scene_fights_and_steps() -> void:
 	var screen: BattleSimScreen = SIM_SCENE.instantiate()
 	add_child(screen)
@@ -8959,36 +9027,46 @@ func test_roster_counts_every_region() -> void:
 const overlay_Fixture = preload("res://tests/map_fixture.gd")
 const NAMES: Array[String] = ["España", "England"]
 
-## One mount for the HUD plate cases: under coverage a mount costs seconds and
-## each case only needs a bare chart with the news lane and the plates reset, so
-## they share the chart and re-seat from the pristine save (docs/testing.md
-## § Speed rules). Non-underscore: gd-tools clones a fresh suite instance per
-## test and does not copy underscore fields out of before_all.
-var hud_mounted: MapScreen = null
-var hud_pristine: Dictionary = {}
+## HUD plate cases share one chart, mounted lazily so the ~550 pure combat cases
+## never pay a MapScreen boot under coverage (docs/testing.md § Speed rules;
+## same pattern as `test_map_view_rules` crown-road). `static` keeps the screen
+## across gd-tools' per-case clones; `hud_host` is the before_all node they
+## parent onto.
+var hud_host: Node = null
 var hud_pristine_map: Array = []
+static var _hud_screen: MapScreen = null
+static var _hud_pristine: Dictionary = {}
 
 
 func before_all() -> void:
 	hud_pristine_map = overlay_Fixture.snapshot(overlay_Fixture.world())
-	hud_mounted = overlay_Fixture.attach_screen(self)
-	hud_pristine = overlay_Fixture.suite_capture(hud_mounted)
+	hud_host = Node.new()
+	add_child(hud_host)
 
 
 func after_all() -> void:
-	if is_instance_valid(hud_mounted):
-		hud_mounted.free()
-	hud_mounted = null
-	hud_pristine = {}
+	if is_instance_valid(_hud_screen):
+		_hud_screen.free()
+	_hud_screen = null
+	_hud_pristine = {}
+	if is_instance_valid(hud_host):
+		hud_host.free()
+	hud_host = null
 	hud_pristine_map = []
 
 
-## A plate case starts on the pristine chart, as a mount did: the reset drops
-## the previous case's plates, queues, news and sheets.
+## A plate case starts on the pristine chart: first call mounts once, later
+## calls re-seat from the pristine save (~0.15 s vs ~0.5–2 s remount).
 func _hud() -> MapScreen:
 	overlay_Fixture.restore(overlay_Fixture.world(), hud_pristine_map)
-	overlay_Fixture.suite_reset(hud_mounted, hud_pristine)
-	return hud_mounted
+	if not is_instance_valid(_hud_screen):
+		_hud_screen = overlay_Fixture.attach_screen(hud_host)
+		_hud_pristine = overlay_Fixture.suite_capture(_hud_screen)
+	else:
+		overlay_Fixture.suite_reset(
+			_hud_screen, _hud_pristine, overlay_Fixture.world()
+		)
+	return _hud_screen
 
 
 func test_the_plate_shows_a_battle_and_finishes_on_skip() -> void:

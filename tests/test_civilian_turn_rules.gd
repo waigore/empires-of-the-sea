@@ -2788,6 +2788,45 @@ func test_the_transport_orders_name_the_path_they_land() -> void:
 	)
 
 
+## The fort order names the wall it would raise, all the way up the ladder: the
+## level, the price and the wait are `FortRules`' own, so a row never reads
+## "Build fort" twice for two different walls (wiki: siege-mechanics
+## § Fort Levels — five levels, and the top one takes no raise).
+func test_the_fort_order_names_every_level_of_the_ladder() -> void:
+	var engineer := _add("engineer", Vector2i(0, 1))
+	var province: ProvinceState = field__model.province_data(field_Fixture.PLAYER_PROVINCE)
+	var tech: Dictionary = {
+		"mine_engineering": true, "modern_forts": true,
+		"bastion_forts": true, "star_forts": true,
+	}
+	for level in FortRules.MAX_LEVEL:
+		province.fort_level = level
+		var row: Dictionary = _option(engineer, "build_fort", tech)
+		var next: int = level + 1
+		assert_eq(
+			String(row.get("label", "")),
+			"Build %s fort" % FortRules.level_name(next).to_lower(),
+			"the row names the wall it would raise"
+		)
+		var turns: int = FortRules.turns(next)
+		assert_true(
+			String(row.get("cost_text", "")).ends_with(
+				"%d turn%s" % [turns, "" if turns == 1 else "s"]
+			),
+			String(row.get("cost_text", ""))
+		)
+	# The top of the ladder offers no sixth wall, and says why.
+	province.fort_level = FortRules.MAX_LEVEL
+	var topped: Dictionary = _option(engineer, "build_fort", tech)
+	assert_false(bool(topped.get("ok", true)), "a star fort takes no raise")
+	assert_true(
+		String(topped.get("reason", "")).contains(
+			"already holds a %s fort" % FortRules.level_name(FortRules.MAX_LEVEL).to_lower()
+		),
+		String(topped.get("reason", ""))
+	)
+
+
 ## The town's own step names what the level pays before the crown pays for it:
 ## the manufacture bonus the Extraction phase grants that level, then the works
 ## its level opens. Level III is the one step that pays nothing of its own, and

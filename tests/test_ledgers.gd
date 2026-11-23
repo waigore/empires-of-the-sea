@@ -40,6 +40,13 @@ func before_all() -> void:
 	both_charts_map = Fixture.snapshot(Fixture.world())
 	Fixture.restore(Fixture.world(), pristine_map)
 	Fixture.suite_reset(screen, pristine, Fixture.world())
+	Fixture.park_screen(screen)
+
+
+func before_each() -> void:
+	# Snapshot-only cases never call `_attach()`; park so idle HUD/fog work
+	# does not run under every pure case (docs/testing.md § Speed rules).
+	Fixture.park_screen(screen)
 
 
 func after_all() -> void:
@@ -3591,6 +3598,145 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 ## --- the colonies' own reading (DR-20261121-16) -----------------------------
 
 
+## The door the line's own court answers (DR-20261123-05): a reading that names a
+## Tribe opens it; a footing that shuts new chains names no court and opens
+## nothing, so the press can never promise a sheet the sentence does not name.
+func test_the_colonies_door_names_the_court_its_line_opens() -> void:
+	var tribe: int = _colony_tribe()
+	var chain: Dictionary = MapPlayColonyPick.of(
+		{"target": tribe, "stage": DiplomacyCatalog.STAGE_CONSULATE}, {}
+	)
+	assert_eq(String(chain["kind"]), MapPlayColonyPick.KIND_CHAIN)
+	assert_eq(MapPlayColonyPick.door(chain), tribe, "the chain's own court")
+	var gate: Dictionary = MapPlayColonyPick.gated(
+		{"target": tribe, "stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE}, "a reason"
+	)
+	assert_eq(MapPlayColonyPick.door(gate), tribe, "a refused link still names its court")
+	var study: Dictionary = MapPlayColonyPick.of(
+		{"target": tribe, "stage": DiplomacyCatalog.STAGE_EMBASSY}, {}
+	)
+	assert_eq(String(study["kind"]), MapPlayColonyPick.KIND_STUDY)
+	assert_eq(MapPlayColonyPick.door(study), tribe, "the door the chain owes names its court")
+	# A footing that shuts new chains names no court, and nothing names none.
+	assert_eq(
+		MapPlayColonyPick.door({"kind": MapPlayColonyPick.KIND_CLOSED, "line": "x"}),
+		-1,
+		"a shut footing opens no door"
+	)
+	assert_eq(MapPlayColonyPick.door({}), -1, "no reading, no door")
+
+
+## The door on a live sheet: the press stands only while the line names a court,
+## it opens THE COURT on that court, and the colony sheet steps aside so the
+## envoy rows are what the crown reads (DR-20261123-05; REQ-P5-01, REQ-P5-05).
+func test_the_colonies_door_opens_the_court_the_line_names() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var faction: int = play.player_faction
+	var model: MapModel = Fixture.region()
+	var tribe: int = _colony_tribe()
+	var seat: int = Fixture.inland_province(model)
+	model.province_data(seat).owner = tribe
+	play.economy.economy.treasury = 50000
+	play.diplomacy.ensure_relation(faction, tribe, play.turn)
+	play.diplomacy.relation(faction, tribe).score = 40.0
+	play.diplomacy.set_overture(faction, tribe, DiplomacyCatalog.STAGE_NAP)
+	# The envoy has already been to this court, so the reading names the gate and
+	# keeps the Tribe: a door with nothing to promise still opens the sheet.
+	play.diplomacy.claim(faction, tribe, "overture")
+	play.ensure_ai()
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	assert_true(panel.is_open(), "the colonies sheet is up")
+	panel.refresh()
+	var pick: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(int(pick.get("target", -1)), tribe, "the reading names the Tribe")
+	var press: Button = panel.follow_press()
+	assert_not_null(press, "the sheet carries its door")
+	assert_true(press.visible, "the door stands while the line names a court")
+	assert_eq(panel.door_court(), tribe, "the door names the court the line names")
+	assert_true(
+		press.tooltip_text.contains(FactionCatalog.name_of(tribe)),
+		"the door says which court it opens"
+	)
+	# The one gate a court sheet answers, so a door never promises a sheet it
+	# cannot stand on (REQ-P5-05).
+	assert_true(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, faction, tribe),
+		"a contacted court can be stood on"
+	)
+	assert_false(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, faction, -1), "no court, no sheet"
+	)
+	assert_false(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, faction, faction),
+		"the crown's own court is no envoy target"
+	)
+	press.pressed.emit()
+	assert_true(
+		screen.hud.panels.is_diplomacy_open(), "the door opens THE COURT"
+	)
+	assert_eq(
+		screen.hud.panels.diplomacy_panel.selected_faction(), tribe,
+		"THE COURT stands on the court the line named"
+	)
+	assert_false(panel.is_open(), "the colony sheet steps aside for it")
+	DiplomacyHud.hide(screen.hud.panels)
+
+
+## The door's guards (DR-20261123-05): a sheet whose body never built carries no
+## press, a reading that names no court opens nothing, and a court the crown
+## cannot stand on answers in a toast rather than in silence (REQ-P5-05).
+func test_a_door_with_no_court_says_so_and_opens_nothing() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var bare := ColonyLedgerPanel.new()
+	bare._sync_follow()
+	assert_null(bare.follow_press(), "a sheet with no body carries no door")
+	bare._on_follow()
+	assert_false(screen.hud.panels.is_diplomacy_open(), "no court named, no sheet")
+	bare.free()
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	var stranger: int = _court_never_met()
+	assert_true(stranger >= 0, "the fixture leaves a court the crown never met")
+	assert_false(
+		MapPlayDiplomacy.can_open_court(play.diplomacy, play.player_faction, stranger),
+		"a court never met cannot be stood on"
+	)
+	panel._pick = {"kind": MapPlayColonyPick.KIND_CHAIN, "target": stranger}
+	# The lane holds its lines while a sheet covers it, which is where the door's
+	# answer is read: a toast under an open roll waits its turn.
+	screen.hud.despatches.set_covered(true)
+	panel._on_follow()
+	# Read the lane before it is uncovered: releasing it prints the held line.
+	var said: PackedStringArray = screen.hud.despatches.waiting()
+	screen.hud.despatches.set_covered(false)
+	assert_false(
+		screen.hud.panels.is_diplomacy_open(), "a stranger opens no court sheet"
+	)
+	assert_true(panel.is_open(), "the roll stays up rather than closing on nothing")
+	assert_false(said.is_empty(), "the door answers in a toast, never in silence")
+	if not said.is_empty():
+		assert_true(
+			String(said[said.size() - 1]).contains(FactionCatalog.name_of(stranger)),
+			"the toast names the court it could not open"
+		)
+	panel.close()
+	assert_false(MapPlayDiplomacy.open_court(null, 0), "no session, no court sheet")
+
+
+## The first Tribe the crown holds no relation with.
+func _court_never_met() -> int:
+	for tribe: int in FactionCatalog.tribe_ids():
+		if not screen.play.diplomacy.has_relation(screen.play.player_faction, tribe):
+			return tribe
+	return -1
+
+
+## --- the colonies' own reading (DR-20261121-16) -----------------------------
+
+
 ## The Tribe the court's own envoy is buying, worded off one ambition read: each
 ## stage's own words, the study gate the pass names as the door it owes, and no
 ## clause for a stage this module cannot say (REQ-P2-03, REQ-P5-06).
@@ -5287,6 +5433,46 @@ func test_the_estates_ledger_marks_the_estates_the_crowns_pass_would_raise() -> 
 	panel._press_filter("ready")
 	assert_eq(panel._counsel.keys(), keys, "a chip press keeps the reading it was handed")
 	assert_eq(_working_estate_builders(), 0, "the reading orders nothing")
+	panel.close()
+
+
+## The estates card says what its mark means beside the mark, not in the footer a
+## compact card drops: the legend stands under the gold line while that reading
+## names an estate, and a card that names none explains no glyph
+## (REQ-P1-07, REQ-P5-07; DR-20261123-03/07).
+func test_the_estates_card_says_what_its_mark_means_beside_the_mark() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ImprovementPanel = screen.improvements
+	_cancel_works()
+	var stock: Dictionary = play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	panel.open()
+	var footer_hint: Label = panel._footer_box.get_child(0) as Label
+	assert_false(
+		footer_hint.text.contains("▸"),
+		"the mark's meaning is not left to the footer a phone hides"
+	)
+	assert_eq(
+		panel.legend_text(), ImprovementPanel.MARK_LEGEND,
+		"the card says what its mark means"
+	)
+	assert_eq(
+		panel.legend_shown(),
+		not panel._counsel.keys().is_empty(),
+		"the legend stands exactly when a row wears the mark"
+	)
+	# The legend is the body's, so the compact profile that drops the footer keeps
+	# the sentence beside the glyph it explains.
+	panel._apply_profile(true, true)
+	assert_false(panel._footer_box.visible, "the compact card drops its footer")
+	assert_eq(
+		panel.legend_shown(),
+		not panel._counsel.keys().is_empty(),
+		"and keeps the legend beside the mark"
+	)
+	panel._apply_profile(false, false)
 	panel.close()
 
 
