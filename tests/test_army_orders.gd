@@ -800,7 +800,7 @@ func test_a_reformed_garrison_gets_a_standard_the_court_can_tap() -> void:
 		"the rules minted it; no standard exists until the layer reconciles"
 	)
 
-	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+	ArmyTurnPass.resolve_battles(_screen.army_layer, _screen.world, {"quick_battle": false})
 
 	var marker: ArmyMarker = _screen.army_layer.marker_for(reformed)
 	assert_not_null(marker, "the combat pass draws the reformed garrison's standard")
@@ -818,7 +818,7 @@ func test_the_id_cursors_clear_every_live_instance() -> void:
 	ArmyGarrison.recover(armies, capital, MapScreen.PLAYER_FACTION, 5, {})
 	var reformed: ArmyState = armies[armies.size() - 1]
 
-	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+	ArmyTurnPass.resolve_battles(_screen.army_layer, _screen.world, {"quick_battle": false})
 
 	assert_true(
 		_screen.army_layer.next_army > reformed.id,
@@ -839,7 +839,7 @@ func test_a_standard_leaves_with_the_army_it_belongs_to() -> void:
 	assert_not_null(marker)
 
 	_screen.army_layer.armies.erase(home)
-	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+	ArmyTurnPass.resolve_battles(_screen.army_layer, _screen.world, {"quick_battle": false})
 
 	assert_null(_screen.army_layer.marker_for(home), "the fallen army's standard is retired")
 
@@ -1616,7 +1616,7 @@ func test_a_detach_reaches_the_roster_the_save_copies() -> void:
 	filed.assign(layer.armies)
 	layer.regions.set_region(region, filed)
 	var home: ArmyState = _player_home()
-	var split: Dictionary = layer.split(home, [home.regiments[0]])
+	var split: Dictionary = ArmyMusterOps.split(layer, home, [home.regiments[0]])
 	assert_true(bool(split.get("ok", false)), String(split.get("reason", "")))
 	var created: ArmyState = split["army"] as ArmyState
 	var stored: Array[ArmyState] = []
@@ -1641,8 +1641,8 @@ func test_a_retired_field_army_leaves_the_roster_the_save_copies() -> void:
 	layer.regions.set_region(region, filed)
 	var field: ArmyState = _detach_one()
 	assert_not_null(field)
-	var result: Dictionary = layer.dismiss(
-		field, field.regiments.duplicate(), _screen.play.economy.economy
+	var result: Dictionary = ArmyMusterOps.dismiss(
+		layer, field, field.regiments.duplicate(), _screen.play.economy.economy
 	)
 	assert_true(bool(result.get("retired", false)), "an emptied field army retires")
 	var stored: Array[ArmyState] = []
