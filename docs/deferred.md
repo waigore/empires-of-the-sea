@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1415 (REQ-P2-02). Largest gap, then REQ/wiki.
+Audited through #1427 (REQ-P2-02). Largest gap, then REQ/wiki.
 
 ## Already live
 
@@ -38,9 +38,9 @@ Audited through #1415 (REQ-P2-02). Largest gap, then REQ/wiki.
 | Confirm-face; muster; fan; capital chart | `RaiseBatchPress`; `FleetMuster`/`FleetLanes`; `CapitalChoiceScreen` |
 | Rival priced overtures | `DiplomacyProposals` + asking ledger |
 | AI win / border front (#995) | `AiBorderFronts`; bench t101 (DR-19-16) |
-| Passengers whole-berth press | `EmbarkBatch` (DR-19-18, #1104) |
-| Station raid/catch dossier prices | `NavalRaid`/`NavalInterception` preview |
-| Province harbour Squadrons | `ProvinceHarbour` (DR-20261123-14) |
+| Passengers; raid/catch prices | `EmbarkBatch`; `NavalRaid`/`NavalInterception` |
+| Harbour hulls + aboard | `ProvinceHarbour` (+`.aboard`, DR-14/18) |
+| Wall storm; storm fee; riches; bank | `WallRead`; `ArmyAttackCost`; `ground_appetite`; `AiIncome.invests` |
 
 ## Gaps (ranked)
 
@@ -61,11 +61,11 @@ None; see `docs/rubric.md` / wiki.
 - Per-hull damage; rival-fight plate — DR-13-17.
 - Cross-station folds / passenger transfers; further tongues (DR-13-12);
   30% floor data-gated (DR-15-18); QB placed figures / per-wing orders
-  (DR-17-08) — out of scope.
+  (DR-17-08); building-gated recipes (DR-14-12) — out of scope.
 
 ## Wiki drift
 
 `DR-20261111-05` still names Tribe contact and fleetless crowns (both live).
 `capital-choice-phase` “UI deferred” — stale. Soft weight (DR-13-15);
-treasury/domain “seed” (DR-16-09) — stale. DR-20261123-14 Impact names code
-not on main. #1409–#1412 — not backlog.
+treasury/domain “seed” (DR-16-09) — stale. #1416–#1427 not backlog.
+#1382 open while riches landing is live. #1422 is a defect, not gap.
