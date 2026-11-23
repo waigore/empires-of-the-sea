@@ -59,16 +59,10 @@ static func snapshot(
 		# The row names the seal rather than a missing road, so a crown with a
 		# blockaded colony never lays a road it does not need (REQ-P2-03).
 		var sealed: bool = blockade != null and blockade.cuts(model.region_id, province.id)
-		var rows: Array[Dictionary] = []
-		for tile: Vector2i in tiles:
-			rows.append(EstateRows.project(
-				model, works, units, stockpile, owner, tile,
-				model.resource_at(tile.x, tile.y), province.id,
-				connected.get(model.index_of(tile.x, tile.y), {}) as Dictionary,
-				resolved, idle, tech_caps, gaps, sealed
-			))
-		rows.sort_custom(_row_before)
-		groups.append(_group(province, rows))
+		groups.append(_group(province, _project(
+			tiles, model, works, units, stockpile, owner, province.id,
+			connected, resolved, idle, tech_caps, gaps, sealed
+		)))
 	groups.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if int(a["priority"]) != int(b["priority"]):
 			return int(a["priority"]) < int(b["priority"])
@@ -79,6 +73,58 @@ static func snapshot(
 	counts["idle_builders"] = idle.size()
 	_summarise(result)
 	return result
+
+
+## One province's estates, read exactly as the grouped snapshot reads them and in
+## the shape the realm's Economy view prices (`estates`, `output`, `working`,
+## `rows`). The province dossier holds one province, so it asks for that ground
+## alone instead of walking the whole chart to price it (REQ-P4-01); the rows,
+## the sums and the caps are the snapshot's own, so the dossier, the realm and the
+## Extraction phase can never print three harvests (REQ-P2-03).
+static func province_estates(
+	model: MapModel,
+	works: LandWorks,
+	units: Array[CivilianState],
+	stockpile: Dictionary,
+	owner: int,
+	province_id: int,
+	capital_tile: Vector2i,
+	tech_caps: Dictionary = {},
+	blockade: Blockades = null
+) -> Dictionary:
+	var reading: Dictionary = {
+		"estates": 0, "output": 0, "working": false, "rows": [] as Array[Dictionary],
+	}
+	if model == null or works == null or owner < 0 or province_id < 0:
+		return reading
+	var tiles: Array[Vector2i] = []
+	for tile: Vector2i in model.province_tiles(province_id):
+		if model.owner_at(tile.x, tile.y) != owner:
+			continue
+		if not MineralSurvey.is_known(model, works, owner, tile):
+			continue
+		tiles.append(tile)
+	if tiles.is_empty():
+		return reading
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, owner, capital_tile, blockade
+	)
+	var rows: Array[Dictionary] = _project(
+		tiles, model, works, units, stockpile, owner, province_id,
+		resolved.get("tiles", {}) as Dictionary, resolved,
+		ImprovementOrders.idle_builders(units, owner), tech_caps,
+		LandConnectivity.network_gaps(
+			model, owner, resolved.get("network", {}) as Dictionary
+		),
+		blockade != null and blockade.cuts(model.region_id, province_id)
+	)
+	reading["rows"] = rows
+	reading["estates"] = rows.size()
+	for row: Dictionary in rows:
+		reading["output"] = int(reading["output"]) + int(row["output"])
+		if bool(row["working"]):
+			reading["working"] = true
+	return reading
 
 
 ## One tile's row, read against the crown's whole network so its road gap and
@@ -136,6 +182,36 @@ static func _tiles_by_province(
 		var province_tiles: Array[Vector2i] = tiles_by_province[province_id]
 		province_tiles.append(tile)
 	return tiles_by_province
+
+
+## One province's tiles read into estate rows, in the ledger's reading order. The
+## grouped snapshot and the one-province read share it, so a row means the same
+## thing whichever caller asked (REQ-P3-01).
+static func _project(
+	tiles: Array[Vector2i],
+	model: MapModel,
+	works: LandWorks,
+	units: Array[CivilianState],
+	stockpile: Dictionary,
+	owner: int,
+	province_id: int,
+	connected: Dictionary,
+	resolved: Dictionary,
+	idle: Array[CivilianState],
+	tech_caps: Dictionary,
+	gaps: Dictionary,
+	sealed: bool
+) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for tile: Vector2i in tiles:
+		rows.append(EstateRows.project(
+			model, works, units, stockpile, owner, tile,
+			model.resource_at(tile.x, tile.y), province_id,
+			connected.get(model.index_of(tile.x, tile.y), {}) as Dictionary,
+			resolved, idle, tech_caps, gaps, sealed
+		))
+	rows.sort_custom(_row_before)
+	return rows
 
 
 static func _group(province: ProvinceState, rows: Array[Dictionary]) -> Dictionary:
