@@ -543,6 +543,40 @@ domain = "production_pick"
 match = "scripts/map/map_play_blockades.gd*"
 domain = "blockade"
 
+# One-token renames in the court holdings/roster split. The six drives are
+# playtests and the pick reads only the chest rows: they stay on their own small
+# slices, named before the `playtests/**` and `scripts/map/**` catch-alls below.
+# `production_pick` keeps its one economy suite, where the plan is proved off
+# plan data alone. Both catch-alls would otherwise pull their boot onto this
+# branch's tier-1 set and overrun the 5 min budget (docs/testing.md).
+[[rules]]
+match = "playtests/playtest_fleet_pick.gd*"
+domain = "navy_pick"
+
+[[rules]]
+match = "playtests/playtest_join_empire.gd*"
+domain = "navy_pick"
+
+[[rules]]
+match = "playtests/playtest_new_world_war.gd*"
+domain = "navy_pick"
+
+[[rules]]
+match = "playtests/playtest_overseas_invasion.gd*"
+domain = "navy_pick"
+
+[[rules]]
+match = "playtests/playtest_seat_lost_mid_invasion.gd*"
+domain = "navy_pick"
+
+[[rules]]
+match = "playtests/playtest_standard_campaign.gd*"
+domain = "navy_pick"
+
+[[rules]]
+match = "scripts/map/map_play_production_pick*.gd*"
+domain = "production_pick"
+
 # MapPlay* helpers that redirect screen talk to `play.screen` (#1210). Named
 # before each helper's theme domain so the bridge rewrite stays on
 # play_screen's three suites instead of unioning theme boots past the tier-1
@@ -3364,19 +3398,12 @@ domain = "ai_works"
 match = "scripts/map/civilian_muster.gd*"
 domain = "ai_works"
 
-# The court reader trio: seat/planner gate, holdings, and roster. The yard-chest
-# re-route (#878) is proved by the AI/economy suites; keep all three off the
-# observer/battle fan-out and the broad map catch-all (tier-1 5 min budget).
+# The one reader every rival pass asks for a court's standing and order of
+# battle. The yard-chest re-route (#878) is proved by the AI/economy suites;
+# keep it off the observer/battle fan-out and the broad map catch-all
+# (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
-domain = "ai_economy"
-
-[[rules]]
-match = "scripts/map/map_play_court_holdings.gd*"
-domain = "ai_economy"
-
-[[rules]]
-match = "scripts/map/map_play_court_roster.gd*"
 domain = "ai_economy"
 
 # Sea earning asks only the income plan; keep a bind retarget off the broad
