@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:f5dc24333c38b0078900eec5726c916be3b89a8f588793001cdc34e7859eef95",
-  "submission_git": "refactor/larder-owns-hire-slack@9e3c724f+dirty",
+  "submission_hash": "sha256:a7f349a592e57aac6c76bd4d6ce165f4083f222e849f89d82a890f1f9089cc3f",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261123T005204093472Z@4b040846",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:1617a06294b9d1493d3a0d10e82d8726978b8f332d1dc52e3715da5fe1b71954",
+    "ai_surface_hash": "sha256:cdc5dc6dd568d83b2c01f9e589105e0dcd77025a201a9a2b11fa3b2799833c72",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T00:41:19Z",
+  "timestamp": "2026-11-23T01:49:10Z",
   "report_version": 1,
-  "signature": "hmac-sha256:92fc713b83c02050d81c1889872836510d5dd0de53e9fe44c45cc870685b19ff"
+  "signature": "hmac-sha256:f111af668a72eb8b39d72ef1bd6c94d11f4a6f2c0af553cb2179e2def9400429"
 }
