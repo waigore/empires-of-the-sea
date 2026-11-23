@@ -2342,6 +2342,25 @@ func test_the_province_sheet_reads_the_squadrons_in_the_seat_harbour() -> void:
 		panel.harbour_text().contains("hull"),
 		"the row counts hulls: %s" % panel.harbour_text(),
 	)
+	# A host aboard the crown's own squadron names its men too, so the sheet
+	# accounts for the regiments the Hosts row leaves to the fleet they sail with
+	# (DR-20261123-18).
+	planted.embarked_army = 9902
+	var aboard: ArmyState = ArmyState.create(
+		9902, play.player_faction, seat, false, ["harbour_r1", "harbour_r2"], {}
+	)
+	aboard.embarked_fleet = planted.id
+	var army_table: MapRegionTable = play.army_layer.regions
+	var army_roster: Array = army_table.value(region, [])
+	army_table.set_region(region, army_roster + [aboard])
+	panel.refresh(screen.model, seat)
+	assert_true(
+		panel.harbour_text().contains("2 regiments aboard"),
+		"the row names the men the squadron carries: %s" % panel.harbour_text(),
+	)
+	army_table.set_region(region, army_roster)
+	planted.embarked_army = -1
+	panel.refresh(screen.model, seat)
 	table.set_region(region, roster)
 	panel.refresh(screen.model, seat)
 

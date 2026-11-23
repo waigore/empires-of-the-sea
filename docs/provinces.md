@@ -75,10 +75,10 @@ Visit, back and key.
 
 A tap opens the province: ground, harbour, town, roads, fort, **Wall**
 (DR-20261120-06) — soaks, spares and storm (DR-20261123-20) — **Hosts**
-(DR-20261123-13), **Squadrons** — the hulls in the harbour, the same fog gate
-(DR-20261123-14) — hospital and **Deeds**; empty rows hide. A Tribe shore with
-another crown's deed refuses an undeclared march in those words (`DeedBar`,
-DR-20261120-05).
+(DR-20261123-13), **Squadrons** — the hulls and the regiments they carry, the
+same fog gate (DR-20261123-14, DR-20261123-18) — hospital and
+**Deeds**; empty rows hide. A Tribe shore with another crown's deed refuses an
+undeclared march (`DeedBar`, DR-20261120-05).
 
 ## Deferred (REQ-P2-02)
 

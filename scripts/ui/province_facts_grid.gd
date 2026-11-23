@@ -20,11 +20,12 @@ var wall: Label = null
 ## than printing a zero. Its reading is the panel's, handed in as a callable, so
 ## this grid owns no session.
 var hosts: Label = null
-## The squadrons standing in the province's harbour, by court and in hulls — the
-## count the rules let a crown read in a charted port (wiki: fog-and-exploration
-## § Order-of-battle readings; DR-20261123-14). The row hides for a harbour no
-## squadron rides rather than printing a zero. Its reading is the panel's, handed
-## in as a callable, so this grid owns no session.
+## The squadrons standing in the province's harbour, by court, in hulls and in
+## the regiments they carry — the count the rules let a crown read in a charted
+## port (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-14,
+## DR-20261123-18). The row hides for a harbour no squadron rides rather than
+## printing a zero. Its reading is the panel's, handed in as a callable, so this
+## grid owns no session.
 var harbour: Label = null
 var hospital: Label = null
 ## The courts that have bought land in this province (wiki: factions § Tribe —
@@ -137,9 +138,10 @@ func set_hosts(text: String) -> void:
 	_show_row(hosts, text)
 
 
-## The Squadrons row: the courts riding this harbour, each with its hulls
-## (`England 3 hulls · Spain 1 hull`), or `""` for a harbour no squadron rides —
-## the row leaves the grid rather than printing an absence.
+## The Squadrons row: the courts riding this harbour, each with its hulls and the
+## regiments they carry (`England 3 hulls, 2 regiments aboard · Spain 1 hull`),
+## or `""` for a harbour no squadron rides — the row leaves the grid rather than
+## printing an absence.
 func set_harbour(text: String) -> void:
 	_show_row(harbour, text)
 
