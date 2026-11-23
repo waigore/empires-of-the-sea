@@ -65,10 +65,11 @@ static func resolve_turn(
 			## fort level ≥ 1 is never an unopposed flip, even with zero
 			## defending regiments — the march resolves as a storm against the
 			## wall and its emplaced battery. Only open ground keeps the
-			## unopposed rule.
+			## unopposed rule. Every attacker storms in the chain's order, so a
+			## thin host that marched first cannot void another court's march.
 			if FortRules.level_at(model, province) >= 1:
-				reports.append(
-					_storm_empty(model, armies, province, defender, attackers, context)
+				reports.append_array(
+					_storm_walled(model, armies, province, defender, attackers, context)
 				)
 				continue
 			var capturer: int = _lowest(attackers)
@@ -274,12 +275,48 @@ static func outcome_label(outcome: int) -> String:
 	return "stalemate"
 
 
+## Every attacker that fell on an empty walled province storms it, in the
+## chain's own order (wiki: combat § Multi-Attacker Chain — "resolve
+## sequentially … repeat until no attacker remains"). A repelled storm leaves
+## the wall and its battery standing for the next attacker, so a thin host that
+## marched first never voids another court's march. The first host that crosses
+## takes the ground; any attacker still on the field then meets it as the
+## province's holder, from the walls it just took.
+static func _storm_walled(
+	model: MapModel,
+	armies: Array[ArmyState],
+	province: int,
+	defender: int,
+	attackers: Array[int],
+	context: Dictionary
+) -> Array[Dictionary]:
+	var reports: Array[Dictionary] = []
+	var holder: int = defender
+	var pending: Array[int] = attackers.duplicate()
+	while not pending.is_empty():
+		if ArmyForce.side_regiments(ArmyForce.armies_of(armies, province, holder)) > 0:
+			reports.append_array(
+				_resolve_chain(model, armies, province, holder, pending, context)
+			)
+			return reports
+		var attacker: int = pending.pop_front()
+		var storming: Array[ArmyState] = ArmyForce.armies_of(armies, province, attacker)
+		if ArmyForce.side_regiments(storming) == 0:
+			continue
+		var report: Dictionary = _storm_one(
+			model, armies, province, holder, attacker, storming, context
+		)
+		reports.append(report)
+		if bool(report.get("captured", false)):
+			holder = attacker
+	return reports
+
+
 ## One hostile court takes an **empty walled** province (issue #1314): the wall
 ## and the battery stand where no regiment does. The march is a storm, not an
 ## unopposed flip — only a host whose strength crosses
 ## [method FortRules.storm_threshold] (wall HP plus the standing battery)
-## takes the ground. One report names who stormed what; multi-attacker
-## initiative keeps the lowest id on a tie, as the open-ground flip does.
+## takes the ground.
 ##
 ## Losses follow the published ladder (wiki: siege-mechanics § Wall Protection,
 ## deterministic by design — no new roll): each whole
@@ -288,22 +325,21 @@ static func outcome_label(outcome: int) -> String:
 ## battery itself is never captured: a taken province keeps whatever walls and
 ## guns survive, and the storm that takes it does not silence the battery (a
 ## standing wall is taken, not shot to pieces).
-static func _storm_empty(
+static func _storm_one(
 	model: MapModel,
 	armies: Array[ArmyState],
 	province: int,
-	defender: int,
-	attackers: Array[int],
+	holder: int,
+	attacker: int,
+	storming: Array[ArmyState],
 	context: Dictionary
 ) -> Dictionary:
-	var capturer: int = _lowest(attackers)
-	var storming: Array[ArmyState] = ArmyForce.armies_of(armies, province, capturer)
-	## The battery is the province's, so its line is the **defender's** studies
-	## (wiki: siege-mechanics § Storming an empty walled province; § Emplaced
+	## The battery is the province's, so its line is the **holder's** (that is,
+	## the province owner's) studies (wiki: siege-mechanics § Emplaced
 	## Artillery — "the defender's unlocked emplaced-quality tech line"). The
 	## storming court's own guns never price the wall it is not manning.
 	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(
-		defender, {}
+		holder, {}
 	) as Dictionary
 	var level: int = FortRules.level_at(model, province)
 	var host_strength: float = 0.0
@@ -322,7 +358,7 @@ static func _storm_empty(
 			armies, storming, FortRules.storm_losses(host_strength, tech, level)
 		)
 	var report: Dictionary = BattleSettlement.report_skeleton(
-		model, province, capturer, defender, Outcome.CAPTURE,
+		model, province, attacker, holder, Outcome.CAPTURE,
 		lost, [] as Array[String], {}, {"fort": level}
 	)
 	report["captured"] = taken
@@ -336,7 +372,7 @@ static func _storm_empty(
 		## The wall stands: no flip, no capture — the report names the repulse.
 		report["outcome"] = Outcome.DEFENDER_VICTORY
 		return report
-	BattleSettlement.flip(model, province, capturer)
+	BattleSettlement.flip(model, province, attacker)
 	return report
 
 
