@@ -1,7 +1,7 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1399 (REQ-P2-02).
-Default pick: largest gap here, then REQ/wiki.
+Audited through #1408 (REQ-P2-02).
+Default pick: largest gap, then REQ/wiki.
 
 ## Already live
 
@@ -20,13 +20,13 @@ Default pick: largest gap here, then REQ/wiki.
 | Regiment records/rename/decorations | `RegimentRecord`, `RegimentDecorations`, `LeaderCatalog` |
 | Raid hulls/rival prizes/naval plate | `NavalRaid`, `MapPlayRaids`, `NavalPlate` |
 | Road L2/gathering/path transport | `TechUnlocks`/`Extraction` |
-| Advanced chart/Passage/rival OOB | `AdvancedSeas`; `OobReadings`; `CourtCharts` |
+| Chart/Passage/OOB/Hosts | `AdvancedSeas`; `OobReadings`; `ProvinceHosts` |
 | Sea-zone names | `MapNaming` (DR-13-07) |
 | Yarn + consent | `DialogueYarn`, `ConsentCopy` |
 | War footing/money/victory/need | `AiPhasePlanner`; `AiIncome`; `AiDiplomacyDesire` |
 | Phoney front; college chest; pact lead | `holds_front`; `bank_chest`; `pact_break_leads` |
 | Declare-war / Tribe-chain / crews | `SLOT_DECLARE_WAR`/`TRIBE_CHAIN`/`CREWS` |
-| Tribe buy/landings/door/overseas | `AiTribeColony`; `AiColonisationPlanner` |
+| Tribe buy/landings/deed/overseas | `AiTribeColony`; `deed_ground`; colonisation |
 | Hull chest; worker tiers; war garrison | `AiNavy`; `QUEUE_CAP`; `trade_garrison` |
 | Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20k |
 | Recipe gate; workshop landing; dismiss | `min_town`; `ground_appetite`; `ArmyDismiss` |
@@ -36,7 +36,7 @@ Default pick: largest gap here, then REQ/wiki.
 | QB; rail; observer; fort ladder 5 | `QuickBattleWings`; `RailWorks`; `FortRules`/`FortCapital` |
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
-| Confirm-face; opening muster; fan/stack | `RaiseBatchPress`; `FleetMuster`; `FleetLanes` |
+| Confirm-face; muster; fan; capital chart | `RaiseBatchPress`; `FleetMuster`/`FleetLanes`; `CapitalChoiceScreen` |
 | Rival priced overtures | `DiplomacyProposals` + asking ledger |
 | AI win / border front (#995) | `AiBorderFronts`; bench t101 (DR-19-16) |
 | Passengers whole-berth press | `EmbarkBatch` (DR-19-18, #1104) |
@@ -66,8 +66,7 @@ None; see `docs/rubric.md` / wiki.
 
 ## Wiki drift
 
-`DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
-crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft
-weight seed (DR-13-15). `phase-planner-architecture` “domain dispatch stays
-seed” — stale; `SLOT_MARKET`/`SLOT_NAVAL` live. #1388–#1399 deed/siege/
-capture — not backlog.
+`DR-20261111-05` Deferred still names Tribe contact and fleetless crowns;
+both live. `capital-choice-phase` “UI deferred” — stale; chart live. Soft
+weight seed (DR-13-15). Treasury-recovery / domain-dispatch “seed” —
+stale (DR-16-09; `SLOT_MARKET`/`SLOT_NAVAL`). #1400–#1408 — not backlog.

@@ -6,8 +6,10 @@ extends RefCounted
 ## Owns the infantry catalog reading: which categories field a line, which
 ## patterns the court's techs and fields open, which one it is saving for, and
 ## the cheapest price it must bank. `AiArmyReinforce` owns the turn plan and the
-## food/purse gates; this owner answers every line question, so the muster and
-## the war chest never drift from one catalog (REQ-P2-03, REQ-P3-01, REQ-P3-03).
+## food gates; host size and the war chest live on [AiArmyReinforceHost] and
+## [AiArmyReinforceChest]. This owner answers every line question, so the muster
+## and the war chest never drift from one catalog (REQ-P2-03, REQ-P3-01,
+## REQ-P3-03).
 
 ## Categories that field a line: a mustered regiment is infantry, never the
 ## army's whole battery or horse (the opening roster keeps its own mix).
