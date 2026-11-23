@@ -54,10 +54,10 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   outruns (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the era; Tribes stay
   1; rivals re-equip, pay to attack.
-- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line regiment a
-  turn under `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest
-  trains (DR-20261112-08).
+- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line a turn under
+  `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`, the
+  workshop's pair (DR-20261123-10) and pattern inputs (DR-20261113-08); the
+  wornest trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade. Court: `MapPlayEconomyCourt`. Ledger
   reads: `MapPlayEconomyLarder`.

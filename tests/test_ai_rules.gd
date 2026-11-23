@@ -7009,6 +7009,119 @@ func test_a_court_with_no_ledger_keeps_the_published_behaviour() -> void:
 	assert_eq(AiIncome.label(""), "spending", "an unknown goal reads as the published one")
 
 
+## The war chest prices the storm host the thinnest wall wants, not one line
+## regiment (issue #1381): at war the read rides the config the map layer
+## notes, and the muster floor names the same host the target arms for.
+func test_the_war_chest_banks_the_storm_host() -> void:
+	var config := AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var guard: int = AiArmyReinforce.guard_regiments(config, true)
+	var cheapest: int = AiArmyReinforce.cheapest_line_price(economy)
+	config.storm_read = {"want": guard + 3, "extra": 3}
+	var own: int = guard - 3
+	var want: int = AiArmyReinforce.storm_want_read(config, own)
+	assert_eq(want, guard + 3 - own, "the read is the wall's own want, net")
+	# The war chest the income goal holds is the storm host priced on the
+	# court's own line, not one regiment under the wall.
+	var host_chest: int = want * cheapest
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, own, true, want),
+		config.parameter("army.min_treasury") + host_chest,
+		"the floor names the storm host the wall prices"
+	)
+	assert_eq(
+		AiIncome.reserve(config, economy, true, own, 0, -1, 0, false, want),
+		AiArmyReinforce.muster_floor(config, economy, own, true, want),
+		"the reserve holds the same chest"
+	)
+	# A host at the wall's size banks nothing: the wall is crossed.
+	assert_eq(
+		AiIncome.storm_want(config, guard + 3), 0,
+		"a court at the wall's own host banks no storm chest"
+	)
+
+
+## At peace the wall prices money alone (issue #1381): the storm host stands
+## only while the court can already fund the line it would raise, and the
+## poorer court keeps its published cash floor instead of a bank that would
+## freeze its economy.
+func test_the_storm_bank_at_peace_asks_the_line_first() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(300)
+	var price: int = AiArmyReinforce.cheapest_line_price(economy)
+	assert_true(price > 0, "the techs open a line to save for")
+	# Below the line's own price the storm chest never rides: the reach test
+	# the war chest already reads (issue #603) gates the wall's bank too.
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 1, 0, -1, 0, false, 4),
+		config.parameter("economy.min_treasury"),
+		"a poorer court banks no storm chest"
+	)
+	# In reach, the storm bank stands: the chest is the larger of the line's
+	# own price and the storm host it prices — never one under the wall.
+	var purse: PlayerEconomy = _purse(price)
+	var chest: int = AiIncome.reserve(config, purse, false, 1, 0, -1, 0, false, 4)
+	assert_true(
+		chest >= config.parameter("army.min_treasury") + 4 * price
+		and chest >= config.parameter("army.min_treasury") + price,
+		"the storm chest is the line and the wall, not one under the other"
+	)
+
+
+## The wall never moves (issue #1314, kept): the peace-time muster target is
+## the published guard even with a reading in the config, and the storm bank
+## raises no muster the rules refuse — it only prices the purse. The muster
+## reads the larger chest, so a storm-priced purse does not block the line.
+func test_the_storm_bank_prices_the_purse_not_the_target() -> void:
+	var config := AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var guard: int = AiArmyReinforce.guard_regiments(config, false)
+	config.storm_read = {"want": guard + 5, "extra": 5}
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, false), guard,
+		"peace musters the published target"
+	)
+	# A court under its target on a storm-priced purse still musters — the
+	# bank is the war chest it holds, not a block on the line. The host rides
+	# as regiments (4), priced at the cheapest line inside the floor.
+	var plan: Dictionary = AiArmyReinforce.plan(
+		config, economy, 1, false, 0, -1, 0, {}, -1, -2, false, 4
+	)
+	assert_eq(int(plan["target"]), guard, "the target is the published guard")
+	assert_eq(String(plan["muster"]), AiArmyReinforce.next_type(config, economy),
+		"the storm-priced purse raises the line")
+	# The row keeps its cloth while the court banks for the storm host.
+	assert_true(
+		AiArmyReinforce.muster_reserve(config, economy, guard, false, 0, 4).size() > 0,
+		"the storm bank keeps the line's own cloth row"
+	)
+	# At the published target the row is genuinely quiet: the bank adds no
+	# muster past it — the storm host arms at war, where the read raises the
+	# target itself.
+	assert_true(
+		AiArmyReinforce.muster_reserve(config, economy, guard, false, 0, 0).is_empty(),
+		"no bank, no row past the target"
+	)
+
+
+## A baseline court with no reading keeps every published chest (issue #1381):
+## no storm read, no storm bank, and the #995 conquest chest stands alone.
+func test_a_court_with_no_wall_reading_banks_no_storm() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(300)
+	assert_eq(AiIncome.storm_want(config, 1), 0, "no reading reads no storm host")
+	assert_eq(
+		AiIncome.reserve(config, economy, true, 1, 0, -1, 0, true, 0),
+		AiArmyReinforce.muster_floor(config, economy, 1, true),
+		"the #995 conquest chest is the whole bank"
+	)
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 1),
+		config.parameter("economy.min_treasury"),
+		"the published peace reserve stands"
+	)
+
+
 func test_an_earning_court_funds_no_study() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(1200)
@@ -8514,20 +8627,43 @@ func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 
 
 ## The levy's own hand (issue #1355): `army.min_peasants` names the free hands
-## the levy draws from, so a court at war with one free peasant raises its levy,
-## and the reservation and the war chest read the same floor.
+## the levy draws from, so a court at war with one free peasant raises its levy
+## when its stores carry no recipe's raw, and the reservation and the war chest
+## read the same floor.
 func test_the_levy_draws_the_floors_own_hand() -> void:
 	var config: AiConfig = _work_config()
+	# No wool, no timber: the workshop has nothing to run, so the levy drafts
+	# the one free hand as published (issue #1355).
+	var bare: PlayerEconomy = _work_economy(12000, 1)
+	bare.stockpile.erase("wool")
 	assert_true(
-		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 1)),
+		AiArmyReinforceLine.labour_floor_ok(config, bare),
 		"one free peasant is the floor the levy draws from"
 	)
 	assert_false(
 		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 0)),
 		"an empty pool holds the floor"
 	)
-	var muster: Dictionary = AiArmyReinforce.plan(config, _work_economy(12000, 1), 3, true)
+	var muster: Dictionary = AiArmyReinforce.plan(config, bare, 3, true)
 	assert_eq(String(muster["muster"]), "arquebusiers", "a war-time court with one free hand arms up")
+	# The recipe pair (issue #1375): a court under its worker target that holds
+	# a build input's raw keeps the two hands one labour-2 run spends, so the
+	# pool the muster drafts to zero can still weave and hire.
+	assert_false(
+		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 1)),
+		"the workshop's raw holds its pair of hands"
+	)
+	assert_true(
+		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 3)),
+		"the pair plus the levy's hand is the floor the raw holds"
+	)
+	# A court at its worker target drafts as published whatever it holds.
+	var full: PlayerEconomy = _work_economy(12000, 1)
+	full.workers = WorkerPool.make(1, 9)
+	assert_true(
+		AiArmyReinforceLine.labour_floor_ok(config, full),
+		"at the worker target the levy drafts as published"
+	)
 	# The reservation keeps a head above the floor so a levy that drew the pool
 	# to its head would not strand the next muster with an empty pool.
 	var economy: PlayerEconomy = _work_economy(12000, 1)
@@ -8538,7 +8674,7 @@ func test_the_levy_draws_the_floors_own_hand() -> void:
 		"the fields keep the floor plus the levy's hand"
 	)
 	assert_true(
-		AiArmyReinforce.muster_floor(config, _work_economy(12000, 1), 3, true) > 0,
+		AiArmyReinforce.muster_floor(config, bare, 3, true) > 0,
 		"the war chest reads the same floor"
 	)
 
@@ -8546,8 +8682,11 @@ func test_the_levy_draws_the_floors_own_hand() -> void:
 func test_a_thin_labour_pool_stops_the_muster() -> void:
 	# The retuned floor is 1 free hand (issue #1314 companion; issue #1355): the
 	# floor names the hands the levy draws, so a pool of one raises the levy and
-	# an empty pool is where the labour floor holds.
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 1), 3, false)
+	# an empty pool is where the labour floor holds. A court whose stores carry
+	# a build input's raw keeps the recipe pair above it instead (issue #1375).
+	var bare: PlayerEconomy = _work_economy(12000, 1)
+	bare.stockpile.erase("wool")
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), bare, 3, false)
 
 	assert_eq(String(plan["muster"]), "arquebusiers", "the levy's own hand is drawn")
 	# An empty pool and the muster fires nothing — the floor holds.
@@ -15641,8 +15780,11 @@ func test_the_victory_pressure_raises_the_muster_target() -> void:
 
 func test_planner_a_thin_labour_pool_stops_the_muster() -> void:
 	# The retuned floor is 1 free hand (issue #1314 companion; issue #1355): a
-	# pool of one draws the levy, an empty pool is where the floor holds.
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 1), 3, false)
+	# pool of one draws the levy when the stores carry no recipe's raw, an empty
+	# pool is where the floor holds. The raw keeps the recipe pair (issue #1375).
+	var bare: PlayerEconomy = _ai_army_reinforce_economy(12000, 1)
+	bare.stockpile.erase("wool")
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), bare, 3, false)
 
 	assert_eq(String(plan["muster"]), "arquebusiers", "the levy's own hand is drawn")
 	var empty: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 0), 3, false)

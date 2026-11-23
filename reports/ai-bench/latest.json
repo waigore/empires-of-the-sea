@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:0577125c7792f21c027fa4883f035062a2c5af2cf55e3f618e0d9272112b4ead",
-  "submission_git": "feat/rival-deed-survey@e393e1ea",
+  "submission_hash": "sha256:35da448959b7330ad0778014a9e1033e6494cd6df2c8b3930ae4fbdeeba7f37b",
+  "submission_git": "fix/issue-1375-navy-rebuild@19c43d41",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1210.2802665679378,
+      "value": 1236.1724880382774,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 10.0,
+      "value": 7.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 10.0,
+      "value": 6.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 62.65853174603175,
+      "value": 64.49900793650794,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0f4653803cd8286f5249fcc82fc064857e9bbddb15154dc6a9cd532f08e25cdd",
+    "ai_surface_hash": "sha256:dae4b141bd828a245c81e161483003f5c71e06127b9c273122a14dd178b8120c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
-      "provinces_new": 3,
-      "regiments": 10,
-      "ships": 0,
-      "workers": 0,
-      "extraction_per_turn": 44.270270270270274,
-      "income_per_turn": 171.73972602739727,
-      "funded_pct": 62.65853174603175
+      "provinces_new": 0,
+      "regiments": 5,
+      "ships": 1,
+      "workers": 5,
+      "extraction_per_turn": 40.915789473684214,
+      "income_per_turn": 369.34090909090907,
+      "funded_pct": 64.49900793650794
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 62.65853174603175
+    "funded_pct": 64.49900793650794
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T06:21:09Z",
+  "timestamp": "2026-11-23T09:02:33Z",
   "report_version": 1,
-  "signature": "hmac-sha256:1cf2ca32be7f61433bb3cf331d866aa572da7c26bd5f06dabba0fdbc3a91598f"
+  "signature": "hmac-sha256:f7bcfa421eaf29ece483603df751cefdd481633055bb627870b647373d61e9c6"
 }
