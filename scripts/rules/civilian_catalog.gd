@@ -155,9 +155,9 @@ static func can_afford(type_id: String, treasury: int, paper: int) -> bool:
 	return treasury >= treasury_cost(type_id) and paper >= paper_cost(type_id)
 
 
-## "1,000 cash + 2 paper" for the training buttons and dossiers.
+## "1,000 ducats + 2 paper" for the training buttons and dossiers.
 static func training_cost_text(type_id: String) -> String:
-	return "%s cash + %d paper" % [
-		MoneyText.thousands(treasury_cost(type_id)),
+	return "%s + %d paper" % [
+		MoneyText.ducats(treasury_cost(type_id)),
 		paper_cost(type_id),
 	]

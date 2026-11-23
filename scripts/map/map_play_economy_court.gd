@@ -2,13 +2,14 @@ class_name MapPlayEconomyCourt
 extends RefCounted
 ## One rival court's economy turn (docs/ai.md): plan income, research, works and
 ## trade against the store the phase will close with, then resolve extraction,
-## market and production and book the orders the rules accept. `MapPlayEconomyAi`
-## owns the pass; this object owns one court's ledger, so a court's plan and its
-## application cannot drift apart (REQ-P2-03, REQ-P3-03).
+## market and production and book the orders the rules accept. The pass
+## (`MapPlayEconomyAi`) opens the court; this object owns one court's ledger, so
+## a court's plan and its application cannot drift apart (REQ-P2-03, REQ-P3-03).
 ##
 ## The footing, order of battle and larder are read once in `plan_turn`, so the
 ## projection the market stages against and the phase that closes the ledger
-## read the same numbers. Research and trade live in `MapPlayEconomyCourtBook`.
+## read the same numbers. Research and trade live in `MapPlayEconomyCourtBook`;
+## the yield, the food demand and the reservation rows in `MapPlayEconomyLarder`.
 
 var play: PlaySession
 var faction: int
@@ -73,7 +74,7 @@ static func open(
 ) -> MapPlayEconomyCourt:
 	var court: MapPlayEconomyCourt = _base(play, faction, market)
 	MapPlayCivilianAi.seed(play, faction)
-	court.overseas = MapPlayEconomyAi._overseas(play, faction, court.economy)
+	court.overseas = MapPlayEconomyLarder.overseas(play, faction, court.economy)
 	return court
 
 
@@ -84,7 +85,7 @@ static func draft(
 	play: PlaySession, faction: int, market: WorldMarket
 ) -> MapPlayEconomyCourt:
 	var court: MapPlayEconomyCourt = _base(play, faction, market)
-	court.overseas = MapPlayEconomyAi._overseas(play, faction, court.economy)
+	court.overseas = MapPlayEconomyLarder.overseas(play, faction, court.economy)
 	return court
 
 
@@ -105,7 +106,9 @@ static func _base(
 	var ledger: PlayerEconomy = play.ledger_for(faction)
 	var ai: AiState = play.ensure_ai()
 	court.economy = ledger if ledger != null else ai.economy_for(faction)
-	court.config = AiBind.config(court.kind, faction, play.map_seed, ai.profiles)
+	# The court's one shared run config (issue #1356), so the rows this pass
+	# reads carry the same storm reading the muster pass notes.
+	court.config = ai.court_config(court.kind, faction, play.map_seed, ai.profiles)
 	court.town_level = TownIndustry.best_level(play.world, faction)
 	return court
 
@@ -141,8 +144,8 @@ func rehearse() -> void:
 	ships = MapPlayCourt.ships(play, faction)
 	warships = MapPlayCourt.warships(play, faction)
 	hull_chest = MapPlayCourt.navy_chest(play, faction)
-	army_food = MapPlayEconomyAi._army_food(play, faction)
-	leader = MapPlayEconomyAi._leader(play, faction)
+	army_food = MapPlayEconomyLarder.army_food(play, faction)
+	leader = MapPlayEconomyCourtBook.leader(play, faction)
 	# The goal the court plans with this turn: money first (DR-20261113-19).
 	# Every discretionary spend reads the same reserve, so the war chest is
 	# never auctioned away for imports (wiki: treasury-planner § Priority).
@@ -229,7 +232,7 @@ func harvest_slack() -> int:
 	# The harvest's ration food, counted the Consumption phase's way, so the
 	# growth gate plans with the same total the phase would eat (REQ-P2-03).
 	var harvest_food: int = EconomyConsumption.food_available(harvest)
-	return harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
+	return harvest_food - MapPlayEconomyLarder.food_demand(play, faction, economy)
 
 
 ## Notes the harvest slack the muster's gate plans with. The economy pass notes
@@ -322,7 +325,7 @@ static func chest_rows(
 	return {
 		"muster_row": muster,
 		"navy_row": navy,
-		"held": MapPlayEconomyAi._merge_rows(muster, navy),
+		"held": MapPlayEconomyLarder.merge_rows(muster, navy),
 	}
 
 
@@ -341,6 +344,17 @@ func apply_turn() -> Dictionary:
 		play.world, faction,
 		int((resolved.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 	)
+	var row: Dictionary = book_orders()
+	row["resolved"] = resolved
+	return row
+
+
+## Books every order the plan files — the production runs, the workers the
+## Build/work phase buys and the crews' work orders — and closes no ledger. The
+## Auto seat books the crown's household through this and lets the crown's own
+## `resolve_turn` carry the orders out (wiki: auto-mode § The crown's household;
+## REQ-P2-03); `apply_turn` adds a rival's resolution to the same row.
+func book_orders() -> Dictionary:
 	economy.production.clear_assignments()
 	for assignment: Dictionary in production["assignments"]:
 		economy.production.set_assignment(
@@ -355,7 +369,6 @@ func apply_turn() -> Dictionary:
 	var civilians: Dictionary = MapPlayCivilianAi.apply(play, faction, economy, plans)
 	return {
 		"extraction": overseas["extraction"],
-		"resolved": resolved,
 		"production": production,
 		"trade": trade,
 		"cargo": cargo,

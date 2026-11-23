@@ -16,6 +16,13 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## The verbs the seat's household pass files its lines under (MapPlayAuto's own
+## despatch vocabulary), so a case can name what the pass said.
+const HOUSEHOLD_VERBS: Array[String] = [
+	"Studies ", "Sets ", "Recruits ", "Hires — ", "Bids at the mart",
+	"Offers at the mart", "Trades at the mart",
+]
+
 ## Non-underscore: gd-tools clones a fresh suite instance per test and does not
 ## copy underscore fields out of before_all (docs/testing.md speed rules).
 var mounted: MapScreen = null
@@ -49,10 +56,12 @@ func before_all() -> void:
 	drained_auto = _capture_auto(mounted.play)
 	if mounted.play.ai != null:
 		drained_ai = mounted.play.ai.to_dict()
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -75,17 +84,17 @@ func _seat(after: int = 0) -> PlaySession:
 	Fixture.restore(Fixture.world(), world_snapshot)
 	match after:
 		1:
-			Fixture.suite_reset(mounted, seated)
+			Fixture.suite_reset(mounted, seated, Fixture.world())
 			_apply_auto(mounted.play, seated_auto)
 			if not seated_ai.is_empty():
 				mounted.play.ai = AiState.from_dict(seated_ai.duplicate(true))
 		2:
-			Fixture.suite_reset(mounted, drained)
+			Fixture.suite_reset(mounted, drained, Fixture.world())
 			_apply_auto(mounted.play, drained_auto)
 			if not drained_ai.is_empty():
 				mounted.play.ai = AiState.from_dict(drained_ai.duplicate(true))
 		_:
-			Fixture.suite_reset(mounted, pristine)
+			Fixture.suite_reset(mounted, pristine, Fixture.world())
 			_clear_auto(mounted.play)
 	_chart_bound = true
 	MapPlayTurn.view_live = true
@@ -145,12 +154,14 @@ func _clear_auto(play: PlaySession) -> void:
 	_refresh_auto_chrome()
 
 
-## The plaque mirrors from a signature of the seat; clear it so a re-seat shows
-## the restored armed/active/log state instead of the previous case's chrome.
+## The plaque mirrors from a signature of the seat; clear it and the last painted
+## face so a re-seat shows the restored armed/active/log state instead of the
+## previous case's chrome.
 func _refresh_auto_chrome() -> void:
 	if mounted == null or mounted.hud == null or mounted.hud.auto_bar == null:
 		return
 	mounted.hud.auto_bar._signature = ""
+	mounted.hud.auto_bar._was_live = null
 	mounted.hud.auto_bar._mirror()
 
 
@@ -291,6 +302,148 @@ func test_the_crowns_orders_land_and_are_logged() -> void:
 	)
 
 
+# --- the crown's household ---------------------------------------------------
+
+
+## The seat files the crown's own household — the college, the works, the
+## workers and the mart — before its crews work (wiki: auto-mode
+## § The crown's household; issue #1302).
+func test_the_seat_files_the_crowns_household() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_steps.clear()
+	assert_eq(
+		String(MapPlayAuto.STEPS[0]), MapPlayAuto.STEP_HOUSEHOLD,
+		"the household is the seat's first pass: a court files its orders first"
+	)
+	var before: int = play.auto_log.size()
+	MapPlayAuto.run_step(play, MapPlayAuto.STEP_HOUSEHOLD)
+	assert_true(play.auto_log.size() > before, "the pass reports what it filed")
+	var said: bool = false
+	for line: String in play.auto_log:
+		if HOUSEHOLD_VERBS.any(func(verb: String) -> bool: return line.begins_with(verb)):
+			said = true
+	assert_true(said, "the seat's line names the household it filed")
+
+
+## The household books orders; the crown's own `resolve_turn` closes the ledger.
+## A seat that closed it here would pay the turn twice (REQ-P2-03).
+func test_the_household_books_orders_and_closes_no_ledger() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_steps.clear()
+	var consumption: Dictionary = play.economy.readings.last_consumption.duplicate(true)
+	var clearing: Dictionary = play.economy.last_clearing.duplicate(true)
+	MapPlayAuto.run_step(play, MapPlayAuto.STEP_HOUSEHOLD)
+	assert_eq(
+		play.economy.readings.last_consumption, consumption,
+		"the seat's household resolves no consumption"
+	)
+	assert_eq(play.economy.last_clearing, clearing, "and clears no market")
+
+
+## The plan is the rival pass's own, read on the crown's real ledger — and it
+## seeds no rival opening crew for a court that already fields its own.
+func test_the_household_plans_on_the_crowns_own_ledger() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var crews: int = _crown_crews(play)
+	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
+		play, play.player_faction, play.economy.market
+	)
+	court.plan_turn()
+	assert_eq(court.economy, play.economy.economy, "the pass reads the crown's own ledger")
+	assert_eq(
+		court.kind, AiControl.court_kind(play, play.player_faction),
+		"and plans as the kind the crown's own passes bind"
+	)
+	assert_true(
+		court.research.has("assignments"), "the college's row is planned whole"
+	)
+	assert_true(court.trade.has("staged"), "and the mart's orders are staged")
+	assert_eq(_crown_crews(play), crews, "no crew is minted for the crown by planning")
+
+
+## A court that runs no planner files no household order, and the seat says why
+## instead of reading as a broken tick (wiki: auto-mode § Pacing).
+func test_a_crown_with_no_planner_says_it_files_nothing() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_steps.clear()
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	var before: int = play.auto_log.size()
+	MapPlayAuto.run_step(play, MapPlayAuto.STEP_HOUSEHOLD)
+	play.ai_mode = mode
+	assert_eq(play.auto_log.size(), before + 1, "the quiet pass still answers")
+	assert_eq(
+		String(play.auto_log.back()), MapPlayAuto.NO_PLAN_LINE, "and names the reason"
+	)
+
+
+## Every kind the household can file words its own despatch, and the quiet and
+## plannerless passes answer rather than going silent: the wording a seated
+## turn reads is held here for each branch, so a row the plan files is never a
+## line the log drops (wiki: auto-mode § The crown's household).
+func test_the_household_words_every_kind_it_files() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"research": {"assignments": [{"tech": "printing_press"}, {"tech": ""}]},
+		"recruits": [
+			{"tier": WorkerPool.Tier.PEASANT}, {"tier": WorkerPool.Tier.PEASANT},
+			{"tier": -1},
+		],
+		"production": {"assignments": [{"recipe": "lumber", "units": 2}]},
+		"civilians": {
+			"orders": [{"action": "build_improvement"}, {"action": "build_road"}],
+			"training": [{"type_id": "builder"}, {"type_id": ""}],
+		},
+		"trade": {"staged": [
+			{"kind": "bid", "commodity": "grain", "quantity": 1},
+			{"kind": "offer", "commodity": "timber", "quantity": 2},
+		]},
+	})
+	assert_true(play.auto_log.has("Studies Printing Press"), "the study names itself")
+	assert_true(play.auto_log.has("Recruits 2 Peasants"), "the hands count by tier")
+	assert_true(
+		play.auto_log.has("Sets 2 runs and 2 work orders"),
+		"the ledger's work is one despatch"
+	)
+	assert_true(play.auto_log.has("Hires — Builder"), "the crew names its craft")
+	assert_true(
+		play.auto_log.has("Trades at the mart — 1 bid, 1 offer"),
+		"a two-sided mart prints both sides"
+	)
+	# A row that files one side of the ledger or the mart still speaks.
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"production": {"assignments": [{"recipe": "lumber", "units": 1}]},
+		"trade": {"staged": [{"kind": "bid", "commodity": "grain", "quantity": 1}]},
+	})
+	assert_true(play.auto_log.has("Sets 1 production run"), "a lone run prints")
+	assert_true(play.auto_log.has("Bids at the mart — 1 good"), "a lone bid prints")
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"civilians": {"orders": [{"action": "build_road"}]},
+		"trade": {"staged": [{"kind": "offer", "commodity": "timber", "quantity": 1}]},
+	})
+	assert_true(play.auto_log.has("Sets 1 work order"), "a lone work order prints")
+	assert_true(play.auto_log.has("Offers at the mart — 1 good"), "a lone offer prints")
+	# A plan that files nothing says so; a seat with no session files nothing.
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {})
+	assert_true(
+		play.auto_log.has("The household files no order this turn."),
+		"an empty plan still answers"
+	)
+	MapPlayAuto.household(null)
+
+
+## Every tile of every region the crown's crews stand in, for the seeding check.
+func _crown_crews(play: PlaySession) -> int:
+	var total: int = 0
+	for region: int in play.civilian_layer.regions.region_ids():
+		total += CivilianMuster.roster(play, region).size()
+	return total
+
+
 # --- the action log ----------------------------------------------------------
 
 
@@ -364,7 +517,7 @@ func test_the_log_seal_names_what_the_plate_holds_back() -> void:
 	bar._mirror()
 	assert_true(bar._log_seal.visible, "the seat's chrome offers the log door")
 	assert_eq(
-		bar._log_caption.text,
+		bar._log_seal.caption().text,
 		"LOG +%d" % bar._log.held_back(),
 		"the caption counts the lines the plate holds back"
 	)
@@ -427,6 +580,61 @@ func test_the_plaque_names_the_seat_state() -> void:
 	MapPlayAuto.disarm(play)
 	assert_eq(bar._state_text(), "ends with this turn", "a discharged seat says when it ends")
 	assert_true(bar.is_showing(), "the chrome stays up while the seat changes")
+
+
+## The three seals share one face (AutoSeal): the plaque warms while Auto holds
+## the turn, and the caption and the pace door follow the seat, so the bar's
+## chrome never spells a stylebox per seal.
+func test_the_seals_wear_the_face_the_seat_earns() -> void:
+	var bar: AutoBar = screen.hud.auto_bar
+	var play: PlaySession = screen.play
+	assert_true(bar.toggle is AutoSeal, "the plaque is a seal, not a bare button")
+	assert_true(bar._speed_seal is AutoSeal, "the pace is a seal too")
+	assert_true(bar._log_seal is AutoSeal, "and so is the log door")
+	_sync_chrome(bar)
+	assert_face(bar, AutoSeal.FILL, "an idle seat wears the quiet face")
+	assert_eq(bar.toggle._detail.text, "hand the seat to the AI", "the idle plaque offers it")
+	play.auto_active = true
+	MapPlayAuto.arm(play)
+	_sync_chrome(bar)
+	assert_face(bar, AutoSeal.FILL_LIVE, "a held seat wears the warm face")
+	assert_eq(bar.toggle._detail.text, "the AI holds your seat", "the plaque names the seat")
+	play.auto_armed = false
+	_sync_chrome(bar)
+	assert_eq(
+		bar.toggle._detail.text, "ends with this turn", "a discharged seat says when"
+	)
+	play.auto_armed = true
+	_sync_chrome(bar)
+	assert_eq(
+		bar.toggle._detail.text, "the AI holds your seat", "and a live seat says who plays"
+	)
+	assert_eq(
+		bar.toggle._detail.get_theme_color("font_color"), Palette.GOLD_PALE,
+		"and its second line brightens with it"
+	)
+	assert_true(bar._speed_seal.visible, "the pace is offered while the seat runs")
+	assert_true(bar._speed_seal.caption().visible, "a live pace prints its rate")
+	bar._on_speed_pressed()
+	bar._on_speed_pressed()
+	bar._on_speed_pressed()
+	_sync_chrome(bar)
+	assert_false(bar._speed_seal.caption().visible, "a paused seat prints no rate")
+	assert_true(bar._speed_seal.is_visible_in_tree(), "the pace seal still stands")
+	assert_eq(bar._speed_seal._icon.kind, "pause", "and its icon names the pause")
+
+
+## Mirrors the seat's chrome regardless of the last frame's signature, so a case
+## that sets Auto's fields directly reads the face it just asked for.
+func _sync_chrome(bar: AutoBar) -> void:
+	bar._signature = ""
+	bar._mirror()
+
+
+## The plaque's rest face, as the seal painted it.
+func assert_face(bar: AutoBar, fill: Color, why: String) -> void:
+	var face: StyleBoxFlat = bar.toggle.get_theme_stylebox("normal") as StyleBoxFlat
+	assert_eq(face.bg_color, fill, why)
 
 
 func test_the_driver_holds_the_clock_for_a_prompt_and_a_pause() -> void:

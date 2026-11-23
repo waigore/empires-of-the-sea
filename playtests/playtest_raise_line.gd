@@ -122,14 +122,15 @@ func _order_pass() -> void:
 		target, String(_play.model.province_name(target)),
 	])
 	var orders: ProvinceOrdersSection = _screen.hud._panel._orders
-	if orders == null or orders.town_button == null:
+	if orders == null or orders.town_press() == null:
 		_check(false, "the dossier carries the town order")
 		return
-	_say("the order reads: %s" % orders.town_button.text)
-	if orders.town_button.disabled:
-		_say("the order is gated this turn — %s" % orders.town_button.tooltip_text)
+	var town_press: Button = orders.town_press()
+	_say("the order reads: %s" % town_press.text)
+	if town_press.disabled:
+		_say("the order is gated this turn — %s" % town_press.tooltip_text)
 		return
-	orders.town_button.pressed.emit()
+	town_press.pressed.emit()
 	await process_frame
 	_say("the court reads: \"%s\"" % _last_toast())
 	var working: int = 0

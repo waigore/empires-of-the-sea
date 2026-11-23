@@ -453,10 +453,10 @@ func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 1
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	assert_true(grid.wall.visible, "the row arrives with the wall")
-	assert_eq(grid.wall.text, "10 wall hp · 25% off a blow")
+	assert_eq(grid.wall.text, "40 wall hp · 10% off a blow")
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 3
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
-	assert_eq(grid.wall.text, "30 wall hp · 60% off a blow", "a modern wall")
+	assert_eq(grid.wall.text, "120 wall hp · 30% off a blow", "a modern wall")
 
 
 ## The province sheet prints the court's own reading and hides it when the
@@ -715,13 +715,13 @@ func test_the_roads_tip_counts_one_in_the_singular() -> void:
 func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 	_setup_province_panel()
 	_show({})
-	assert_true(_province_panel_panel._orders.town_button.disabled, "no tech, no order")
+	assert_true(_province_panel_panel._orders.town_press().disabled, "no tech, no order")
 	assert_true(
-		_province_panel_panel._orders.town_button.tooltip_text.contains("National Bureaucracy"),
-		"the button says what it waits for: %s" % _province_panel_panel._orders.town_button.tooltip_text
+		_province_panel_panel._orders.town_press().tooltip_text.contains("National Bureaucracy"),
+		"the button says what it waits for: %s" % _province_panel_panel._orders.town_press().tooltip_text
 	)
 	_show({"national_bureaucracy": true})
-	assert_false(_province_panel_panel._orders.town_button.disabled, "researched, the order opens")
+	assert_false(_province_panel_panel._orders.town_press().disabled, "researched, the order opens")
 
 ## The dossier's town order reads the purse as well as the study: a crown that
 ## cannot pay the materials is told which ones, not offered a button the work
@@ -735,22 +735,22 @@ func test_the_town_order_shuts_for_the_stores_it_cannot_pay() -> void:
 		{"national_bureaucracy": true}, stock
 	)
 	_province_panel_panel.refresh(_model, 0)
-	assert_true(_province_panel_panel._orders.town_button.disabled, "an empty purse offers no order")
+	assert_true(_province_panel_panel._orders.town_press().disabled, "an empty purse offers no order")
 	assert_true(
-		_province_panel_panel._orders.town_button.tooltip_text.contains("Stores are short of"),
-		"and names the shortfall: %s" % _province_panel_panel._orders.town_button.tooltip_text
+		_province_panel_panel._orders.town_press().tooltip_text.contains("Stores are short of"),
+		"and names the shortfall: %s" % _province_panel_panel._orders.town_press().tooltip_text
 	)
 	stock["lumber"] = 4
 	stock["castIron"] = 4
 	_province_panel_panel.refresh(_model, 0)
-	assert_false(_province_panel_panel._orders.town_button.disabled, "paid, the order opens")
+	assert_false(_province_panel_panel._orders.town_press().disabled, "paid, the order opens")
 
 func test_a_fully_developed_town_closes_the_order() -> void:
 	_setup_province_panel()
 	_model.provinces[0].town_development = 4
 	_show({"national_bureaucracy": true})
-	assert_true(_province_panel_panel._orders.town_button.disabled)
-	assert_true(_province_panel_panel._orders.town_button.tooltip_text.contains("fully developed"))
+	assert_true(_province_panel_panel._orders.town_press().disabled)
+	assert_true(_province_panel_panel._orders.town_press().tooltip_text.contains("fully developed"))
 
 func test_a_foreign_province_offers_no_town_order() -> void:
 	_setup_province_panel()
@@ -760,8 +760,8 @@ func test_a_foreign_province_offers_no_town_order() -> void:
 		{"national_bureaucracy": true}
 	)
 	_province_panel_panel.refresh(_model, 1)
-	assert_true(_province_panel_panel._orders.town_button.disabled)
-	assert_true(_province_panel_panel._orders.town_button.tooltip_text.contains("not held by your crown"))
+	assert_true(_province_panel_panel._orders.town_press().disabled)
+	assert_true(_province_panel_panel._orders.town_press().tooltip_text.contains("not held by your crown"))
 
 
 ## The dossier carries the wall's own press (wiki: siege-mechanics § Fort Levels;
@@ -773,32 +773,35 @@ func test_the_wall_order_presses_the_engineer_it_sends() -> void:
 	_model.provinces[0].fort_level = 1
 	_show()
 	var rail: ProvinceOrdersSection = _province_panel_panel._orders
-	assert_true(rail.wall_button.disabled, "a stone wall waits on Mine Engineering")
+	var wall: Dictionary = rail.wall_order()
+	var wall_press: Button = wall["button"]
+	assert_true(wall_press.disabled, "a stone wall waits on Mine Engineering")
 	assert_true(
-		rail.wall_button.tooltip_text.contains("Mine Engineering"),
-		"the press says the study it waits on: %s" % rail.wall_button.tooltip_text
+		wall_press.tooltip_text.contains("Mine Engineering"),
+		"the press says the study it waits on: %s" % wall_press.tooltip_text
 	)
 	_show({"mine_engineering": true})
-	assert_true(rail.wall_button.disabled, "with the study, the crew still has to muster")
+	assert_true(wall_press.disabled, "with the study, the crew still has to muster")
 	assert_true(
-		rail.wall_button.tooltip_text.contains("No idle Engineer"),
-		rail.wall_button.tooltip_text
+		wall_press.tooltip_text.contains("No idle Engineer"),
+		wall_press.tooltip_text
 	)
 	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
 	_show({"mine_engineering": true})
-	assert_false(rail.wall_button.disabled, "a free Engineer with the study opens the press")
-	assert_true(rail.wall_button.text.contains("4 lumber"), rail.wall_button.text)
-	assert_true(rail.wall_note.visible, "the press prices what the next wall buys")
-	assert_true(rail.wall_note.text.contains("soaks 20 wall hp"), rail.wall_note.text)
+	assert_false(wall_press.disabled, "a free Engineer with the study opens the press")
+	assert_true(wall_press.text.contains("4 lumber"), wall_press.text)
+	var wall_note: Label = wall["note"]
+	assert_true(wall_note.visible, "the press prices what the next wall buys")
+	assert_true(wall_note.text.contains("soaks 80 wall hp"), wall_note.text)
 	# The step in hand reads as taken: the ordered wall waits on its Engineer,
 	# not on a second press (the walls ledger's AT WORK state).
 	var crew: CivilianState = _units[0]
 	crew.start_work("build_fort", Fixture.BARE_TILE, 1)
 	_province_panel_panel.refresh(_model, 0)
-	assert_true(rail.wall_button.disabled, "a wall already ordered offers no second press")
+	assert_true(wall_press.disabled, "a wall already ordered offers no second press")
 	assert_true(
-		rail.wall_button.tooltip_text.contains("already at work"),
-		rail.wall_button.tooltip_text
+		wall_press.tooltip_text.contains("already at work"),
+		wall_press.tooltip_text
 	)
 
 
@@ -810,29 +813,32 @@ func test_the_ward_order_names_the_study_and_the_ward_it_raises() -> void:
 	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
 	_show()
 	var rail: ProvinceOrdersSection = _province_panel_panel._orders
-	assert_true(rail.ward_button.disabled, "a ward waits on Organised Regiments")
+	var ward: Dictionary = rail.ward_order()
+	var ward_press: Button = ward["button"]
+	assert_true(ward_press.disabled, "a ward waits on Organised Regiments")
 	assert_true(
-		rail.ward_button.tooltip_text.contains("Organised Regiments"),
-		rail.ward_button.tooltip_text
+		ward_press.tooltip_text.contains("Organised Regiments"),
+		ward_press.tooltip_text
 	)
 	_province_panel_panel.set_data(
 		_model, _works, _units, null, Vector2i(0, 0), 0, {},
 		{"organised_regiments": true}, {}
 	)
 	_province_panel_panel.refresh(_model, 0)
-	assert_true(rail.ward_button.disabled, "an empty store offers no ward")
+	assert_true(ward_press.disabled, "an empty store offers no ward")
 	assert_true(
-		rail.ward_button.tooltip_text.contains("Stores are short of"),
-		rail.ward_button.tooltip_text
+		ward_press.tooltip_text.contains("Stores are short of"),
+		ward_press.tooltip_text
 	)
 	_province_panel_panel.set_data(
 		_model, _works, _units, null, Vector2i(0, 0), 0, {},
 		{"organised_regiments": true}, Fixture.stockpile()
 	)
 	_province_panel_panel.refresh(_model, 0)
-	assert_false(rail.ward_button.disabled, "paid, the press opens")
-	assert_true(rail.ward_note.text.contains("rests 40%"), rail.ward_note.text)
-	assert_true(rail.ward_note.text.contains("staff 2 food"), rail.ward_note.text)
+	assert_false(ward_press.disabled, "paid, the press opens")
+	var ward_note: Label = ward["note"]
+	assert_true(ward_note.text.contains("rests 40%"), ward_note.text)
+	assert_true(ward_note.text.contains("staff 2 food"), ward_note.text)
 
 
 ## One crew builds the ward on the town tile, so a second crew there refuses it;
@@ -853,12 +859,17 @@ func test_a_crew_on_the_town_tile_refuses_a_ward_but_never_a_wall() -> void:
 	)
 	_province_panel_panel.refresh(_model, 0)
 	var rail: ProvinceOrdersSection = _province_panel_panel._orders
-	assert_true(rail.ward_button.disabled, "one crew builds the ward")
+	var ward: Dictionary = rail.ward_order()
+	var ward_press: Button = ward["button"]
+	assert_true(ward_press.disabled, "one crew builds the ward")
 	assert_true(
-		rail.ward_button.tooltip_text.contains("Another crew"),
-		rail.ward_button.tooltip_text
+		ward_press.tooltip_text.contains("Another crew"),
+		ward_press.tooltip_text
 	)
-	assert_false(rail.wall_button.disabled, "a project beside it never refuses the wall")
+	assert_false(
+		(rail.wall_order()["button"] as Button).disabled,
+		"a project beside it never refuses the wall"
+	)
 
 
 
@@ -924,6 +935,112 @@ func test_the_muster_rail_names_what_each_craft_does() -> void:
 		"Buys land in a Minor's or Tribe's province",
 		"an open hire carries no gate",
 	)
+
+
+## The capital rail marks the craft the court's own hire order names, off the same
+## pick its gold line is worded from, and clears it when the pick names none
+## (DR-20261122-12).
+func test_the_hire_rail_marks_the_craft_the_court_would_take() -> void:
+	_setup_province_panel()
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var builder: Dictionary = rail.training_row("builder")
+	var caption: String = "Train Builder · %s" % CivilianCatalog.training_cost_text("builder")
+	rail.set_hire_pick({
+		"kind": MapPlayHirePick.KIND_TAKE,
+		"crew": "builder",
+		"line": "Your hire order takes a Builder next — %s." % (
+			CivilianCatalog.training_cost_text("builder")
+		),
+	})
+	assert_eq(rail.hire_mark_crew(), "builder", "the mark is the pick's own craft")
+	assert_eq(
+		(builder["button"] as Button).text,
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, caption],
+		"the craft the line names wears the mark"
+	)
+	assert_false(
+		(rail.training_row("spy")["button"] as Button).text.contains(
+			ProvinceOrdersSection.COURT_MARK
+		),
+		"a craft the line leaves out keeps its plain name"
+	)
+
+	rail.set_hire_pick({})
+	assert_eq(rail.hire_mark_crew(), "", "no pick, no mark")
+	assert_eq(
+		(builder["button"] as Button).text, caption, "and the craft reads plainly again"
+	)
+
+
+## The rail marks the presses the court's own crew pass would file on this
+## ground, off the gold line's one reading: the press the line names leads with
+## the mark, a press it leaves out keeps its plain caption, and the legend says
+## what the mark means while one stands. A refresh keeps the mark on a caption
+## the rules re-worded (wiki: world-model § The crown's provinces;
+## DR-20261122-23; REQ-P1-07, REQ-P5-06).
+func test_the_rail_marks_the_press_the_court_would_take() -> void:
+	_setup_province_panel()
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var plain_wall: String = rail.press_text(ProvinceOrdersSection.KEY_WALL)
+	assert_false(plain_wall.is_empty(), "the wall press prints its words")
+	assert_eq(rail.court_legend_text(), "", "no reading, no legend")
+	rail.set_court_marks({ProvinceOrdersSection.KEY_WALL: true})
+	assert_eq(
+		rail.court_marks(), {ProvinceOrdersSection.KEY_WALL: true},
+		"the rail keeps the reading's own keys"
+	)
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL),
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, plain_wall],
+		"the wall press the line names wears the mark"
+	)
+	for key: String in [
+		ProvinceOrdersSection.KEY_IMPROVEMENT,
+		ProvinceOrdersSection.KEY_TOWN,
+		ProvinceOrdersSection.KEY_WARD,
+	]:
+		assert_false(
+			rail.press_text(key).begins_with(ProvinceOrdersSection.COURT_MARK),
+			"a press the line leaves out keeps its plain caption: %s" % key
+		)
+	assert_eq(rail.court_legend_text(), ProvinceOrdersSection.MARK_LEGEND)
+	# The read is replayed at every refresh: a second reading of the same press
+	# never doubles the glyph, because the caption it marks is the rules' own.
+	rail.set_court_marks({ProvinceOrdersSection.KEY_WALL: true})
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL),
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, plain_wall],
+		"one mark on one press"
+	)
+	rail.set_court_marks({})
+	assert_eq(rail.court_marks(), {}, "the reading clears")
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL), plain_wall,
+		"and the press reads plainly again"
+	)
+	assert_eq(rail.court_legend_text(), "", "no mark, no legend")
+
+## The press book every counsel sheet marks by: a caption kept as the rules word
+## it, the reading that names it, and the glyph added and lifted again without
+## doubling (DR-20261122-23).
+func test_the_press_book_marks_and_unmarks_one_caption() -> void:
+	var book := PressMarks.new()
+	book.set_caption("", "ignored")
+	assert_eq(book.text(""), "", "no key, no press")
+	assert_eq(book.text("wall"), "", "a press with no caption prints nothing")
+	assert_false(book.any(), "no reading, no mark")
+	book.set_caption("wall", "Raise Wall")
+	assert_eq(book.text("wall"), "Raise Wall", "the rules' own words")
+	book.mark({})
+	assert_eq(book.keys(), {}, "no keys, no reading")
+	book.mark({"wall": true})
+	assert_eq(book.text("wall"), "%s Raise Wall" % PressMarks.MARK)
+	assert_true(book.any(), "a named press stands the legend")
+	book.mark({})
+	assert_eq(book.text("wall"), "Raise Wall", "and reads plainly again")
+	assert_false(book.any())
 
 func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	_setup_province_panel()
@@ -1347,7 +1464,7 @@ func test_the_court_steps_the_gift_before_it_sends() -> void:
 	)
 	var press: Button = _find_button(panel._detail, "Grant Aid")
 	assert_not_null(press)
-	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_eq(press.text, "Grant Aid · 1,000 ducats")
 	assert_false(press.disabled, "an auto-embassy and a purse that covers the floor")
 	assert_true(
 		_has_text(panel._detail, "The regard a gift earns is fixed"),
@@ -1357,7 +1474,7 @@ func test_the_court_steps_the_gift_before_it_sends() -> void:
 	assert_not_null(up)
 	assert_false(up.disabled)
 	up.pressed.emit()
-	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £2,000")
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · 2,000 ducats")
 	assert_true(_find_button(panel._detail, "+").disabled, "the 2,500 purse covers no step further")
 	_find_button(panel._detail, "Grant Aid").pressed.emit()
 	assert_eq(seen.size(), 1)
@@ -1374,7 +1491,7 @@ func test_the_stepped_gift_belongs_to_the_court_it_was_stepped_for() -> void:
 	assert_eq(panel._detail.gift_amount, 2000)
 	panel.select_faction(6)
 	assert_eq(panel._detail.gift_amount, DiplomacyCatalog.GRANT_AID_STEP)
-	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £1,000")
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · 1,000 ducats")
 
 ## A purse that no longer covers the sum the crown had stepped to reads the
 ## validator's reason under the dead press, and the step falls back to the floor.
@@ -1384,7 +1501,7 @@ func test_a_gift_the_purse_cannot_cover_reads_its_reason() -> void:
 	_find_button(panel._detail, "+").pressed.emit()
 	panel.refresh(state, null, 0, 500)
 	var press: Button = _find_button(panel._detail, "Grant Aid")
-	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_eq(press.text, "Grant Aid · 1,000 ducats")
 	assert_true(press.disabled)
 	assert_true(_has_text(panel._detail, "The treasury cannot cover that aid."))
 
@@ -4980,7 +5097,7 @@ func test_the_workers_row_names_its_price_and_its_clause() -> void:
 	var three: Array[String] = ["apprentice_workers", "sugar_refining", "university"]
 	assert_eq(LedgerWorkersText.recruit_price(WorkerPool.Tier.PEASANT), "Recruit Fabric ×2")
 	assert_eq(
-		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1000 ducats · Paper ×10"
+		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1,000 ducats · Paper ×10"
 	)
 	assert_eq(
 		LedgerWorkersText.ration_line(WorkerPool.Tier.PEASANT), "eats 1 grain or meat a turn"
@@ -6094,6 +6211,134 @@ func test_the_passengers_block_names_the_crew_it_lands() -> void:
 	block.free()
 
 
+## The block's gold line names one press among many, so the press it names leads
+## with the counsel's mark: the crew the voyage would take aboard, and no other
+## row (wiki: civilian-units § Overseas deployment; DR-20261122-21).
+func test_the_passengers_block_marks_the_crew_the_court_would_take() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	block.set_data({
+		"count": 0,
+		"note": "No colonists aboard.",
+		"embark": [{"id": 7, "name": "Anne"}, {"id": 8, "name": "Bess"}],
+		"sortie": [],
+		"land": [],
+		"pick": {
+			"kind": "embark", "unit": 8,
+			"line": "the court would take a Colonist aboard at Cadiz",
+		},
+	})
+	var rows: Array[Node] = _crew_rows(block)
+	assert_eq(rows.size(), 2, "one press per idle crew")
+	assert_eq(
+		(rows[0] as Button).text, "Take Anne aboard",
+		"the crew the line does not name keeps its plain press"
+	)
+	assert_eq(
+		(rows[1] as Button).text, "▸ Take Bess aboard",
+		"the crew the line names leads with the mark"
+	)
+	assert_eq(String(block.mark().get("kind", "")), "embark", "the block reads the pick's step")
+	assert_true(
+		block._note.text.contains("▸ marks the press the court would take"),
+		"the note prints the legend"
+	)
+
+	# A step that names no press here — a sail — marks nothing and prints no
+	# legend, and a block filled without a pick reads none at all.
+	block.set_data({
+		"count": 0, "note": "No colonists aboard.",
+		"embark": [{"id": 7, "name": "Anne"}], "sortie": [], "land": [],
+		"pick": {"kind": "sail", "zone": 0, "line": "the court would sail her for the roads"},
+	})
+	assert_eq((_crew_rows(block)[0] as Button).text, "Take Anne aboard", "a sail marks no press")
+	assert_eq(block._note.text, "No colonists aboard.", "and prints no legend")
+	block.set_data({
+		"count": 0, "note": "No colonists aboard.",
+		"embark": [{"id": 7, "name": "Anne"}], "sortie": [], "land": [],
+	})
+	assert_eq((_crew_rows(block)[0] as Button).text, "Take Anne aboard", "no pick, no mark")
+	assert_true(block.mark().is_empty(), "no pick, no reading")
+	block.free()
+
+
+## A landing names a coast and a ground, so the coast the line would take leads
+## with the mark, and the ground it would land on leads once that coast's grounds
+## are open — no other coast and no other ground (wiki: civilian-units § Landing;
+## DR-20261122-21).
+func test_the_passengers_block_marks_the_coast_and_ground_the_court_would_take() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	block.set_data({
+		"count": 1,
+		"note": "1 aboard: Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer", "tiles": [{"x": 2, "y": 3}],
+			},
+			{
+				"province": 5, "name": "Vera Cruz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"tiles": [
+					{"x": 7, "y": 8, "ground": "Hills · iron"},
+					{"x": 9, "y": 10},
+				],
+			},
+		],
+		"pick": {
+			"kind": "land", "province": 5, "crew": "explorer", "tile": Vector2i(7, 8),
+			"line": "the court would put an Explorer ashore at (7, 8) — Hills · iron",
+		},
+	})
+	var coasts: Array[Node] = _crew_rows(block)
+	assert_eq(coasts.size(), 2, "one press per coast")
+	assert_eq((coasts[0] as Button).text, "Put the Explorer ashore at Cadiz", "the other coast is plain")
+	assert_true(
+		(coasts[1] as Button).text.begins_with("▸ Put the Explorer ashore at Vera Cruz · 2 grounds"),
+		"the coast the line names leads with the mark"
+	)
+	(coasts[1] as Button).pressed.emit()
+	var grounds: Array[Node] = _crew_rows(block)
+	assert_eq(grounds.size(), 3, "the way back and the coast's two grounds")
+	assert_false((grounds[0] as Button).text.begins_with("▸"), "the way back marks nothing")
+	assert_eq(
+		(grounds[1] as Button).text, "▸ Vera Cruz (7, 8) — Hills · iron",
+		"the ground the line names leads with the mark"
+	)
+	assert_eq((grounds[2] as Button).text, "Vera Cruz (9, 10)", "the other ground is plain")
+	block.free()
+
+
+## The mark is a pure read of the pick: a landing that names no crew marks
+## nothing, a boarding without a crew id marks nothing, and a landing marks no
+## boarding — so a half-written pick never leads a press (DR-20261122-21).
+func test_the_passengers_mark_reads_only_a_whole_press() -> void:
+	assert_true(FleetCrewMark.read({}).is_empty(), "no pick, no mark")
+	assert_true(
+		FleetCrewMark.read({"kind": "sail", "zone": 0}).is_empty(),
+		"a sail marks none"
+	)
+	assert_true(
+		FleetCrewMark.read({"kind": "embark", "unit": -1}).is_empty(),
+		"a boarding with no crew marks none"
+	)
+	assert_true(
+		FleetCrewMark.read({"kind": "land", "province": 4, "crew": ""}).is_empty(),
+		"a landing with no crew marks none"
+	)
+	var land: Dictionary = FleetCrewMark.read({
+		"kind": "land", "province": 4, "crew": "builder", "tile": Vector2i(2, 3),
+	})
+	assert_true(FleetCrewMark.marks_coast(land, 4, "builder"), "the coast reads")
+	assert_false(FleetCrewMark.marks_coast(land, 4, "explorer"), "another crew is plain")
+	assert_true(FleetCrewMark.marks_ground(land, 2, 3), "the ground reads")
+	assert_false(FleetCrewMark.marks_ground(land, 3, 2), "another tile is plain")
+	assert_false(FleetCrewMark.marks_embark(land, {"id": 4}), "a landing marks no boarding")
+
+
 ## The crown's own seat reads above the list as one press, so a port province
 ## whose coast holds a whole province of ground never makes a crown open the
 ## list to land at home (wiki: civilian-units § Landing; DR-20261118-28).
@@ -6255,7 +6500,7 @@ func test_the_passengers_block_windows_a_coast_s_whole_land() -> void:
 	# The way back is the block's own row, above the window, and names the count.
 	var rows: Array[Node] = _crew_rows(block)
 	assert_eq((rows[0] as Button).text, "‹ Back to the coasts · 32 grounds")
-	var window: ScrollContainer = block._ground_scroll
+	var window: ScrollContainer = block.grounds_window()
 	assert_true(window.visible, "the open grounds ride a window")
 	var grounds: Node = window.get_child(0)
 	assert_eq(grounds.get_child_count(), 32, "every legal ground is listed")
@@ -6318,6 +6563,39 @@ func test_the_mission_block_prints_the_courts_pick_under_its_station() -> void:
 	assert_eq(block._pick.text, "", "and nothing left over from the last squadron")
 	block.set_data("", [], "")
 	assert_false(block.visible, "nothing to say, nothing raised")
+	block.queue_free()
+
+
+## The mission row the court's own expedition would mark leads with the counsel's
+## mark and the caption prints the legend; a block with no reading prints neither
+## (DR-20261122-20).
+func test_the_mission_block_marks_the_coast_the_court_would_mark() -> void:
+	var block := FleetMissionSection.new()
+	add_child(block)
+	var rows: Array[Dictionary] = [
+		{"province": 0, "name": "Coro"},
+		{"province": 1, "name": "Cartagena"},
+	]
+	block.set_data(
+		"", rows, "The court would mark a beachhead on the coast of Cartagena.", 1
+	)
+	var presses: Array = block._rows_box.get_children()
+	assert_eq((presses[0] as Button).text, "Mark Coro", "a coast the reading left alone")
+	assert_eq(
+		(presses[1] as Button).text,
+		"%s Mark Cartagena" % FleetDossierSection.COURT_MARK,
+		"the coast the line names leads with the mark"
+	)
+	assert_eq(
+		block._title.text, "MISSIONS · %s court" % FleetDossierSection.COURT_MARK,
+		"the caption prints the legend while a row wears the mark"
+	)
+	block.set_data("", rows, "", -1)
+	assert_eq(
+		(block._rows_box.get_child(1) as Button).text, "Mark Cartagena",
+		"no reading, no mark"
+	)
+	assert_eq(block._title.text, "MISSIONS", "nor a legend")
 	block.queue_free()
 
 

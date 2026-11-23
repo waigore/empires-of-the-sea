@@ -20,7 +20,7 @@ static func can_grant_aid(
 	if not DiplomacyRules.has_embassy(state, player, target):
 		return OrderVerdict.deny("An embassy is required before aid can be sent.")
 	if not DiplomacyCatalog.is_valid_aid(amount):
-		return OrderVerdict.deny("Aid must be a multiple of £1,000.")
+		return OrderVerdict.deny("Aid must be a multiple of 1,000 ducats.")
 	if treasury < amount:
 		return OrderVerdict.deny("The treasury cannot cover that aid.")
 	return OrderVerdict.allow()

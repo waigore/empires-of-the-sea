@@ -18,14 +18,18 @@ const LINE_CATEGORIES: Array[int] = [
 ]
 
 
-## True while the fields can spare the levy's own hand above `army.min_peasants`,
-## so the muster, the pattern it saves for and the war chest it holds all gate on
-## one labour reading (wiki: ai-architecture § Land reinforcement).
+## True while the pool holds the `army.min_peasants` free hands the levy draws
+## from: the floor names the hands the levy may draw, the fields keep the rest
+## (wiki: ai-architecture § Land reinforcement; the parameter's own meaning in
+## `ai_parameter_army.gd`; issue #1355). The pool already nets the hands a build
+## reserved, so the levy's own hand is never subtracted again here — that read
+## the real floor as `min_peasants + 1` and held the muster all campaign.
+## The muster, the pattern it saves for and the war chest it holds all gate on
+## one labour reading.
 static func labour_floor_ok(config: AiConfig, economy: PlayerEconomy) -> bool:
 	if config == null or economy == null:
 		return false
-	var spare: int = economy.available_peasants() - RegimentEconomy.WORKER_COST
-	return spare >= int(config.parameter("army.min_peasants"))
+	return economy.available_peasants() >= int(config.parameter("army.min_peasants"))
 
 
 ## The line regiment this court would raise if its stores could pay for it:
@@ -119,6 +123,24 @@ static func candidates(
 		})
 	out.sort_custom(_better)
 	return out
+
+
+## The strongest line pattern this court's techs open, whatever its purse or
+## labour — the strength a storm would march with once the men are raised
+## (issue #1314). Empty when the tech set opens no line at all.
+static func strongest_line(tech_unlocked: Dictionary) -> String:
+	var best: String = ""
+	var best_strength: int = -1
+	for type_id: String in RegimentCatalog.ids():
+		if not LINE_CATEGORIES.has(RegimentCatalog.category(type_id)):
+			continue
+		if not RegimentEconomy.buildable(type_id, tech_unlocked):
+			continue
+		var value: int = RegimentCatalog.strength(type_id)
+		if value > best_strength or (value == best_strength and type_id < best):
+			best = type_id
+			best_strength = value
+	return best
 
 
 ## Strongest first, then the newer pattern, then the lowest id — one stable

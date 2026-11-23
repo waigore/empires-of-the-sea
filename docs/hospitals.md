@@ -44,7 +44,7 @@ in the order's own words.
 |------|------|
 | `scripts/rules/hospital_ledger.gd` | projection, states, summary, row copy |
 | `scripts/rules/hospital_rules.gd` | rest, wear and the ration table |
-| `scripts/ui/province_orders_section.gd` | the dossier's ward order |
+| `scripts/ui/province_raise_presses.gd` | the dossier's ward order |
 
 No figure is recomputed: the level, rest share, triage and ration are
 `HospitalRules`, the price `HospitalRules.cost`, the wait `HospitalRules.turns`,

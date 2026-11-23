@@ -19,7 +19,7 @@ const TOUCH_HEIGHT: float = 44.0
 static func line(side: String, units: int, total: int) -> String:
 	if total <= 0:
 		return "%s ×%d" % [side, units]
-	return "%s ×%d  ·  %d ducats" % [side, units, total]
+	return "%s ×%d  ·  %s" % [side, units, MoneyText.ducats(total)]
 
 
 ## One press. `on_press` is the sheet's own intent signal, so the button never

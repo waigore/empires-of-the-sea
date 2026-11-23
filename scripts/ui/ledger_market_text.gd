@@ -17,7 +17,7 @@ static func preview(report: Dictionary) -> String:
 		parts.append("%s %+d" % [CommodityCatalog.label(id), int(delta[id])])
 	var treasury_delta: int = int(report.get("treasury_delta", 0))
 	if treasury_delta != 0:
-		parts.append("%s %+d" % ["ducats", treasury_delta])
+		parts.append("ducats %s" % MoneyText.signed(treasury_delta))
 	var staged: int = int(report.get("staged_orders", 0))
 	var auction: String = _auction_line(staged)
 	if parts.is_empty():
@@ -136,8 +136,9 @@ static func deal_line(deal: Dictionary, viewer: int = FactionCatalog.PLAYER_FACT
 		var paid: int = int(deal.get("cost", unit * quantity))
 		if quantity > 0 and unit * quantity != paid:
 			claim += " (rounded from the deal)"
-		return "Bought %d %s from %s at %d — %d ducats%s" % [
-			quantity, commodity, other, unit, paid, claim,
+		return "Bought %d %s from %s at %s — %s%s" % [
+			quantity, commodity, other, MoneyText.thousands(unit),
+			MoneyText.ducats(paid), claim,
 		]
 	var earned: int = int(deal.get("earned", price * quantity))
 	# A sale's receipt is rounded from the whole deal, so the published price need
@@ -145,8 +146,9 @@ static func deal_line(deal: Dictionary, viewer: int = FactionCatalog.PLAYER_FACT
 	var note: String = ""
 	if quantity > 0 and price * quantity > 0 and earned != price * quantity:
 		note = " (exports %d%%)" % roundi(100.0 * float(earned) / float(price * quantity))
-	return "Sold %d %s to %s at %d — %d ducats%s" % [
-		quantity, commodity, other, price, earned, note,
+	return "Sold %d %s to %s at %s — %s%s" % [
+		quantity, commodity, other, MoneyText.thousands(price),
+		MoneyText.ducats(earned), note,
 	]
 
 
@@ -280,15 +282,16 @@ static func market_summary(report: Dictionary, faction: int) -> String:
 	var bought: int = int(mine.get("bought", 0))
 	var sold: int = int(mine.get("sold", 0))
 	if bought > 0:
-		parts.append("bought %d for %d ducats" % [bought, int(mine.get("spent", 0))])
+		parts.append("bought %d for %s" % [bought, MoneyText.ducats(int(mine.get("spent", 0)))])
 	if sold > 0:
 		var earned: int = int(mine.get("earned", 0))
 		parts.append(
-			"sold %d for %d ducats" % [sold, earned] if earned > 0 else "sold %d" % sold
+			"sold %d for %s" % [sold, MoneyText.ducats(earned)]
+			if earned > 0 else "sold %d" % sold
 		)
 	var share: int = share_credit(report, faction)
 	if share > 0:
-		parts.append("%d ducats in shares" % share)
+		parts.append("%s in shares" % MoneyText.ducats(share))
 	var carry: int = (report.get("carry", []) as Array).size()
 	if carry > 0:
 		parts.append("%d order%s carried" % [carry, "" if carry == 1 else "s"])

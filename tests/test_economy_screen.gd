@@ -19,10 +19,12 @@ func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -38,7 +40,7 @@ func _attach() -> MapScreen:
 	if _chart_bound and is_instance_valid(mounted):
 		return mounted
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
+	Fixture.suite_reset(mounted, pristine, Fixture.world())
 	_chart_bound = true
 	return mounted
 
@@ -366,7 +368,7 @@ func test_every_worker_row_names_its_price_and_ration() -> void:
 	var master: Label = lines.get(WorkerPool.Tier.MASTER) as Label
 	assert_eq(
 		master.text,
-		"Recruit 1000 ducats · Paper ×10 — needs Master Artisans and Hat Production",
+		"Recruit 1,000 ducats · Paper ×10 — needs Master Artisans and Hat Production",
 		"a locked row names the research"
 	)
 	assert_eq(master.get_theme_color("font_color"), Palette.CRIMSON, "a blocked line reads aloud")
@@ -503,9 +505,8 @@ func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
 	var read: Dictionary = LarderRead.forecast(
 		economy, {"army": 0, "ships": 0, "hospital": 4, "wards": [4]}
 	)
-	var page := LedgerWorkers.new()
 	assert_eq(
-		page._shortfall_copy(read),
+		LedgerWorkersText.larder_shortfall(read),
 		"Short 3 food — the wards go unfed.",
 		"the pool ate, the ward did not"
 	)
@@ -516,11 +517,10 @@ func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
 		economy, {"army": 5, "ships": 0, "hospital": 0}
 	)
 	assert_eq(
-		page._shortfall_copy(army),
+		LedgerWorkersText.larder_shortfall(army),
 		"Short 3 food — the army goes short.",
 		"no striker, and still short"
 	)
-	page.free()
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.
@@ -1965,6 +1965,14 @@ func test_the_workers_tab_names_the_workers_the_court_would_recruit() -> void:
 				WorkerPool.tier_name(tier)]),
 			"the tier the plan buys wears the mark: " + str(tier)
 		)
+	# The mark's meaning stands beside it: the tab keeps no footer, and a phone
+	# would drop one anyway (DR-20261123-08).
+	assert_eq(
+		body.legend_text(), LedgerWorkers.MARK_LEGEND,
+		"the tab says what its mark means"
+	)
+	assert_eq(body.legend_shown(), not tiers.is_empty(), "and stands with the marks")
+	assert_eq(economy.workers.total(), before, "the legend enlists nobody")
 
 
 ## A crown whose seat runs no planner reads no hire: the tab prints nothing
@@ -1977,6 +1985,7 @@ func test_the_workers_tab_prints_no_hire_without_a_planner() -> void:
 	var body: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
 	assert_eq(body.counsel_text(), "", "no planner, no line")
 	assert_true(MapPlayRecruitPick.pick(play).is_empty(), "and no pick behind it")
+	assert_false(body.legend_shown(), "and no mark to explain")
 	play.ai_mode = AiControl.FULL
 
 
@@ -1994,7 +2003,7 @@ func test_the_workers_counsel_reads_the_crowns_own_ledger() -> void:
 	# A pool the crown has grown past the target it keeps, in its own ledger only.
 	economy.workers = WorkerPool.make(12)
 	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
-		play, play.player_faction, MapPlayEconomyAi._market(play)
+		play, play.player_faction, MapPlayEconomyLarder.market(play)
 	)
 	assert_true(court.economy == economy, "the draft turns the crown's own ledger")
 	var pick: Dictionary = MapPlayRecruitPick.pick(play)
@@ -2075,3 +2084,33 @@ func test_the_market_tab_prints_no_trade_without_a_planner() -> void:
 	assert_eq(body.counsel_text(), "", "no planner, no line")
 	assert_true(MapPlayMarketPick.pick(play).is_empty(), "and no pick behind it")
 	play.ai_mode = AiControl.FULL
+
+
+## The sheet surface is a reading of the ledger: with no ledger mounted behind
+## it, every door and every pick answers empty instead of raising
+## (REQ-P3-01). The doors write the panels they are handed, and never a rule.
+func test_a_bare_sheet_surface_reads_nothing() -> void:
+	var sheet: EconomySheet = EconomySheet.new(EconomyController.new())
+	assert_eq(sheet.research_pick(), {}, "no seat, no study to mark")
+	assert_eq(sheet.production_pick(), {}, "no seat, no runs to mark")
+	assert_eq(sheet.market_pick(), {}, "no seat, no trade to mark")
+	sheet.open_ledger()
+	sheet.open_college()
+	sheet.repaint_ledger()
+	sheet.repaint_college()
+	sheet.paint_crown()
+	var orphan: EconomySheet = EconomySheet.new()
+	assert_eq(orphan.research_pick(), {}, "no host, nothing to read")
+
+
+## The ledger's door and its repaint paint the same sheet: one argument list, so
+## the press and the auction's receipt can never disagree (REQ-P1-05).
+func test_the_ledgers_door_and_repaint_paint_one_sheet() -> void:
+	_screen.economy.open_panel()
+	assert_true(_screen.hud.panels.is_economy_open(), "the door opens the ledger")
+	_screen.economy.last_clearing = {"deals": [], "fills": [], "credits": {}}
+	_screen.economy.refresh_panel()
+	assert_true(_screen.hud.panels.is_economy_open(), "the repaint keeps it open")
+	_screen.hud.panels.hide_economy()
+	_screen.economy.refresh_panel()
+	assert_false(_screen.hud.panels.is_economy_open(), "a closed ledger stays closed")

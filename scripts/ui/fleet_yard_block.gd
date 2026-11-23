@@ -14,12 +14,24 @@ extends FleetDrawer
 ## Breaking up a paid-for hull asks once: the guard holds the hull the crown
 ## armed and lets the window run out on its own (DR-20261109-01).
 
+## The mark the counsel reads by: the hull the court's own yard would lay wears
+## it before her name, the mark the muster's forces and the realm's provinces
+## wear (DR-20261122-12).
+const COURT_MARK: String = "▸"
+## What that mark means, under the claim it answers: the slip keeps no footer, so
+## the sentence has nowhere else to stand (REQ-P1-07, REQ-P5-07; DR-20261123-08).
+const MARK_LEGEND: String = "A ▸ marks the hull the court would lay this turn."
+
 var _arm: ArmGuard = null
 var _fleet: FleetState = null
 var _is_player: bool = false
-## The hull the court's own yard means to lay, in gold under the launch heading —
-## the published claim's reading, never an order (DR-20261121-02).
-var _pick: String = ""
+## The pick the court's own yard printed, in gold under the launch heading — the
+## published claim's reading, never an order (DR-20261121-02). Kept whole so the
+## line and the launch row's mark come off one read (DR-20261122-12).
+var _pick: Dictionary = {}
+## What the launch rows' mark means, under the claim it answers: the slip clears
+## its list on every fill, so the sentence is rebuilt with it (DR-20261123-08).
+var _legend: Label = null
 ## The one press under the slip; it owns the arm, its timeout and its words.
 var _batch: RaiseBatchPress = null
 
@@ -50,29 +62,54 @@ func _make_batch() -> void:
 	_batch = RaiseBatchPress.new()
 	_batch.set_verb("launch")
 	_batch.confirmed.connect(func() -> void: action_pressed.emit("yard:launch_all"))
+	# The sentence that says what the launch rows' mark means, made once so the
+	# reading and the words come off one home; `_fill` mounts it under the claim
+	# (DR-20261123-08).
+	_legend = MarkLegend.make(MARK_LEGEND)
 
 
 ## A fresh fleet: the yard closes unless it may stay, and the rows are redrawn.
-## `pick` is the hull the court's own yard means to lay, already worded
-## (DR-20261121-02); a rival answers to her own court and carries none.
+## `pick` is the court's own claim, kept whole so the line under the heading and
+## the hull's mark come off one read (DR-20261121-02, DR-20261122-12); a rival
+## answers to her own court and carries none.
 func show_rows(
 	fleet: FleetState, rows: Array[Dictionary], is_player: bool, keep_open: bool,
-	pick: String = ""
+	pick: Dictionary = {}
 ) -> void:
 	_fleet = fleet
 	_is_player = is_player
-	_pick = pick if is_player else ""
+	_pick = pick if is_player and pick != null else {}
 	offer(rows, is_player, not rows.is_empty(), "", keep_open, false)
+	# A slip that prints no claim explains no glyph (DR-20261123-08).
+	MarkLegend.stand(_legend, not mark_type().is_empty())
 
 
 ## The capital slip: no squadron afloat, but the yard still lists what to launch.
-func show_slip(rows: Array[Dictionary], is_player: bool, pick: String = "") -> void:
+func show_slip(rows: Array[Dictionary], is_player: bool, pick: Dictionary = {}) -> void:
 	show_rows(null, rows, is_player, true, pick)
 
 
 ## The pick the drawer is printing, for tests and the mobile audit (REQ-P3-02).
 func pick_line() -> String:
-	return _pick
+	return MapPlayPickProse.sentence_of(_pick)
+
+
+## The hull the slip's launch rows mark, for tests and the mobile audit
+## (REQ-P3-02).
+func mark_type() -> String:
+	return String(_pick.get("type", ""))
+
+
+## The sentence that says what the launch rows' mark means, for tests and tooling
+## (REQ-P3-02, DR-20261123-08). Empty when the slip shows no claim.
+func legend_text() -> String:
+	return "" if _legend == null else _legend.text
+
+
+## Whether the legend stands under the claim it answers: only while that claim
+## names a hull (REQ-P1-07, REQ-P5-06).
+func legend_shown() -> bool:
+	return _legend != null and _legend.visible
 
 
 ## The break-up drawer takes the yard's place while a join is on offer, so the
@@ -98,16 +135,26 @@ func on_scrap_pressed(hull_id: String) -> void:
 ## (REQ-P5-04; DR-20261118-08).
 func _fill() -> void:
 	_make_batch()
+	# The legend is the block's, not the list's: lift it out before the list is
+	# cleared, so the next fill can stand it under the claim again
+	# (DR-20261123-08).
+	if _legend != null and _legend.get_parent() != null:
+		_legend.get_parent().remove_child(_legend)
 	UiRowBuilder.clear_except(_box, _batch)
 	_box.add_child(UiRowBuilder.caption("LAUNCH A HULL", 11, Palette.TEXT_DIM))
 	# The court's own yard would lay one hull and not the list: the pick stands
 	# under the heading, in the gold the crew's and the squadron's picks use, so
 	# the advice reads before the rows' prices do (REQ-P5-03; DR-20261121-02).
-	if not _pick.is_empty():
+	var advice_text: String = MapPlayPickProse.sentence_of(_pick)
+	if not advice_text.is_empty():
 		var advice := UiRowBuilder.line(12, Palette.GOLD)
-		advice.text = _pick
+		advice.text = advice_text
 		advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_box.add_child(advice)
+		# What the mark on the launch rows means, under the claim it answers: the
+		# slip has no footer, and a phone would drop one anyway (DR-20261123-08).
+		if _legend != null and _legend.visible:
+			_box.add_child(_legend)
 	var ready: int = 0
 	for row: Dictionary in _rows:
 		if bool(row.get("batch_ready", false)):
@@ -151,9 +198,15 @@ func _build_row(row: Dictionary) -> Control:
 	var pending: int = int(row.get("pending", 0))
 	if pending > 0:
 		detail += "  ·  %d under orders" % pending
+	# The counsel's mark leads the hull the line would lay, so the crown finds
+	# that row among the slip's whole list (DR-20261122-12).
+	var hull_name: String = String(row["name"])
+	var mark: String = mark_type()
+	if not mark.is_empty() and type_id == mark:
+		hull_name = "%s %s" % [COURT_MARK, hull_name]
 	var entry: VBoxContainer = super({
 		"type": type_id,
-		"name": String(row["name"]),
+		"name": hull_name,
 		"ok": ok,
 		"reason": reason,
 		"label": "Launch",

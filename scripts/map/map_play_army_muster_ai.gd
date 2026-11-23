@@ -19,7 +19,10 @@ const KIND_RECALL: String = "recall"
 
 ## The court's whole muster for one region: raise the men, then pitch the train.
 ## Both legs run every turn — a court that raised a regiment still brings its
-## surgeons — so neither answer short-circuits the other.
+## surgeons — so neither answer short-circuits the other. The wall reading
+## ([method storm_extra]) is noted on the court's shared config first, so the
+## plan's own target carries it — and every other reader in the turn, the
+## counsel and the ledger included, reads the same number (issue #1356).
 static func muster(
 	play: PlaySession,
 	model: MapModel,
@@ -29,6 +32,12 @@ static func muster(
 	kind: String,
 	trace: Array[Dictionary]
 ) -> bool:
+	var wall: Dictionary = storm_extra(
+		play, model, faction, play.army_layer.regiment_count_all(faction)
+		if play != null and play.army_layer != null else 0
+	)
+	if config is AiConfig:
+		(config as AiConfig).storm_read = wall
 	var raised: bool = _reinforce(play, model, roster, faction, config, kind, trace)
 	var trained: bool = _pitch_train(play, model, roster, faction, kind, trace)
 	return raised or trained
@@ -99,6 +108,61 @@ static func plan(
 			play.world, faction, play.human_faction_id(), play.difficulty
 		)
 	)
+
+
+## The extra regiments the wall in front of this court asks for (issue #1314):
+## every Old World province starts behind a wall, and the storm gate prices the
+## wall plus its battery, so a court musting only its published target never
+## crosses one and its land stays foreign. The reading is the thinnest wall the
+## court does not own against its strongest line, from its own target and
+## strength; [method AiArmyReinforce.desired_regiments] raises the guard on it.
+static func storm_extra(
+	play: PlaySession,
+	model: MapModel,
+	faction: int,
+	own_regiments: int
+) -> Dictionary:
+	if play == null or model == null or play.ai == null:
+		return {}
+	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
+	if economy == null:
+		return {}
+	var config: Variant = AiControl.court(play, faction).get("config", null)
+	if config == null:
+		return {}
+	var at_war: bool = MapPlayCourt.at_war(play, faction)
+	var target: int = AiArmyReinforce.guard_regiments(config, at_war)
+	return AiStormGate.extra(
+		thinnest_wall(model, faction),
+		float(RegimentCatalog.strength(
+			AiArmyReinforceLine.strongest_line(economy.tech_unlocked)
+		)),
+		target,
+		own_regiments
+	)
+
+
+## The lowest storm threshold among the walled provinces this court does not
+## own, 0 when none stands. The battery follows the **defender's** studies
+## (wiki: siege-mechanics § Emplaced Artillery — Royal → Heavy → Siege), which
+## this muster cannot read for another court, so it prices the top of the line
+## ([method FortRules.storm_ceiling]): the host it asks for clears the wall
+## whatever battery stands behind it ([method FortRules.storm_threshold] with
+## the Royal floor would size a host the ladder could repel; issue #1314).
+static func thinnest_wall(model: MapModel, faction: int) -> float:
+	if model == null:
+		return 0.0
+	var thinnest: float = 0.0
+	for province: int in model.province_count():
+		if model.province_owner(province) == faction:
+			continue
+		var level: int = FortRules.level_at(model, province)
+		if not FortRules.is_siege(level):
+			continue
+		var threshold: float = FortRules.storm_ceiling(level)
+		if thinnest <= 0.0 or threshold < thinnest:
+			thinnest = threshold
+	return thinnest
 
 
 ## A rival court raises one line regiment a turn from its own ledger while it

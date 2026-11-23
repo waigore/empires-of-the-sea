@@ -61,6 +61,16 @@ static func resolve_turn(
 		if ArmyForce.side_regiments(defending) == 0:
 			if ArmyForce.has_third_party(armies, province, defender, attackers):
 				continue
+			## A wall blocks the walk-in (wiki: siege-mechanics; issue #1314):
+			## fort level ≥ 1 is never an unopposed flip, even with zero
+			## defending regiments — the march resolves as a storm against the
+			## wall and its emplaced battery. Only open ground keeps the
+			## unopposed rule.
+			if FortRules.level_at(model, province) >= 1:
+				reports.append(
+					_storm_empty(model, armies, province, defender, attackers, context)
+				)
+				continue
 			var capturer: int = _lowest(attackers)
 			BattleSettlement.flip(model, province, capturer)
 			reports.append(_capture_report(model, province, capturer, defender))
@@ -262,6 +272,72 @@ static func outcome_label(outcome: int) -> String:
 		Outcome.ATTACKER_ADVANTAGE:
 			return "attacker holds the field"
 	return "stalemate"
+
+
+## One hostile court takes an **empty walled** province (issue #1314): the wall
+## and the battery stand where no regiment does. The march is a storm, not an
+## unopposed flip — only a host whose strength crosses
+## [method FortRules.storm_threshold] (wall HP plus the standing battery)
+## takes the ground. One report names who stormed what; multi-attacker
+## initiative keeps the lowest id on a tie, as the open-ground flip does.
+##
+## Losses follow the published ladder (wiki: siege-mechanics § Wall Protection,
+## deterministic by design — no new roll): each whole
+## [constant FortRules.STORM_STEP] of strength past the threshold costs one
+## regiment, weakest first — the same weakest-first draw every battle reads. The
+## battery itself is never captured: a taken province keeps whatever walls and
+## guns survive, and the storm that takes it does not silence the battery (a
+## standing wall is taken, not shot to pieces).
+static func _storm_empty(
+	model: MapModel,
+	armies: Array[ArmyState],
+	province: int,
+	defender: int,
+	attackers: Array[int],
+	context: Dictionary
+) -> Dictionary:
+	var capturer: int = _lowest(attackers)
+	var storming: Array[ArmyState] = ArmyForce.armies_of(armies, province, capturer)
+	## The battery is the province's, so its line is the **defender's** studies
+	## (wiki: siege-mechanics § Storming an empty walled province; § Emplaced
+	## Artillery — "the defender's unlocked emplaced-quality tech line"). The
+	## storming court's own guns never price the wall it is not manning.
+	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(
+		defender, {}
+	) as Dictionary
+	var level: int = FortRules.level_at(model, province)
+	var host_strength: float = 0.0
+	for army: ArmyState in storming:
+		host_strength += army.strength()
+	var threshold: float = FortRules.storm_threshold(tech, level)
+	var lost: Array[String] = []
+	var taken: bool = host_strength > threshold
+	if taken:
+		## The ladder's price is drawn **weakest first**, the casualty rule every
+		## battle reads (wiki: siege-mechanics § Storming an empty walled province
+		## — "the same weakest-first casualty draw every battle reads"; combat
+		## § Casualties). The draw is [method ArmyForce.apply_losses]' own, so a
+		## storm can never spend its veterans where the field spends its levies.
+		lost = ArmyForce.apply_losses(
+			armies, storming, FortRules.storm_losses(host_strength, tech, level)
+		)
+	var report: Dictionary = BattleSettlement.report_skeleton(
+		model, province, capturer, defender, Outcome.CAPTURE,
+		lost, [] as Array[String], {}, {"fort": level}
+	)
+	report["captured"] = taken
+	report["storm"] = {
+		"fort": level,
+		"strength": host_strength,
+		"threshold": threshold,
+		"taken": taken,
+	}
+	if not taken:
+		## The wall stands: no flip, no capture — the report names the repulse.
+		report["outcome"] = Outcome.DEFENDER_VICTORY
+		return report
+	BattleSettlement.flip(model, province, capturer)
+	return report
 
 
 static func _capture_report(

@@ -229,7 +229,7 @@ static func _target(
 			continue
 		if charts != null and not charts.knows_province(army.owner, model.region_id, province.id):
 			continue
-		if not _can_storm(config, model, armies, army, province.id):
+		if not AiStormGate.admits(config, model, armies, army, province.id):
 			continue
 		var score: int = AiMilitaryPlanner.province_score(config, model, province.id)
 		if best < 0 or score > best_score or (score == best_score and province.id < best):
@@ -238,31 +238,11 @@ static func _target(
 	return best
 
 
-## Walls soak attacking strength, so a landing needs a margin over the defenders
-## (wiki: siege-mechanics § Auto-resolve composite).
-static func _can_storm(
-	config: AiConfig, model: MapModel, armies: Array, army: ArmyState, province: int
-) -> bool:
-	var roster: Array[ArmyState] = []
-	roster.assign(armies)
-	var defenders: Array[ArmyState] = ArmyForce.armies_of(
-		roster, province, model.province_owner(province)
-	)
-	if defenders.is_empty():
-		return true
-	var wall: float = FortRules.wall_hp(FortRules.level_at(model, province))
-	var attack: float = army.strength() - wall
-	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
-	return attack > ArmyForce.side_strength(defenders) * margin
-
-
 ## The landing gate's target test, in the form NavalTransport expects: a declared
 ## enemy's coast, or a Tribe's, which needs no declaration (wiki: factions § Tribe).
 static func _invadable_query(hostile: Dictionary) -> Callable:
 	return func(a: int, b: int) -> bool:
-		return a != b and (
-			hostile.has(b) or FactionCatalog.type_of(b) == FactionCatalog.Type.TRIBE
-		)
+		return a != b and _invadable(b, hostile)
 
 
 ## No war target left (peace signed mid-voyage): land on an own coast instead of

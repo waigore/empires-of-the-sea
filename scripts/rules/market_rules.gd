@@ -103,7 +103,7 @@ static func bid_block(
 		return _no(_purse_reason(context), "trade_order_bid_exceeds_treasury_budget")
 	if price > 0 and left < price:
 		return _no(
-			"The purse leaves no whole ton at %d ducats." % price,
+			"The purse leaves no whole ton at %s." % MoneyText.ducats(price),
 			"trade_order_bid_exceeds_treasury_budget"
 		)
 	return _yes()

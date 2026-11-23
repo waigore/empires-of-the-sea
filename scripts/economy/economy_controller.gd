@@ -1,11 +1,12 @@
 class_name EconomyController
 extends Node
-## Mounts the crown's economy on the map screen: builds the opening ledger, runs
-## the end-of-turn phases and repaints the sheet.
+## Mounts the crown's economy on the map screen: builds the opening ledger and
+## runs the end-of-turn phases.
 ##
-## The figures the sheet prints belong to [LedgerReadings]; every ledger and
-## college button press belongs to [LedgerOrders]. This node owns the mount, the
-## turn and the panel surface — never a rule (REQ-P3-01, REQ-P2-03).
+## The figures the sheet prints belong to [LedgerReadings]; the sheets' doors,
+## their arguments and the picks they mark belong to [EconomySheet]; every
+## ledger and college button press belongs to [LedgerOrders]. This node owns the
+## mount and the turn — never a rule (REQ-P3-01, REQ-P2-03).
 
 signal treasury_changed(value: int)
 
@@ -41,6 +42,8 @@ var leader_key: String = ""
 var readings: LedgerReadings = null
 ## The ledger's and the college's button presses, as intents.
 var orders: LedgerOrders = null
+## The sheets' surface: which stands, what paints it, and the picks it marks.
+var sheet: EconomySheet = null
 ## Last world-market clearing receipt; owned by [member readings], exposed here
 ## so map helpers keep one ledger handle (REQ-P3-01).
 var last_clearing: Dictionary:
@@ -54,6 +57,7 @@ var last_clearing: Dictionary:
 func _init() -> void:
 	readings = LedgerReadings.new(self)
 	orders = LedgerOrders.new(self)
+	sheet = EconomySheet.new(self)
 
 
 ## Thin pass-throughs: callers that only need a figure keep talking to this
@@ -138,7 +142,12 @@ func _connect() -> void:
 		return
 	hud.economy_pressed.connect(open_panel)
 	hud.research_pressed.connect(open_research)
-	var panel: EconomyPanel = hud.panels.economy_panel
+	_connect_ledger_presses(hud.panels.economy_panel)
+	_connect_college_presses(hud.panels.research_panel)
+
+
+## The ledger's own presses, each handed to the intent owner as it is made.
+func _connect_ledger_presses(panel: EconomyPanel) -> void:
 	panel.trade_requested.connect(orders.trade)
 	panel.offer_requested.connect(orders.offer)
 	panel.cancel_requested.connect(orders.withdraw)
@@ -147,11 +156,14 @@ func _connect() -> void:
 		func(tier: int, count: int) -> void: orders.worker_action(tier, "recruit", count)
 	)
 	panel.disband_requested.connect(orders.worker_action.bind("disband"))
-	var research: ResearchPanel = hud.panels.research_panel
-	research.assign_requested.connect(orders.assign_research)
-	research.cancel_requested.connect(orders.cancel_research)
-	research.funding_requested.connect(orders.cycle_research_funding)
-	research.funding_all_requested.connect(orders.fund_research_all)
+
+
+## The college's own presses: a study started, dropped or re-funded.
+func _connect_college_presses(panel: ResearchPanel) -> void:
+	panel.assign_requested.connect(orders.assign_research)
+	panel.cancel_requested.connect(orders.cancel_research)
+	panel.funding_requested.connect(orders.cycle_research_funding)
+	panel.funding_all_requested.connect(orders.fund_research_all)
 
 
 ## Runs Build/work's recruits, then Extraction -> Riches -> Consumption ->
@@ -201,13 +213,8 @@ func resolve_turn() -> Dictionary:
 	if army_layer != null:
 		army_layer.sync_generals(player_faction, economy.tech_unlocked)
 	if hud != null:
-		hud.stats.set_treasury(economy.treasury)
-		hud.stats.flash_income(economy.treasury - before)
 		var projection: Dictionary = readings.projected()
-		hud.stats.set_income(int(projection.get("treasury_delta", 0)))
-		hud.stats.set_fleets(readings.fleet_ships())
-		if army_layer != null:
-			hud.stats.set_armies(army_layer.regiment_count_all(player_faction))
+		sheet.paint_crown(economy.treasury - before, projection, true)
 		# The lane raises only what asks the crown to act; a quiet turn's
 		# harvest, deliveries and studies read on the ledger sheet and the
 		# Gazette (wiki: hud-toasts).
@@ -226,60 +233,11 @@ func resolve_turn() -> Dictionary:
 
 
 func open_panel() -> void:
-	if hud == null:
-		return
-	hud.panels.show_economy(
-		economy, market, readings.projected(), readings.trade_cargo(),
-		market.minor_offers, player_faction, _production_pick(), _market_pick(),
-		MapPlayRecruitPick.sheet(play)
-	)
+	sheet.open_ledger()
 
 
 func open_research() -> void:
-	if hud == null:
-		return
-	hud.panels.show_research(
-		economy.research, economy.treasury, research_boost, leader_key, _research_pick()
-	)
-
-
-## The study the published research policy would open in the crown's first free
-## slot, in the sheet's own voice (wiki: tech-tree § Research model;
-## DR-20261121-01). Empty when there is no free slot, no study left to open, or
-## no planner behind the seat — the reading, never an order.
-func _research_pick() -> String:
-	return MapPlayResearchPick.line(play)
-
-
-## The runs the published economy pass would book for the crown's workshop this
-## phase, in the PRODUCTION tab's own voice (wiki: stockpiles-and-production
-## § Production flow; DR-20261121-07). Empty when there is no planner behind the
-## seat — the reading, never an order.
-func _production_pick() -> Dictionary:
-	var pick: Dictionary = MapPlayProductionPick.pick(play)
-	if pick.is_empty():
-		return {}
-	return {
-		"kind": pick.get("kind", ""),
-		"runs": pick.get("runs", {}),
-		"line": MapPlayPickProse.sentence(String(pick.get("line", ""))),
-	}
-
-
-## The trade the published market pass would book for the crown this phase, in
-## the MARKET tab's own voice (wiki: world-market § Trade orders;
-## DR-20261121-09). Empty when there is no planner behind the seat — the
-## reading, never an order.
-func _market_pick() -> Dictionary:
-	var picked: Dictionary = MapPlayMarketPick.pick(play)
-	if picked.is_empty():
-		return {}
-	return {
-		"kind": picked.get("kind", ""),
-		"offers": picked.get("offers", {}),
-		"bids": picked.get("bids", {}),
-		"line": MapPlayPickProse.sentence(String(picked.get("line", ""))),
-	}
+	sheet.open_college()
 
 
 ## The larder's warning for the turn about to open: the slack the next
@@ -299,29 +257,16 @@ func larder_warning(report: Dictionary, projection: Dictionary = {}) -> String:
 	return LarderRead.warning(LarderRead.standing(economy, LarderRead.mouths(read), false))
 
 
+## The figures moved under the ledger — an auction cleared, a press landed.
+## The sheet and the crown's bar follow where they stand.
 func refresh_panel() -> void:
-	if hud == null:
-		return
-	var projection: Dictionary = readings.projected()
-	if hud.panels.is_economy_open():
-		hud.panels.show_economy(
-			economy, market, projection, readings.trade_cargo(),
-			market.minor_offers, player_faction, _production_pick(), _market_pick(),
-			MapPlayRecruitPick.sheet(play)
-		)
-	hud.stats.set_treasury(economy.treasury)
-	hud.stats.set_income(int(projection.get("treasury_delta", 0)))
+	sheet.repaint_ledger()
 	treasury_changed.emit(economy.treasury)
 
 
-## Repaints the college sheet while it is open: a study moved the figures.
+## The college's faces follow an open sheet; its bar figure follows either way.
 func refresh_research_panel() -> void:
-	if hud == null:
-		return
-	if hud.panels.is_research_open():
-		hud.panels.show_research(
-			economy.research, economy.treasury, research_boost, leader_key, _research_pick()
-		)
+	sheet.repaint_college()
 
 
 ## A study's verdict: its message on the bar, the sheet repainted, and the
@@ -329,16 +274,12 @@ func refresh_research_panel() -> void:
 func report_research(result: Dictionary) -> void:
 	if hud != null:
 		hud.toast(String(result.get("message", "")))
-	refresh_research_panel()
 	# Starting or abandoning a study changes the per-turn gold; the top bar must
 	# read the new figure before the turn is even closed.
-	if hud != null:
-		hud.stats.set_income(readings.projected_income())
+	refresh_research_panel()
 
 
 ## A funding preset moved the gold the purse pays every turn, and the chip is
 ## the only place that figure is always visible (REQ-P5-05).
 func report_funding() -> void:
 	refresh_research_panel()
-	if hud != null:
-		hud.stats.set_income(readings.projected_income())

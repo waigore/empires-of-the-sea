@@ -25,11 +25,13 @@ func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
 	_naval = null
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -45,7 +47,7 @@ func _attach() -> MapScreen:
 	if _chart_bound and is_instance_valid(mounted):
 		return mounted
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
+	Fixture.suite_reset(mounted, pristine, Fixture.world())
 	_chart_bound = true
 	return mounted
 
@@ -4040,26 +4042,86 @@ func _slip_row() -> Dictionary:
 
 
 ## The drawer prints the claim under its launch heading, in the pick's own words,
-## and a rival's slip prints none (REQ-P5-03, REQ-P2-03).
+## marks the hull it names, and a rival's slip prints neither (REQ-P5-03,
+## REQ-P2-03, DR-20261122-12).
 func test_the_yard_drawer_prints_the_courts_claim_under_its_heading() -> void:
 	var yard := FleetYardBlock.new()
 	add_child(yard)
-	var pick: String = MapPlayPickProse.sentence(
-		MapPlayYardPickWords.lay_line("sloop")
-	)
-	yard.show_rows(null, [_slip_row()], true, true, pick)
+	var pick: Dictionary = {
+		"kind": MapPlayYardPick.KIND_LAY,
+		"type": "sloop",
+		"line": MapPlayYardPickWords.lay_line("sloop"),
+	}
+	var rows: Array[Dictionary] = [_slip_row()]
+	yard.show_rows(null, rows, true, true, pick)
 
-	assert_eq(yard.pick_line(), pick, "the drawer holds the claim it was handed")
+	assert_eq(
+		yard.pick_line(), MapPlayPickProse.sentence_of(pick),
+		"the drawer words the claim it was handed"
+	)
+	assert_eq(yard.mark_type(), "sloop", "the mark is the pick's own hull")
+	assert_eq(
+		yard.legend_text(), FleetYardBlock.MARK_LEGEND,
+		"the slip says what its mark means"
+	)
+	assert_true(yard.legend_shown(), "the legend stands while a hull is named")
 	var printed: Array[String] = []
 	for child: Node in yard._box.get_children():
 		var label := child as Label
 		if label != null:
 			printed.append(label.text)
-	assert_true(printed.has(pick), "the claim stands on the slip: %s" % str(printed))
+	assert_true(
+		printed.has(yard.pick_line()), "the claim stands on the slip: %s" % str(printed)
+	)
+	assert_eq(
+		_yard_row_name(yard, rows, "sloop"),
+		"%s Sloop" % FleetYardBlock.COURT_MARK,
+		"the hull the line names wears the mark"
+	)
 
-	yard.show_rows(null, [_slip_row()], false, true, pick)
+	var plain: Dictionary = {
+		"kind": MapPlayYardPick.KIND_LAY,
+		"type": "schooner",
+		"line": MapPlayYardPickWords.lay_line("sloop"),
+	}
+	yard.show_rows(null, rows, true, true, plain)
+	assert_eq(
+		_yard_row_name(yard, rows, "sloop"), "Sloop",
+		"a hull the line does not name keeps its plain name"
+	)
+
+	yard.show_rows(null, rows, true, true, {})
+	assert_eq(yard.pick_line(), "", "an empty read prints no claim")
+	assert_false(yard.legend_shown(), "and the legend leaves the slip's list")
+	assert_eq(yard._legend.get_parent(), null, "so the list holds no stray sentence")
+
+	yard.show_rows(null, rows, false, true, pick)
 	assert_eq(yard.pick_line(), "", "a rival answers to her own court")
+	assert_eq(yard.mark_type(), "", "and marks no hull")
+	assert_false(yard.legend_shown(), "and explains no glyph")
 	yard.queue_free()
+
+
+## One launch row's name label, by the row the yard gives that hull.
+func _yard_row_name(
+	yard: FleetYardBlock, rows: Array[Dictionary], type_id: String
+) -> String:
+	var wanted: int = -1
+	for index: int in rows.size():
+		if String(rows[index].get("type_id", "")) == type_id:
+			wanted = index
+			break
+	if wanted < 0:
+		return ""
+	var seen: int = 0
+	for child: Node in yard._box.get_children():
+		if not (child is VBoxContainer) or child.is_queued_for_deletion():
+			continue
+		if seen == wanted:
+			var top := (child as VBoxContainer).get_child(0) as HBoxContainer
+			return (top.get_child(1) as Label).text
+		seen += 1
+	return ""
 
 
 ## The claim the pure cases prove reaches the live slip: a crown at war with no
@@ -4175,6 +4237,39 @@ func test_the_voyage_pick_boards_the_colonist_the_court_would_send() -> void:
 	play.ship_layer.free()
 
 
+## A landing names the ground, not the coast: the pick carries the province the
+## tile stands in, so the passenger block can mark the coast the step would take
+## (wiki: civilian-units § Landing; DR-20261122-21).
+func test_the_voyage_pick_carries_the_coast_a_landing_stands_on() -> void:
+	var play: PlaySession = _voyage_play()
+	var fleet: FleetState = FleetState.in_port(0, 0, 0, ["h0"], {"h0": "fluyt"})
+	var explorer: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(1, 0))
+	_pick_roster(play, [fleet] as Array[FleetState])
+	play.civilian_layer.units.assign([explorer] as Array[CivilianState])
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+
+	var tile := Vector2i(5, 1)
+	var pick: Dictionary = MapPlayVoyagePick._words(
+		play, fleet, 0,
+		{"kind": "land", "fleet": fleet.id, "unit": explorer.id, "tile": tile}
+	)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayVoyagePick.KIND_LAND, "the landing")
+	assert_eq(
+		int(pick.get("province", -1)), play.model.province_at(tile.x, tile.y),
+		"the coast the tile stands in travels beside the ground"
+	)
+	assert_eq(int(pick.get("unit", -1)), explorer.id, "and the crew it would put ashore")
+	assert_true(
+		String(pick.get("line", "")).begins_with(
+			"the court would put an Explorer ashore at (5, 1)"
+		),
+		"the words name the ground"
+	)
+	assert_eq(explorer.embarked_fleet, -1, "a reading: nobody lands")
+	play.ship_layer.free()
+
+
 ## The pick is only for a squadron the court would still order: a rival's hull, a
 ## squadron that has sailed, a crown with no ledger and a decided campaign all
 ## carry none.
@@ -4249,3 +4344,264 @@ func test_the_voyage_words_name_each_step_the_plan_takes() -> void:
 	)
 	assert_eq(MapPlayVoyagePickWords.line(model, {"kind": "unknown"}), "", "no step, no words")
 	assert_eq(MapPlayVoyagePickWords.line(null, {"kind": "dock", "province": 0}), "", "no chart, no words")
+
+
+# --- the court's own expedition reading (DR-20261122-20) ---------------------
+
+
+## One chart of the expedition's world: a four-wide coast under one sea zone. The
+## crown's Old World seat and the Tribe's New World coast are built the same way;
+## only the owner tells them apart.
+func _expedition_region(region: int, owner: int) -> MapModel:
+	var model := MapModel.new()
+	model.setup(4, 3)
+	model.region_id = region
+	model.region_key = FactionCatalog.REGION_KEYS[region]
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			var index: int = model.index_of(x, y)
+			model.terrain[index] = MapModel.Terrain.PLAINS
+			model.province[index] = 0
+			tiles.append(Vector2i(x, y))
+	for x in 4:
+		var water: int = model.index_of(x, 2)
+		model.terrain[water] = MapModel.Terrain.OCEAN
+		model.sea_zone[water] = 0
+	var province := ProvinceState.create(
+		0, "Coast", tiles, Vector2(1.5, 0.5), tiles.size(), owner, false
+	)
+	province.coastal = true
+	model.provinces = [province]
+	var sea: Array[Vector2i] = []
+	for x in 4:
+		sea.append(Vector2i(x, 2))
+	model.sea_zones = [SeaZoneState.create(0, "Passage Water", sea, Vector2(1.5, 2.0), 4)]
+	return model
+
+
+## The two-chart world the expedition cases sail: the crown's seat coast in the
+## Old World, a Tribe's coast in the New, linked both ways by the Passage.
+func _expedition_world() -> WorldMap:
+	var world := WorldMap.new()
+	world.add_region(_expedition_region(WorldMap.OLD_WORLD, MapScreen.PLAYER_FACTION))
+	world.add_region(_expedition_region(WorldMap.NEW_WORLD, 9))
+	world.warp_links = [
+		{"from_region": 0, "from_zone": 0, "to_region": 1, "to_zone": 0},
+		{"from_region": 1, "from_zone": 0, "to_region": 0, "to_zone": 0},
+	]
+	return world
+
+
+## The expedition the cases read: a squadron at sea carrying a two-regiment host.
+func _expedition_pair() -> Dictionary:
+	var army: ArmyState = ArmyState.muster(
+		1, MapScreen.PLAYER_FACTION, 0, false, ["pikemen", "squires"], 10
+	)
+	var fleet: FleetState = FleetState.at_sea(
+		1, MapScreen.PLAYER_FACTION, 0, ["h1"], {"h1": "frigate"}
+	)
+	fleet.embarked_army = army.id
+	return {"fleet": fleet, "army": army}
+
+
+## A session on that world with the squadron and her host stored on `region`'s
+## chart the way the layers store them. No screen is mounted, so the reading pays
+## no re-seat.
+func _expedition_play(
+	world: WorldMap, region: int, fleet: FleetState, army: ArmyState
+) -> PlaySession:
+	var model: MapModel = world.region(region)
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(MapScreen.PLAYER_FACTION, 9, 1)
+	var play := PlaySession.new()
+	play.player_faction = MapScreen.PLAYER_FACTION
+	play.map_seed = 1500
+	play.turn = 0
+	play.world = world
+	play.model = model
+	play.diplomacy = state
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = model
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(region, [fleet])
+	play.army_layer = ArmyLayer.new()
+	play.army_layer.model = model
+	play.army_layer.armies = [army]
+	play.army_layer.regions.set_region(region, [army])
+	return play
+
+
+## The step is worded in the rule book's own names: the water she sails, the
+## Passage she crosses, the coast she marks and the landing it opens.
+func test_the_expeditions_words_name_every_step() -> void:
+	var model: MapModel = _expedition_region(WorldMap.NEW_WORLD, 9)
+	var coast: String = model.province_name(0)
+	assert_eq(
+		MapPlayExpeditionPick.words(model, {"kind": "sail", "zone": 0}),
+		"the court would sail the expedition for the %s" % model.sea_zone_name(0)
+	)
+	assert_eq(
+		MapPlayExpeditionPick.words(model, {"kind": "cross", "zone": 0}),
+		"the court would cross the Passage with the host aboard"
+	)
+	assert_eq(
+		MapPlayExpeditionPick.words(model, {"kind": "beachhead", "province": 0}),
+		"the court would mark a beachhead on the coast of %s — the landing opens next turn"
+			% coast
+	)
+	assert_eq(
+		MapPlayExpeditionPick.words(model, {"kind": "land", "province": 0}),
+		"the court would land the host at %s" % coast
+	)
+	assert_eq(MapPlayExpeditionPick.words(model, {"kind": "beachhead"}), "", "no coast, no line")
+	assert_eq(MapPlayExpeditionPick.words(model, {"kind": "sail"}), "", "no water, no line")
+	assert_eq(
+		MapPlayExpeditionPick.words(model, {"kind": "embark", "province": 0}), "",
+		"boarding is a sail the naval pick words, not a step of hers"
+	)
+	assert_eq(MapPlayExpeditionPick.words(model, {}), "", "no step, no words")
+	assert_eq(
+		MapPlayExpeditionPick.words(null, {"kind": "land", "province": 0}), "",
+		"no chart, no words"
+	)
+
+
+## The coast the published policy would mark beside her is read as the step and
+## its row, and the reading marks nothing on the chart or the squadron.
+func test_the_expedition_reads_the_coast_the_policy_would_mark() -> void:
+	var world: WorldMap = _expedition_world()
+	var pair: Dictionary = _expedition_pair()
+	var play: PlaySession = _expedition_play(
+		world, WorldMap.NEW_WORLD, pair["fleet"], pair["army"]
+	)
+	var fleet: FleetState = pair["fleet"]
+	var coast: String = world.region(WorldMap.NEW_WORLD).province_name(0)
+
+	var pick: Dictionary = MapPlayExpeditionPick.pick(play, fleet)
+
+	assert_eq(String(pick.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD, "the site")
+	assert_eq(int(pick.get("province", -1)), 0, "the Tribe's coast")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would mark a beachhead on the coast of %s — the landing opens next turn"
+			% coast
+	)
+	assert_eq(MapPlayExpeditionPick.marked_coast(pick), 0, "the row the line names")
+	assert_eq(
+		MapPlayExpeditionPick.line(play, fleet),
+		"The court would mark a beachhead on the coast of %s — the landing opens next turn."
+			% coast,
+		"one sentence, capital and full stop"
+	)
+	assert_false(fleet.has_beachhead(), "a reading marks no site")
+	assert_false(fleet.moved, "and sails nothing")
+	play.ship_layer.free()
+	play.army_layer.free()
+
+
+## Home waters: the policy's next step is the Passage, and the line says so.
+func test_the_expedition_reads_the_crossing_it_would_make() -> void:
+	var world: WorldMap = _expedition_world()
+	var pair: Dictionary = _expedition_pair()
+	var play: PlaySession = _expedition_play(
+		world, WorldMap.OLD_WORLD, pair["fleet"], pair["army"]
+	)
+
+	var pick: Dictionary = MapPlayExpeditionPick.pick(play, pair["fleet"])
+
+	assert_eq(String(pick.get("kind", "")), AiInvasionPlanner.KIND_CROSS)
+	assert_eq(String(pick.get("line", "")), "the court would cross the Passage with the host aboard")
+	assert_eq(MapPlayExpeditionPick.marked_coast(pick), -1, "a crossing marks no coast")
+	play.ship_layer.free()
+	play.army_layer.free()
+
+
+## A ready site: the step is the landing it opens, and the site it names is
+## already marked, so it is no row.
+func test_the_expedition_reads_the_landing_the_site_opens() -> void:
+	var world: WorldMap = _expedition_world()
+	var pair: Dictionary = _expedition_pair()
+	var fleet: FleetState = pair["fleet"]
+	fleet.beachhead_province = 0
+	fleet.beachhead_turn = 0
+	var play: PlaySession = _expedition_play(world, WorldMap.NEW_WORLD, fleet, pair["army"])
+	play.turn = 1
+
+	var pick: Dictionary = MapPlayExpeditionPick.pick(play, fleet)
+
+	assert_eq(String(pick.get("kind", "")), AiInvasionPlanner.KIND_LAND)
+	assert_eq(int(pick.get("province", -1)), 0)
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would land the host at %s"
+			% world.region(WorldMap.NEW_WORLD).province_name(0)
+	)
+	assert_eq(MapPlayExpeditionPick.marked_coast(pick), -1, "the site is no row")
+	assert_eq(fleet.embarked_army, (pair["army"] as ArmyState).id, "a reading lands nobody")
+	play.ship_layer.free()
+	play.army_layer.free()
+
+
+## The reading is only for the squadron the court would still plan: a squadron
+## with no host aboard belongs to the naval pick, a rival answers to her own
+## court, a hull that has sailed keeps her step, a second expedition is not the
+## one the pass steers, and a session with no planner or no host roster reads
+## nothing.
+func test_the_expedition_pick_names_no_squadron_the_court_would_leave_alone() -> void:
+	var world: WorldMap = _expedition_world()
+	var pair: Dictionary = _expedition_pair()
+	var play: PlaySession = _expedition_play(
+		world, WorldMap.NEW_WORLD, pair["fleet"], pair["army"]
+	)
+	var fleet: FleetState = pair["fleet"]
+	assert_false(MapPlayExpeditionPick.pick(play, fleet).is_empty(), "the expedition takes a step")
+	assert_true(MapPlayExpeditionPick.pick(play, null).is_empty(), "no squadron, no pick")
+	assert_true(MapPlayExpeditionPick.pick(null, fleet).is_empty(), "no session, no pick")
+
+	var empty: FleetState = FleetState.at_sea(2, MapScreen.PLAYER_FACTION, 0, ["h2"], {"h2": "frigate"})
+	play.ship_layer.regions.set_region(WorldMap.NEW_WORLD, [fleet, empty])
+	assert_true(
+		MapPlayExpeditionPick.pick(play, empty).is_empty(),
+		"a squadron with no host aboard is the naval pick's"
+	)
+	var rival: FleetState = FleetState.at_sea(3, 2, 0, ["h3"], {"h3": "frigate"})
+	rival.embarked_army = (pair["army"] as ArmyState).id
+	play.ship_layer.regions.set_region(WorldMap.NEW_WORLD, [fleet, rival])
+	assert_true(MapPlayExpeditionPick.pick(play, rival).is_empty(), "a rival answers to her own court")
+	play.ship_layer.regions.set_region(WorldMap.NEW_WORLD, [fleet])
+
+	fleet.moved = true
+	assert_true(
+		MapPlayExpeditionPick.pick(play, fleet).is_empty(),
+		"a hull that has sailed is not re-planned"
+	)
+	fleet.moved = false
+
+	var second: FleetState = FleetState.at_sea(2, MapScreen.PLAYER_FACTION, 0, ["h2"], {"h2": "frigate"})
+	second.embarked_army = (pair["army"] as ArmyState).id
+	play.ship_layer.regions.set_region(WorldMap.NEW_WORLD, [fleet, second])
+	assert_true(
+		MapPlayExpeditionPick.pick(play, second).is_empty(),
+		"the pass steers one expedition a court"
+	)
+	play.ship_layer.regions.set_region(WorldMap.NEW_WORLD, [fleet])
+
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayExpeditionPick.pick(play, fleet).is_empty(), "no planner, no advice")
+	play.ai_mode = AiControl.FULL
+	play.observer_mode = true
+	assert_true(MapPlayExpeditionPick.pick(play, fleet).is_empty(), "an observer has no crown's page")
+	play.observer_mode = false
+	play.campaign_halted = true
+	assert_true(
+		MapPlayExpeditionPick.pick(play, fleet).is_empty(),
+		"a decided campaign orders nothing"
+	)
+	play.campaign_halted = false
+	play.army_layer.free()
+	play.army_layer = null
+	assert_true(MapPlayExpeditionPick.pick(play, fleet).is_empty(), "no host roster, no reading")
+	play.ship_layer.free()
+

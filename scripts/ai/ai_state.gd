@@ -58,6 +58,12 @@ var difficulty: String = Difficulty.DEFAULT
 ## (wiki: ai-profile-overrides; ai-parameter-registry § Seed profiles). Saved
 ## with the campaign's AI bookkeeping so a load resumes the same temperaments.
 var profiles: Dictionary = AiProfile.roster()
+## Faction id -> the one planner config the run's readers share (issue #1356):
+## built on first read and kept, so a reading one pass notes on it — the storm
+## read (issue #1314) — is the reading every other reader sees in the same
+## turn. Transient: a config is pure seed-and-profile data, so a load rebuilds
+## it on first read and a save carries none of it.
+var configs: Dictionary = {}
 
 
 ## Keeps the first agenda this court rolled; later configs read it back.
@@ -76,6 +82,23 @@ func economy_for(faction: int) -> PlayerEconomy:
 		Difficulty.scale_start(economy, difficulty)
 		economies[faction] = economy
 	return economies[faction] as PlayerEconomy
+
+
+## One court's planner config: the submission surface's run config, built
+## once and shared by every reader — `AiControl.court`, the economy pass,
+## the ledger and the yard (issue #1356). A config the bind builds that is
+## not the submission surface's (the frozen mainline's) is handed back
+## uncached: its planners carry no reading to share.
+func court_config(
+	kind: String, faction: int, game_seed: int, profiles: Dictionary
+) -> Variant:
+	var config: Variant = AiBind.config(kind, faction, game_seed, profiles)
+	if not (config is AiConfig):
+		return config
+	if configs.has(faction):
+		return configs[faction]
+	configs[faction] = config
+	return config
 
 
 ## Rival stockpile by faction, for the diplomacy planner's resource-need score

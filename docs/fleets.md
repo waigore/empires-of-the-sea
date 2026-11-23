@@ -27,17 +27,17 @@ Fog, cargo, battles, raids: [naval-missions](naval-missions.md).
   another in the same station.
 - Contested zones fight at the close: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
-- **Markers:** escorts, hull badge, selection strength; a rival `*` until
+- **Markers:** escorts, hull badge; a rival `*` until
   watched (DR-20261113-20).
 - **One station:** the crown's ≤3 fan out, others stack; a tap cycles them;
   a merge re-reads (DR-20261119-08/17).
-- **Opening muster:** every Great Power's hulls ride one home fleet at its
-  capital (#1043).
+- **Opening muster:** every Great Power's hulls ride one fleet at its capital
+  (#1043).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13/16); raids sink one merchant hull (DR-20261111-17).
-- **The court's picks** (DR-20261120-04): the missions line names the sail
-  or harbour; the slip the hull (DR-20261121-02); the navy sheet every
-  squadron's sail, its heading marked `▸` (DR-20261121-13/22-05). Readings only.
+- **The court's picks** (DR-20261120-04/22-20): the missions line names the
+  sail, harbour or the expedition's step, its coast `▸`; the slip the hull and
+  the navy sheet each sail, `▸` (DR-20261123-03/07). Readings only.
 - **Army transport** (`NavalTransport`): board one regiment/hull, land on an
   owned coast; troops drown with the hull.
 - **Beachhead:** mark a hostile coast (spends the move); lands next; lapses.
@@ -54,7 +54,7 @@ lens (`H`, DR-20261115-17) reads zones the crown's sail sees.
 | `scripts/rules/{naval_*,warp_travel}.gd` | battles, moves, stations, raids |
 | `scripts/rules/{naval_transport,naval_deck,civilian_voyage}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead, deck |
 | `scripts/ai/ai_naval_planner.gd`, `scripts/map/{map_play_fleet_ai,map_play_fleet_missions,map_play_raids}.gd` | rival sorties, stations, raids |
-| `scripts/map/{map_play_fleets,map_play_fleet_intel,map_play_fleet_yard,map_play_fleet_split,map_play_fleet_combine,map_play_fleet_pick}.gd` | sail orders, the crown's watch, shipyard, split, combine, the pick |
+| `scripts/map/{map_play_fleets,map_play_fleet_intel,map_play_fleet_yard,map_play_fleet_split,map_play_fleet_combine,map_play_fleet_pick,map_play_expedition_pick}.gd` | sail orders, the crown's watch, shipyard, split, combine, the pick, the expedition's step |
 | `scripts/map/{ship_layer,ship_markers,fleet_lanes,fleet_rosters,map_overlay,map_play_warp,fog_layer}.gd` | orders, markers, rows, rosters, fog |
 | `scripts/ui/{fleet_panel,fleet_*_section,fleet_*_block,panel_dock}.gd` | dossier, strength, passengers, stations, split, combine, pick |
 | `scripts/rules/naval_ledger.gd`, `scripts/ui/naval_ledger_*.gd` | the navy, hull by hull |

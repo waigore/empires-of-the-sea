@@ -24,11 +24,11 @@ own fort order.
 | Level | the numeral the realm prints — `—` (open shore), `I`, `II`, `III` |
 | Gate | `READY`, `AT WORK`, `NO ENGINEER`, `LOCKED`, `WALLED` |
 | Press | `Raise Wall · 4 lumber + 4 bronze` — the next level's price, from the fort table |
-| Note | what the next wall buys — `L2 soaks 20 wall hp with 2 guns (+10 hp, +1 gun)` — or the order's own refusal |
+| Note | what the next wall buys — `L2 soaks 80 wall hp with 2 guns (+40 hp, +1 gun)` — or the order's own refusal |
 
 The press names the price and prints what the wall buys under it, in words a
-phone reads without a hover. The sheet states the rule: 10 / 20 / 30 wall hp by
-level and 1–3 emplaced guns.
+phone reads without a hover. The sheet states the rule off the fort table:
+40 / 80 / 120 wall hp by level and 1–5 emplaced guns.
 
 ## Raise
 
@@ -43,7 +43,7 @@ study, the crew, or the stores that shore lacks.
 |------|------|
 | `scripts/rules/wall_ledger.gd` | projection, states, summary, row copy |
 | `scripts/rules/realm_readings.gd` | the realm's defence figure and ground |
-| `scripts/ui/province_orders_section.gd` | the dossier's fort order |
+| `scripts/ui/province_raise_presses.gd` | the dossier's fort order |
 
 No figure is recomputed: the level and its guns are `FortRules`, as are the
 price and the wait; the gate is `CivilianWorkRefusals.fort`, the wording the

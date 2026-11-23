@@ -28,9 +28,13 @@ const KIND_FULL: String = "full"
 ## Every crew the region asks for already stands: the hire order is one line the
 ## court reads before it presses a craft its staffs already fill.
 const FULL_LINE: String = "Every crew this region asks for already stands."
-## The bank's refusal, in the crown's words: a court short of the bar keeps its
-## chest and hires only the crews its provision arms (issue #1059).
-const BANK_LINE: String = "The bank holds the purse: your hire order takes no new crew."
+## The bank's refusal, in the court's own words: a court short of the bar keeps
+## its chest and hires only the crews its provision arms (issue #1059). The line
+## speaks for the court's own hire pass, never for the crown's press: the Train
+## rows stay live and priced (issue #1306).
+const BANK_LINE: String = (
+	"The court's own hire pass takes no new crew while it banks the purse for its army."
+)
 
 
 ## The rail's line for the capital, or "" when there is none to print: no
@@ -68,7 +72,7 @@ static func pick(play: PlaySession) -> Dictionary:
 	var home: int = FactionCatalog.region_of(faction)
 	for entry: Dictionary in MapPlayCivilianAi.plan_all(
 		play, faction, economy, config,
-		MapPlayEconomyAi._overseas(play, faction, economy), economy.stockpile, 0, -1,
+		MapPlayEconomyLarder.overseas(play, faction, economy), economy.stockpile, 0, -1,
 		banks(play, faction, economy, config, kind)
 	):
 		if int(entry.get("region", -1)) != home:
@@ -153,22 +157,27 @@ static func of(
 	return _worded(KIND_TAKE, next_crew, "", take_line(next_crew, false))
 
 
-## "Your hire order takes a Builder next — 1,000 cash + 2 paper." A crew the
-## court's own archetype keeps says so, because the hire is in character rather
-## than the region's ask (wiki: civilian-build-planner § Archetype weights).
+## "The court's own hire pass takes a Builder next — 1,000 cash + 2 paper." A
+## crew the court's own archetype keeps says so, because the hire is in
+## character rather than the region's ask (wiki: civilian-build-planner
+## § Archetype weights). The line speaks for the court's own pass, never for the
+## crown's press: the Train rows stay live and priced (issue #1306).
 static func take_line(crew: String, taste: bool) -> String:
 	if crew.is_empty() or not CivilianCatalog.known(crew):
 		return ""
 	var head: String = (
-		"Your court's taste takes %s next" % with_article(crew)
+		"The court's own taste takes %s next" % with_article(crew)
 		if taste
-		else "Your hire order takes %s next" % with_article(crew)
+		else "The court's own hire pass takes %s next" % with_article(crew)
 	)
 	return "%s — %s." % [head, CivilianCatalog.training_cost_text(crew)]
 
 
 ## The footing's own refusal, in plain words: a war shuts the expansion crews,
-## the bank every other crew (wiki: civilian-units § Training).
+## the bank every other crew (wiki: civilian-units § Training). The line names
+## whose order it reads — the court's own hire pass — so it never claims the
+## crown's own Train order is closed while its press stands live and priced
+## (issue #1306).
 static func gate_line(crew: String, gate: String) -> String:
 	if gate == AiCivilianHire.REASON_BANK:
 		return BANK_LINE
@@ -176,7 +185,10 @@ static func gate_line(crew: String, gate: String) -> String:
 		var named: String = (
 			CivilianCatalog.display_name(crew) if CivilianCatalog.known(crew) else "crew"
 		)
-		return "At war your hire order takes no new %s — the front's own crews keep hiring." % named
+		return (
+			"The court's own hire pass takes no new %s while it is at war — the "
+			+ "front's own crews keep hiring."
+		) % named
 	return ""
 
 
@@ -185,7 +197,7 @@ static func gate_line(crew: String, gate: String) -> String:
 static func wait_line(crew: String, study: String) -> String:
 	if crew.is_empty() or study.is_empty() or not CivilianCatalog.known(crew):
 		return ""
-	return "Your hire order takes %s next, and waits on %s." % [
+	return "The court's own hire pass takes %s next, and waits on %s." % [
 		with_article(crew), TechCatalog.display_name(study)
 	]
 
@@ -195,7 +207,7 @@ static func wait_line(crew: String, study: String) -> String:
 static func short_line(crew: String) -> String:
 	if crew.is_empty() or not CivilianCatalog.known(crew):
 		return ""
-	return "Your hire order takes %s next, and the purse cannot cover %s." % [
+	return "The court's own hire pass takes %s next, and the purse cannot cover %s." % [
 		with_article(crew), CivilianCatalog.training_cost_text(crew)
 	]
 

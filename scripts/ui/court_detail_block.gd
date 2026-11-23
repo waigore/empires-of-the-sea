@@ -9,6 +9,15 @@ extends VBoxContainer
 signal order_pressed(kind: String, target: int, arg: String)
 signal dossier_open_pressed(faction_id: int)
 
+## The mark the counsel reads by: the press the court's own envoy would take
+## leads its label with it (DR-20261123-01).
+const COURT_MARK: String = "▸"
+
+## What the mark means, printed under the gold line while one stands — a crown
+## reads the legend beside the line it answers, not in a footer a phone hides
+## (DR-20261123-01; REQ-P1-07, REQ-P5-07).
+const MARK_LEGEND: String = "%s marks the press the court would take"
+
 ## Section headings for the order list; trade terms render in their own block
 ## so prices and pacts stay one glance away (REQ-P5-02).
 const GROUP_LABELS: Dictionary = {
@@ -27,6 +36,13 @@ var _gift_press: Button = null
 var _gift_reason: Label = null
 var _gift_down: Button = null
 var _gift_up: Button = null
+## The open court's envoy pick: the gold line is worded from it and the press it
+## names wears the counsel's mark (DR-20261121-05, DR-20261123-01). {} when the
+## court has no reading.
+var _pick: Dictionary = {}
+## The press the pick names, keyed as the order catalogue keys its buttons:
+## `{kind, arg}` or {} (DR-20261123-01).
+var _press: Dictionary = {}
 
 
 
@@ -40,9 +56,13 @@ func fill(
 	tech: Dictionary,
 	court_reports: Dictionary,
 	power: Dictionary,
-	counsel: String = ""
+	counsel: Dictionary = {}
 ) -> void:
 	UiRowBuilder.clear(self)
+	# One read per sheet: the gold line, the mark and the trade block's press all
+	# come off the pick, so no two of them can disagree (DR-20261123-01).
+	_pick = counsel
+	_press = MapPlayDiplomacyPick.press(_pick)
 	# The children the gift's row owns are gone with the old sheet; the sum the
 	# crown had stepped to lives on the block above and is re-worn below.
 	_gift_press = null
@@ -87,9 +107,16 @@ func fill(
 	# The crown's own envoy: the order her staff's planner would spend on this
 	# crown this turn, printed above the orders it answers, so the choice is
 	# advice first and bookkeeping after (wiki: diplomacy § GP AI policy for war
-	# vs. relations; DR-20261121-05; REQ-P5-03, REQ-P5-06).
-	if not counsel.is_empty():
-		add_child(UiRowBuilder.wrapped_line(counsel, 14, Palette.GOLD_PALE))
+	# vs. relations; DR-20261121-05; REQ-P5-03, REQ-P5-06). The press that line
+	# names wears the counsel's mark, and the legend sits under the line it
+	# answers (DR-20261123-01).
+	var counsel_line: String = MapPlayPickProse.sentence_of(_pick)
+	if not counsel_line.is_empty():
+		add_child(UiRowBuilder.wrapped_line(counsel_line, 14, Palette.GOLD_PALE))
+	if not _press.is_empty():
+		add_child(
+			UiRowBuilder.wrapped_line(MARK_LEGEND % COURT_MARK, 11, Palette.TEXT_DIM)
+		)
 	add_child(UiRowBuilder.caption("COURT ORDERS", 11, Palette.TEXT_DIM))
 	_add_orders(state, world, player, selected, treasury, tech)
 	_add_chronicle(state, player, selected)
@@ -202,7 +229,7 @@ func _add_orders(
 	if trade_options.is_empty():
 		return
 	var trade := CourtTrade.new()
-	trade.fill(state, world, player, selected, trade_options)
+	trade.fill(state, world, player, selected, trade_options, _pick)
 	trade.order_pressed.connect(
 		func(kind: String, target: int, arg: String) -> void:
 			order_pressed.emit(kind, target, arg)
@@ -217,6 +244,11 @@ func _add_option(option: Dictionary, selected: int) -> void:
 		text = "✓ %s" % text
 	if not cost.is_empty():
 		text = "%s  ·  %s" % [text, cost]
+	# The counsel's mark leads the press the court's own envoy would take, so the
+	# order the gold line names is found among ten presses instead of read for
+	# (DR-20261123-01).
+	if _marks(String(option["kind"]), String(option.get("arg", ""))):
+		text = "%s %s" % [COURT_MARK, text]
 	var button := UiRowBuilder.button(text, 36.0, 0.0)
 	button.disabled = not bool(option["ok"])
 	var kind: String = String(option["kind"])
@@ -294,6 +326,23 @@ func _paint_gift(state: DiplomacyState, player: int, selected: int, treasury: in
 	_gift_up.disabled = gift_amount >= maxi(DiplomacyGift.ceiling(treasury), DiplomacyGift.step())
 	_gift_reason.text = "" if ok else String(check.get("reason", ""))
 	_gift_reason.visible = not ok
+
+
+## The press the gold line names, keyed as the order catalogue keys it, or {}
+## when the line names none (DR-20261123-01). A test reads this instead of
+## walking the rebuilt children (REQ-P3-02).
+func counsel_press() -> Dictionary:
+	return _press.duplicate()
+
+
+## True when the order list's own key is the press the gold line names: the
+## catalogue's kind and, for a press that carries one, the same argument.
+func _marks(kind: String, arg: String) -> bool:
+	if _press.is_empty():
+		return false
+	if String(_press.get("kind", "")) != kind:
+		return false
+	return String(_press.get("arg", "")) == arg
 
 
 func _meter(score: float) -> Control:

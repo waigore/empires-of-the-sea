@@ -6,16 +6,23 @@ extends SheetFrame
 ## counter-espionage screen is up. The projection lives in SpyLedger; this sheet
 ## only renders rows and asks MapPlayCivilianRoster to jump (REQ-P3-02,
 ## REQ-P3-03). The sheet chrome, fade and pause-door park come from SheetFrame.
+##
+## The gold line names the spies the court's own espionage pass would book, and
+## every spy it would give an order (a walk, a screen) leads its row with `▸`
+## (DR-20261121-11, DR-20261122-18).
 
 var _rows: VBoxContainer = null
+## The spies the court's own reading orders, by `MapPlayPickProse.row_key`, so a
+## row knows whether it wears the counsel's mark (DR-20261122-18).
+var _court: Dictionary = {}
 
 
 func _init() -> void:
 	title_text = "THE CROWN'S EYES"
+	mark_legend = "A ▸ marks each spy the court would walk or screen this turn."
 	hint_text = (
-		"Visit opens the spy's map and dossier. The sheet reads the network as "
-		+ "it stands and names the spies the court would book; it never moves a "
-		+ "spy or sets an order."
+		"Visit opens the spy's map and dossier. The gold line names the spies "
+		+ "the court would book. The sheet never moves a spy or sets an order."
 	)
 	toggle_action = InputActions.SPY_LEDGER
 
@@ -71,18 +78,29 @@ func _paint() -> void:
 	UiRowBuilder.clear(_rows)
 	_subtitle.text = SpyLedger.summary(_snapshot)
 	_sync_counsel()
+	# The line and the marks come off the one pick, so a mark can never outrun
+	# the sentence it answers (DR-20261122-18, REQ-P4-01).
+	if _counsel != null:
+		_court = _counsel.keys()
 	_network()
 	_courts()
 	_screen()
 
 
+## Whether the court would give this spy an order this turn — a walk or a screen
+## — so its row leads with the mark a crown finds it by among the network
+## (DR-20261122-18).
+func _is_marked(row: Dictionary) -> bool:
+	return _court.has(MapPlayPickProse.row_key(row, "unit_id"))
+
+
 ## The crown's spies, one row each: where it stands and what it earns there.
 func _network() -> void:
 	var rows: Array = _snapshot.get("rows", [])
-	_heading("THE NETWORK", "%d spy%s" % [rows.size(), "" if rows.size() == 1 else "s"])
+	_heading("THE NETWORK", SpyLedger.count_text(rows.size()))
 	if rows.is_empty():
 		_rows.add_child(UiRowBuilder.wrapped_line(
-			"No spy answers the crown. Train one at the capital — 2,000 cash and "
+			"No spy answers the crown. Train one at the capital — 2,000 ducats and "
 			+ "4 paper — and post it on a rival's land.",
 			13,
 			Palette.TEXT_DIM
@@ -107,7 +125,7 @@ func _courts() -> void:
 
 
 func _screen() -> void:
-	_heading("THE SCREEN", "up" if bool(_snapshot.get("screened", false)) else "down")
+	_heading("THE SCREEN", SpyLedger.screen_word(_snapshot))
 	var line := UiRowBuilder.wrapped_line(
 		SpyLedger.screen_text(_snapshot), 13,
 		Palette.GOLD_PALE if bool(_snapshot.get("screened", false)) else Palette.TEXT
@@ -134,6 +152,7 @@ func _heading(caption: String, tally: String) -> void:
 func _spy_row(row: Dictionary) -> Control:
 	var widget := SpyLedgerRow.new()
 	widget.compact = LedgerList.is_compact(_rows)
+	widget.court = _is_marked(row)
 	widget.visit_pressed.connect(_visit)
 	widget.setup(row)
 	return widget

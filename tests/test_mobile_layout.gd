@@ -43,11 +43,13 @@ func before_all() -> void:
 	add_child(viewport)
 	mounted = Fixture.attach_screen(viewport)
 	screen_pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_viewport = viewport
 	_screen = mounted
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -870,7 +872,7 @@ func test_phone_passengers_window_a_port_s_whole_land() -> void:
 		var coasts: Array[Node] = block.find_children("", "Button", true, false)
 		(coasts[0] as Button).pressed.emit()
 		await get_tree().process_frame
-		var window: ScrollContainer = block._ground_scroll
+		var window: ScrollContainer = block.grounds_window()
 		var compact: bool = HudLayout.is_compact(size)
 		assert_eq(
 			window.custom_minimum_size.y, GroundsWindow.height(32, compact),
@@ -1604,7 +1606,7 @@ func _open(size: Vector2i) -> void:
 	_close_modals()
 	_viewport.size = size
 	Fixture.restore(Fixture.world(), world_snapshot)
-	Fixture.suite_reset(_screen, screen_pristine)
+	Fixture.suite_reset(_screen, screen_pristine, Fixture.world())
 	await get_tree().process_frame
 	_screen.hud._relayout()
 

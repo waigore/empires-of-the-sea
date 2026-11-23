@@ -3017,6 +3017,11 @@ var _naval_raid_model: MapModel = null
 func _setup_naval_raid() -> void:
 	_suite_setup = "naval_raid"
 	_naval_raid_model = naval_raid_NavalFixture.build()
+	# Each coast is a crown's own seat: the rival's home fleet lies in port at
+	# Coro, and only a capital's harbour is a home fleet (wiki: ships-and-naval
+	# § Home Fleet — a ship is home only in port at the capital; § Cargo holds and
+	# capacity — the home squadron's merchant hulls are the only holds at risk).
+	_naval_raid_model.province_data(1).capital = true
 
 
 func _naval_raid_fleet(id: int, owner: int, zone: int, types: Array) -> FleetState:
@@ -4361,6 +4366,42 @@ func test_a_rival_blockade_lands_its_prize_in_the_rival_ledger() -> void:
 	assert_eq(int(raid["raider"]), 1)
 	assert_eq(int(raid["victim"]), 2)
 	assert_eq(laden.hulls.size(), 1, "the hull draw missed this turn")
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## A victim's laden hulls ride at risk only as its **home fleet**, in port at its
+## own seat: merchant hulls waiting at a colony quay are no home fleet, so a
+## blockade off that coast takes neither cargo nor hull from them (wiki:
+## ships-and-naval § Cargo holds and capacity — "the home squadron's merchant
+## hulls are the only holds"; § Home Fleet — a ship is home only in port at the
+## capital).
+func test_a_colony_quay_is_no_home_fleet_to_raid() -> void:
+	_setup_naval_raid()
+	_naval_raid_model.province_data(0).owner = 2
+	# The rival holds this coast but sits nowhere on it: a holding, not a seat.
+	_naval_raid_model.province_data(0).capital = false
+	var blockader := _naval_raid_fleet(1, 1, 0, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 0
+	var laden := FleetState.in_port(20, 2, 0, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _naval_raid_session([blockader, laden])
+	play.diplomacy.ensure_relation(1, 2, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 1, 2, false)
+	play.economy.market.record_import("grain", 6, 2)
+	var victim: PlayerEconomy = play.ledger_for(2)
+	victim.add("grain", 6)
+	var before: int = victim.quantity("grain")
+	# A seed whose cargo roll **lands**: the null result must be the home-fleet
+	# reading, never a missed die.
+	_naval_raid_seed_for_prize(play, blockader, laden, 2, false)
+
+	var result: Dictionary = MapPlayRaids.resolve(play)
+
+	assert_eq(int(result.get("rival_prize", 0)), 0, "a colony quay is no home fleet")
+	assert_eq(victim.quantity("grain"), before, "the victim keeps its ton")
+	assert_eq(laden.hulls.size(), 1, "and no hull is drawn")
+	assert_true((result["rival_raids"] as Array).is_empty(), "no raid to report")
 	play.ship_layer.free()
 	play.economy.free()
 

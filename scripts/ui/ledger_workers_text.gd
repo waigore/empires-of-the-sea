@@ -1,8 +1,105 @@
 class_name LedgerWorkersText
 extends RefCounted
 ## Plain-text (and pure) formatting for the WORKERS tab: what one hire costs,
-## what a batch costs and the promise a disband makes. No visual nodes, so it is
-## cheap to unit test (REQ-P3-03).
+## what a batch costs, the promise a disband makes and the larder's own reading.
+## No visual nodes, so it is cheap to unit test (REQ-P3-03).
+
+## The tab's one standing promise, above the larder it answers.
+const INTRO: String = (
+	"Trained workers eat grain, meat and their tier luxury. Disband refunds nothing."
+)
+
+
+## "Store 16 food · Fur Hats ×1" — the larder as it stands, naming only the
+## luxuries this pool actually wants.
+static func larder_store(read: Dictionary) -> String:
+	var parts: PackedStringArray = ["%d food" % int(read["store_food"])]
+	var store: Dictionary = read["store_luxury"]
+	for id: Variant in store.keys():
+		parts.append("%s ×%d" % [CommodityCatalog.label(String(id)), int(store[id])])
+	return "Store " + "  ·  ".join(parts)
+
+
+## "20 food wanted — army 8 · navy 4 · pool 6 · wards 2 · Refined Sugar ×3", or
+## the short form "24 mouths eat 24 food" when the pool is the only appetite.
+## Every appetite the phase pays is named in its own deduction order, because the
+## army and the navy eat before the pool: a store that covers the pool alone still
+## strikes it, and a reading that showed only the pool's mouths had the store
+## cover them (wiki: workers-and-population § Consumption; REQ-P2-03).
+static func larder_appetite(read: Dictionary) -> String:
+	var appetites: Dictionary = read.get("appetites", {}) as Dictionary
+	var army: int = int(appetites.get("army", 0))
+	var navy: int = int(appetites.get("navy", 0))
+	var pool: int = int(appetites.get("pool", int(read["food"])))
+	var wards: int = int(appetites.get("wards", 0))
+	var text: String
+	if army + navy + wards <= 0:
+		text = "%d mouths eat %d food" % [int(read["mouths"]), pool]
+	else:
+		var parts: PackedStringArray = []
+		if army > 0:
+			parts.append("army %d" % army)
+		if navy > 0:
+			parts.append("navy %d" % navy)
+		if pool > 0:
+			parts.append("pool %d" % pool)
+		if wards > 0:
+			parts.append("wards %d" % wards)
+		text = "%d food wanted — %s" % [
+			army + navy + pool + wards, " · ".join(parts),
+		]
+	var want: Dictionary = read["luxury"]
+	for id: Variant in want.keys():
+		text += "  ·  %s ×%d" % [CommodityCatalog.label(String(id)), int(want[id])]
+	var arriving: int = int(read["arriving"])
+	if arriving > 0:
+		text += "  ·  %d arriving" % arriving
+	return text
+
+
+## "Short 2 food — 1 striker, masters first." or the calm cover line. Food is
+## named first because the phase feeds it before any luxury, and the tier named
+## is the one a shortfall bites first: the highest tier in the pool
+## (wiki: workers-and-population § Consumption). The figure is the **whole
+## larder's** shortfall — every appetite the phase pays, not the pool alone — so a
+## store that keeps the workers fed while a ward or an army goes short never
+## reads calm (total food demand = workers + navy + army + hospital staffs), and
+## the mouth that missed is named from the dry run's own fed figures.
+static func larder_shortfall(read: Dictionary) -> String:
+	var short: int = int(read.get("store_short", read.get("food_short", 0)))
+	var strikers: int = int(read["strikers"])
+	if strikers <= 0:
+		if short <= 0:
+			return "The larder covers every mouth."
+		return "Short %d food — %s." % [short, larder_hungry_mouth(read)]
+	var tier: int = int(read["striking_tier"])
+	var who: String = "%d striker%s, %s first" % [
+		strikers,
+		"" if strikers == 1 else "s",
+		WorkerPool.tier_name(maxi(tier, 0)).to_lower(),
+	]
+	if short > 0:
+		return "Short %d food — %s." % [short, who]
+	var luxuries: Dictionary = read["luxury_short"]
+	for id: Variant in luxuries.keys():
+		return "Short %d %s — %s." % [
+			int(luxuries[id]), CommodityCatalog.label(String(id)), who
+		]
+	return "The larder runs short — %s." % who
+
+
+## The appetite the dry run could not serve, in the phase's own order, for a
+## crown whose workers ate: a starving army or navy, or a ward that lost its
+## staff (wiki: combat § Regiment condition; DR-20261112-04).
+static func larder_hungry_mouth(read: Dictionary) -> String:
+	var report: Dictionary = read.get("report", {}) as Dictionary
+	if int(report.get("army_demand", 0)) > int(report.get("army_fed", 0)):
+		return "the army goes short"
+	if int(report.get("navy_demand", 0)) > int(report.get("navy_fed", 0)):
+		return "the navy goes short"
+	if int(report.get("hospital_demand", 0)) > int(report.get("hospital_fed", 0)):
+		return "the wards go unfed"
+	return "the store cannot cover every mouth"
 
 
 ## "120 ducats   Fabric ×2" — the visible cost of recruiting one tier.
@@ -11,7 +108,7 @@ static func recruit_cost(tier: int) -> String:
 	var materials: Dictionary = cost.get("materials", {})
 	var parts: PackedStringArray = []
 	if int(cost.get("treasury", 0)) > 0:
-		parts.append("%d ducats" % int(cost.get("treasury", 0)))
+		parts.append(MoneyText.ducats(int(cost.get("treasury", 0))))
 	for commodity: Variant in materials.keys():
 		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(materials[commodity])])
 	return "   ".join(parts)
@@ -24,7 +121,7 @@ static func recruit_batch_cost(tier: int, count: int) -> String:
 	var parts: PackedStringArray = []
 	var gold: int = int(cost.get("treasury", 0)) * count
 	if gold > 0:
-		parts.append("%d ducats" % gold)
+		parts.append(MoneyText.ducats(gold))
 	var materials: Dictionary = cost.get("materials", {})
 	for commodity: Variant in materials.keys():
 		parts.append(
@@ -56,7 +153,7 @@ static func recruit_price(tier: int) -> String:
 	var materials: Dictionary = cost.get("materials", {})
 	var parts: PackedStringArray = []
 	if int(cost.get("treasury", 0)) > 0:
-		parts.append("%d ducats" % int(cost.get("treasury", 0)))
+		parts.append(MoneyText.ducats(int(cost.get("treasury", 0))))
 	for commodity: Variant in materials.keys():
 		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(materials[commodity])])
 	return "Recruit " + " · ".join(parts)

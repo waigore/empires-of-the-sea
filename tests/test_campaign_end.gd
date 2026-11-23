@@ -41,17 +41,20 @@ func before_all() -> void:
 	saved = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_clean_codec_dir()
 	_chart_bound = false
+	Fixture.park_screen(mounted)
 
 
 func after_each() -> void:
 	Fixture.restore(Fixture.world(), saved)
 	get_tree().paused = false
 	_clean_codec_dir()
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -67,7 +70,7 @@ func _attach() -> MapScreen:
 	if _chart_bound and is_instance_valid(mounted):
 		return mounted
 	Fixture.restore(Fixture.world(), saved)
-	Fixture.suite_reset(mounted, pristine)
+	Fixture.suite_reset(mounted, pristine, Fixture.world())
 	mounted.save_dir = CODEC_DIR
 	_chart_bound = true
 	return mounted

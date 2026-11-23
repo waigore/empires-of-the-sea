@@ -44,7 +44,7 @@ const STATE_ORDER: Dictionary = {
 	STATE_RAISED: 4,
 }
 
-const ROMAN: Array[String] = ["—", "I", "II", "III"]
+const ROMAN: Array[String] = ["—", "I", "II", "III", "IV", "V"]
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
@@ -114,13 +114,21 @@ static func level_text(level: int) -> String:
 
 
 ## The rule a crown pays by, printed on the sheet rather than hidden in a hover
-## (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery).
+## (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery). Every figure
+## is the fort table's own — the wall HP a level soaks and the guns it mounts —
+## so the note can never quote a ladder the combat would not fight (#1314's
+## 40 × level and one gun a level).
 static func rule_note() -> String:
 	return (
-		"A wall soaks the attack before it tells: 10 / 20 / 30 wall hp by level, "
-		+ "and 1–3 emplaced guns that fire with the garrison. The last gun falls "
+		"A wall soaks the attack before it tells: %d / %d / %d wall hp by level, "
+		+ "and 1–%d emplaced guns that fire with the garrison. The last gun falls "
 		+ "even when an assault is repelled, so a wall is worth the turn it takes."
-	)
+	) % [
+		roundi(FortRules.wall_hp(1)),
+		roundi(FortRules.wall_hp(2)),
+		roundi(FortRules.wall_hp(3)),
+		FortRules.guns(FortRules.MAX_LEVEL),
+	]
 
 
 # --- rows -------------------------------------------------------------------

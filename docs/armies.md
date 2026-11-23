@@ -37,12 +37,13 @@
   every regiment.
 - **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
   DR-20261121-14; `MapPlayForceCounsel`, DR-20261121-17/22-03): the standard's
-  order — split, storm, relief, frontier, road home — prints on its dossier,
-  THE CROWN'S ARMY and the muster roll, or the gate when none is given;
-  named headings and rows wear `▸` (DR-20261122-05).
-- **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03): the muster
-  block prints, in gold, the line the published muster would raise, or the
-  target, purse, stores or gate that holds it. Reads only.
+  order prints on its dossier, THE CROWN'S ARMY and the muster roll, or the
+  gate when none is given; named headings and rows wear `▸`, its legend
+  (DR-20261122-05, DR-20261123-03).
+- **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03/22-12): the
+  muster block prints, in gold, the line the published muster would raise (or
+  its gate) and marks that pattern `▸`, with its legend (DR-20261123-08).
+  Reads only.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): one pooled name each.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on
   town tiles; rest 40%/55%, wear 80%/65%; wards eat 2 food a level, unfed 25%

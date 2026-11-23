@@ -9,7 +9,8 @@ extends RefCounted
 ## A reading only: no level, gun, gate or battle outcome lives here. The fort
 ## table owns every number; this module owns the words a surface prints.
 
-## The wall's clause for a province sheet: `10 wall hp · 25% off a blow`. Empty
+## The wall's clause for a province sheet, in the ladder's own figures:
+## `40 wall hp · 10% off a blow` at a Wood fort, rising a level at a time. Empty
 ## on open ground, so a caller leaves the row out rather than printing a zero.
 static func line(level: int) -> String:
 	var fort: int = FortRules.clamp_level(level)
@@ -21,8 +22,9 @@ static func line(level: int) -> String:
 	]
 
 
-## The share of a blow a wall spares the garrison (25/45/60%), read from the
-## exchange's own loss scale so the words cannot drift from the casualty band.
+## The share of a blow a wall spares the garrison (ten points a level), read
+## from the exchange's own loss scale so the words cannot drift from the
+## casualty band.
 static func damage_share(level: int) -> float:
 	return 1.0 - FortRules.loss_scale(FortRules.clamp_level(level))
 

@@ -34,8 +34,16 @@ var beach_hint: String = ""
 var roster: Array[FleetState] = []
 ## The hull the court means to lay in the drawer it picks from.
 var pick: String = ""
-## The hull the court's own yard means to lay in the slip it launches from.
-var yard_pick: String = ""
+## The hostile coast the court's own expedition would mark this turn, for the
+## mission rows to lead with the counsel's mark; -1 when the reading names no
+## coast (a naval sail, or an expedition step that marks none). The id travels
+## beside the sentence, so the block never parses words to find a row
+## (DR-20261122-20).
+var court_coast: int = -1
+## The hull the court's own yard means to lay in the slip it launches from. The
+## pick travels, not the sentence it words, so the slip marks its rows off the
+## same reading (DR-20261122-12).
+var yard_pick: Dictionary = {}
 
 
 ## A squadron's dossier at its plainest: the caller adds the blocks it has.
