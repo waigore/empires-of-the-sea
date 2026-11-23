@@ -215,6 +215,12 @@ godot --headless --path . --script res://playtests/playtest_new_world_war.gd
 # watch's news, then checks the read survives another chart and a save.
 godot --headless --path . --script res://playtests/playtest_naval_intel.gd
 
+# A march into the dark — lands a crew on a Tribe's New World coast, stands a
+# host on that beach and reads the march the rules offer, the provinces the
+# chart marks, the crown's own order and the same border for a crew: ground no
+# tile of the chart holds is no march target (fog § Order Visibility).
+godot --headless --path . --script res://playtests/playtest_army_fog.gd
+
 # Treasury — reads the purse the player sees (chip, ledger summary and "Next
 # turn" promise, market rows, college funding), stages a sale and a study on
 # those buttons, closes real turns, and prints each promise against the ducats.

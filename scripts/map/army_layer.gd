@@ -140,9 +140,18 @@ func army_at(world_position: Vector2) -> ArmyState:
 	return _markers.nearest(armies, world_position)
 
 
-## Applies a march through the rules, then animates the standard.
-func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary:
-	var result: Dictionary = ArmyMovement.apply_move(model, army, province_id, at_war)
+## Applies a march through the rules, then animates the standard. `visibility` is
+## the crown's own chart: a march onto ground it has never charted is refused at
+## the rules' gate (wiki: fog-and-exploration § Order Visibility Requirements).
+func order(
+	army: ArmyState,
+	province_id: int,
+	at_war: bool = true,
+	visibility: VisibilityModel = null
+) -> Dictionary:
+	var result: Dictionary = ArmyMovement.apply_move(
+		model, army, province_id, at_war, visibility
+	)
 	if not bool(result.get("ok", false)):
 		return result
 	var marker: ArmyMarker = marker_for(army)
