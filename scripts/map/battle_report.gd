@@ -258,6 +258,8 @@ static func _land_core(
 				+ _spent("defender", defender, battle, " — ") \
 				+ _spent("attacker", attacker, battle, "; ")
 		ArmyCombat.Outcome.DEFENDER_VICTORY:
+			if battle.has("storm"):
+				return _storm_repulse(battle, province_name, defender)
 			return "%s holds %s" % [defender, province_name] \
 				+ _spent("attacker", attacker, battle, " — ") \
 				+ _spent("defender", defender, battle, "; ")
@@ -275,12 +277,16 @@ static func _land_core(
 			]
 		ArmyCombat.Outcome.CAPTURE:
 			if battle.has("storm"):
-				var storm: Dictionary = battle.get("storm", {}) as Dictionary
-				return "%s storms the walls of %s — %d regiment%s lost" % [
-					attacker,
-					province_name,
-					(battle.get("attacker_lost", []) as Array).size(),
-					"" if (battle.get("attacker_lost", []) as Array).size() == 1 else "s",
+				## A storm that crossed a bare wall spends no regiment: the
+				## despatch names no dead rather than printing a zero
+				## (wiki: siege-mechanics § Storming an empty walled province;
+				## REQ-P5-05).
+				var lost: int = (battle.get("attacker_lost", []) as Array).size()
+				var walls: String = "%s storms the walls of %s" % [attacker, province_name]
+				if lost <= 0:
+					return walls
+				return "%s — %d regiment%s lost" % [
+					walls, lost, "" if lost == 1 else "s",
 				]
 			return "%s occupies %s unopposed" % [attacker, province_name]
 		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
@@ -288,6 +294,28 @@ static func _land_core(
 				+ _spent("defender", defender, battle, " — ") \
 				+ _spent("attacker", attacker, battle, "; ")
 	return "%s and %s stand off at %s" % [attacker, defender, province_name]
+
+
+## A storm the wall threw back: the same "holds" lead every defender victory
+## prints, then the wall that stopped it, so a crown that marched on an empty
+## walled province learns why the ground is still another court's — the
+## host loses nobody and the province keeps its owner
+## (wiki: siege-mechanics § Storming an empty walled province; § Wall
+## Protection — "the crown reads the wall it will meet"; REQ-P5-05).
+static func _storm_repulse(
+	battle: Dictionary, province_name: String, defender: String
+) -> String:
+	var storm: Dictionary = battle.get("storm", {}) as Dictionary
+	var level: int = FortRules.clamp_level(int(storm.get("fort", 0)))
+	var pieces: int = FortRules.guns(level)
+	return "%s holds %s — the storm breaks on a %s fort: %d wall hp, %d emplaced gun%s" % [
+		defender,
+		province_name,
+		FortRules.level_name(level).to_lower(),
+		roundi(FortRules.wall_hp(level)),
+		pieces,
+		"" if pieces == 1 else "s",
+	]
 
 
 ## What a side left on the field, as one clause of the line: ` — England loses 2
