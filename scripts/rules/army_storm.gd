@@ -67,6 +67,13 @@ static func storm_one(
 	storming: Array[ArmyState],
 	context: Dictionary
 ) -> Dictionary:
+	## The price of the fight, taken before the wall is read: a storm is a battle
+	## for the treasury too, so the storming court pays the land's attack price
+	## once per storm — repelled or crossed — exactly as the exchange charges its
+	## attacker (wiki: siege-mechanics § Storming an empty walled province — "A
+	## storm is a **battle**, so the storming court pays the land's attack price
+	## for it … once per attacker per storm"; DR-20261123-22).
+	var fee: Dictionary = ArmyAttackCost.charge(context, attacker)
 	## The battery is the province's, so its line is the **holder's** (that is,
 	## the province owner's) studies (wiki: siege-mechanics § Emplaced
 	## Artillery — "the defender's unlocked emplaced-quality tech line"). The
@@ -116,6 +123,10 @@ static func storm_one(
 		lost, [] as Array[String], {}, {"fort": level}
 	)
 	report["captured"] = taken
+	## The price rides the record every battle record carries, so the land
+	## despatch's `— N ducats spent` tail prints for a storm too
+	## (wiki: siege-mechanics § Storming an empty walled province; DR-20261123-22).
+	ArmyAttackCost.stamp(fee, report)
 	report["storm"] = {
 		"fort": level,
 		"strength": host_strength,

@@ -19,8 +19,10 @@ DR-20261110-27.
   **defender's** Royal → Heavy → Siege line); each whole 10 past it
   costs a regiment, weakest first. A crossing storm is a battle: survivors rise
   a chevron, take the field on their colours and carry the wear
-  (DR-20261123-24). Stormers follow the chain; a repulse names the wall and
-  leaves it for the next.
+  (DR-20261123-24). Every storm pays the land's attack price — repelled or
+  crossed, once per attacker (DR-20261123-22); an unopposed walk-in pays
+  nothing. Stormers follow the chain; a repulse names the wall and leaves it
+  for the next.
 - **Battle mode:** 0 field, `≥ 1` siege. **Scaling:** 40 × level wall HP, level
   guns, 10% × level off a blow; the opening muster (21) cannot storm a Wood fort.
 - **Auto-resolve:** wall HP soaks attack; the defender's share is scaled by

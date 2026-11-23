@@ -6965,6 +6965,76 @@ func test_a_repelled_storm_leaves_its_host_untouched() -> void:
 	assert_false(line.contains("chevron"), line)
 
 
+## A storm is a battle for the treasury too: the storming court pays the land's
+## attack price once per attacker per storm, whether the wall throws the host
+## back or it crosses, and the price techs cut the fee. The charge is taken
+## before the wall is read and stamped on the record every battle carries, so
+## the land despatch's `— N ducats spent` tail prints for a storm
+## (wiki: siege-mechanics § Storming an empty walled province; DR-20261123-22;
+## REQ-P2-01, REQ-P2-03).
+func test_a_storm_pays_the_lands_attack_price() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	thin.moved = true
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [thin], {"pay_attack": pay, "tech": {0: {"industrial_machinery": true}}}
+	)
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(int(battle["attack_cost"]), 75, "Industrial Machinery cuts the fee")
+	assert_eq(int(battle["attack_paid"]), 75, "a repulse is still a battle and pays")
+	assert_eq(charged, [[0, 75]], "one charge per storming court")
+
+	# The same court without the study pays the full base price.
+	_setup_army_field_rules()
+	var plain_model: MapModel = _army_field_rules_model
+	plain_model.province_data(2).fort_level = 1
+	var plain := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	plain.moved = true
+	charged.clear()
+	var plain_reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		plain_model, [plain], {"pay_attack": pay}
+	)
+	assert_eq(int(plain_reports[0]["attack_cost"]), 100)
+	assert_eq(int(plain_reports[0]["attack_paid"]), 100)
+	assert_eq(charged, [[0, 100]])
+
+
+## Each attacker in a storm chain pays its own price once, even when no host
+## crosses: the wall stands and both courts are billed for the fight they
+## brought (wiki: siege-mechanics § Storming an empty walled province — "once per
+## attacker per storm"; combat § Multi-Attacker Chain; DR-20261123-22).
+func test_a_storm_chain_charges_every_attacker_once() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	# Two thin courts (well under the 51 ladder) fall on the wood wall and are
+	# both repelled, so the order the chain reads them in cannot change the bill.
+	var first := army_field_rules_Fixture.army(10, 0, 2, ["pikemen", "squires"])
+	first.moved = true
+	var second := army_field_rules_Fixture.army(11, 2, 2, ["pikemen", "squires"])
+	second.moved = true
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [first, second], {"pay_attack": pay}
+	)
+	assert_eq(reports.size(), 2, "both courts storm the same wall")
+	charged.sort()
+	assert_eq(charged, [[0, 100], [2, 100]], "one charge per storming court")
+	for battle: Dictionary in reports:
+		assert_eq(int(battle["attack_paid"]), 100)
+		assert_false(bool(battle["captured"]), "the wall stands for the next court")
+
+
 ## An unopposed walk-in on open ground is no battle: it takes the province and
 ## earns no chevron, no honour and no wear (wiki: combat § Unopposed capture;
 ## DR-20261112-02 — "an unopposed occupation award[s] none").
