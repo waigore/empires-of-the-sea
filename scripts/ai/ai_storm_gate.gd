@@ -18,7 +18,7 @@ extends RefCounted
 ## [method FortRules.storm_ceiling]. The extra rides the target, so the
 ## muster, its labour floor and the chest it holds for the next regiment all
 ## ask for the same host, and the map layer keeps no second target
-## ([method AiArmyReinforce.desired_regiments]).
+## ([method AiArmyReinforceHost.desired_regiments]).
 ##
 ## Pure: the map, the court's own wall reading and the registry are the only
 ## inputs (REQ-P2-03, REQ-P3-03). No rule changes: the muster spends through
