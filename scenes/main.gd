@@ -58,7 +58,7 @@ func _wants_observer() -> bool:
 		return true
 	if PlatformDisplay.is_handheld():
 		return false
-	return has_observer_flag(OS.get_cmdline_user_args())
+	return has_observer_flag(PlatformHost.launch_args())
 
 
 ## The switch is its own arg (`-- --ai-observer`); a stray value after `=` or a

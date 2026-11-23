@@ -799,6 +799,26 @@ func test_the_observer_switch_is_read_from_the_user_args() -> void:
 	assert_false(script.has_observer_flag(PackedStringArray(["--ai-observe"])))
 	assert_false(script.has_observer_flag(PackedStringArray([])))
 
+
+## The host adapter answers every question the game asks about its machine, so
+## screens and tooling never name `OS` / `DisplayServer` themselves (REQ-P3-05).
+func test_the_host_answers_what_the_game_asks_of_it() -> void:
+	assert_false(PlatformHost.is_mobile(), "the suite runs on a desktop")
+	assert_false(PlatformHost.is_android(), "the suite is not an Android package")
+	assert_false(PlatformHost.is_release_export(), "a test run is no player export")
+	assert_false(PlatformHost.has_display(), "gd-tools boots headless")
+	assert_eq(PlatformHost.launch_args(), OS.get_cmdline_user_args(), "the user args pass through")
+	assert_eq(PlatformHost.command_line_text(), str(PlatformHost.command_line()), "one line prints them")
+	assert_false(PlatformHost.is_running(PlatformHost.NO_PROCESS), "no process never runs")
+	assert_false(PlatformHost.is_running(-5), "a nonsense id is not running")
+	assert_eq(PlatformHost.key_label(null), "", "a missing key prints nothing")
+	var key := InputEventKey.new()
+	key.physical_keycode = KEY_A
+	assert_false(PlatformHost.key_label(key).is_empty(), "a real key prints its cap")
+	var pid: int = PlatformHost.start_process("sh", PackedStringArray(["-c", "exit 0"]))
+	assert_true(pid > 0, "a program starts and hands back its id")
+	PlatformHost.set_clipboard("eots")
+
 # --- the crown's charge (campaign intro) ---
 
 ## The crown's charge: the campaign's opening gate (wiki: dialogue-content-and- yarn §
