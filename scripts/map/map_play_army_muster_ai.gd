@@ -79,10 +79,7 @@ static func plan(
 			MapPlayCourt.hostile_warships(play, faction),
 			economy, MapPlayCourt.hull_types(play, faction)
 		)
-	var slack: int = (
-		int(play.ai.food_slack[faction])
-		if play.ai != null and play.ai.food_slack.has(faction) else -2
-	)
+	var slack: int = MapPlayEconomyLarder.noted_slack(play, faction)
 	return AiBindEconomy.reinforce_plan(
 		kind,
 		config,

@@ -9041,6 +9041,37 @@ func test_a_rule_with_no_order_row_reads_never_exercised() -> void:
 	)
 
 
+## The naval rows' own gates (issue #1357): the seed-1500 batch never meets
+## either — the opening raids and battles take every court's hulls by t20 and
+## the frozen pool rebuilds none, so no port warship has a hostile squadron in
+## reach and nothing is afloat to bring home. Both rows name the gate that held
+## every court instead of failing the checklist as defects.
+func test_the_naval_rows_name_the_gate_that_holds_them() -> void:
+	var rows: Array[Dictionary] = AiCoverage.scan(_records())
+	var sortie: Dictionary = _row(rows, "navy.sortie")
+	assert_false(bool(sortie["major"]), "the sortie is gated, not a defect")
+	assert_eq(int(sortie["count"]), 0, "no port squadron sortied")
+	assert_true(
+		String(sortie["gate"]).contains("hostile squadron"),
+		"the sortie names the gate that held every court",
+	)
+	var home: Dictionary = _row(rows, "navy.home")
+	assert_false(bool(home["major"]), "the homeward leg is gated, not a defect")
+	assert_eq(int(home["count"]), 0, "no squadron came home")
+	assert_true(
+		String(home["gate"]).contains("harbour to reach"),
+		"the homeward leg names the gate that held every court",
+	)
+	assert_true(
+		not AiCoverage.missing_major(rows).has("navy.sortie"),
+		"a gated sortie never fails the checklist",
+	)
+	assert_true(
+		not AiCoverage.missing_major(rows).has("navy.home"),
+		"a gated homeward leg never fails the checklist",
+	)
+
+
 func test_an_aim_ranked_but_never_funded_reads_starved() -> void:
 	var fixed: Array[Dictionary] = _records()
 	var court: Dictionary = fixed[1]["rows"][1]
@@ -9206,6 +9237,50 @@ func test_the_larder_reads_carry_their_shape_for_the_pass_and_the_picks() -> voi
 	var merged: Dictionary = MapPlayEconomyLarder.merge_rows({"cloth": 2}, {"cloth": 3})
 	assert_eq(int(merged["cloth"]), 5, "the muster's cloth and the hull's add up")
 	assert_eq(MapPlayEconomyLarder.merge_rows({"cloth": 2}, {}).size(), 1, "an empty row adds nothing")
+
+
+## The hire's slack and the flow gate read one home: a session with no planner
+## has no note (the `-2` sentinel), a noted slack is read back as it stands, and a
+## court with no harvest in hand falls back to the pass's own note. The court's
+## turn and the WORKERS tab's counsel read the same two figures (REQ-P3-01,
+## REQ-P3-02; DR-20261122-01).
+func test_the_larder_owns_the_hire_slack_it_reads() -> void:
+	var empty := PlaySession.new()
+	assert_eq(MapPlayEconomyLarder.noted_slack(empty, 1), -2, "no pass, no note")
+	assert_eq(MapPlayEconomyLarder.noted_slack(null, 1), -2, "no session, no note")
+	var court := MapPlayEconomyCourt.new()
+	court.play = empty
+	court.faction = 1
+	court.overseas = {}
+	assert_eq(
+		MapPlayEconomyLarder.harvest_reading(court), -2,
+		"no harvest and no note, no reading"
+	)
+	court.play.ensure_ai().note_food_slack(1, 4)
+	assert_eq(
+		MapPlayEconomyLarder.noted_slack(empty, 1), 4, "the pass's note is the reading"
+	)
+	assert_eq(
+		MapPlayEconomyLarder.harvest_reading(court), 4,
+		"a court with no harvest hires against the note"
+	)
+
+
+## The chest the muster and the hull claim is the larder's row: a court with no
+## yard chest claims no hull, and the merged row keeps the muster's own cloth
+## (issue #484, #878).
+func test_the_larder_owns_the_chest_rows_the_plan_reads() -> void:
+	var economy: PlayerEconomy = _economy({"fabric": 8})
+	var chest: Dictionary = MapPlayEconomyLarder.chest_rows(
+		PlaySession.new(), CONFIG_FACTION, AiControl.KIND_SUBJECT, _config(),
+		economy, true, 2, 0, 0, 0
+	)
+	assert_false((chest["muster_row"] as Dictionary).is_empty(), "the muster names its row")
+	assert_eq((chest["navy_row"] as Dictionary).size(), 0, "no chest, no hull row")
+	assert_eq(
+		(chest["held"] as Dictionary), (chest["muster_row"] as Dictionary),
+		"with no hull the held row is the muster's own"
+	)
 
 
 func test_production_inputs_are_never_sold_under_the_court() -> void:

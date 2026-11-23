@@ -31,13 +31,13 @@ Fog, cargo, battles, raids: [naval-missions](naval-missions.md).
   watched (DR-20261113-20).
 - **One station:** the crown's ≤3 fan out, others stack; a tap cycles them;
   a merge re-reads (DR-20261119-08/17).
-- **Opening muster:** every Great Power's hulls ride one home fleet at its
-  capital (#1043).
+- **Opening muster:** every Great Power's hulls ride one fleet at its capital
+  (#1043).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13/16); raids sink one merchant hull (DR-20261111-17).
 - **The court's picks** (DR-20261120-04/22-20): the missions line names the
-  sail, harbour or the expedition's step, its coast `▸`; the slip the hull, `▸`;
-  the navy sheet each sail, `▸`. Readings only.
+  sail, harbour or the expedition's step, its coast `▸`; the slip the hull and
+  the navy sheet each sail, `▸` (DR-20261123-03/07). Readings only.
 - **Army transport** (`NavalTransport`): board one regiment/hull, land on an
   owned coast; troops drown with the hull.
 - **Beachhead:** mark a hostile coast (spends the move); lands next; lapses.

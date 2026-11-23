@@ -33,6 +33,15 @@ static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
 	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
 
 
+## Whether the reading names a fight at all, so the sheet stands its door up
+## beside the line: the fights it names are printed on THE CROWN'S ARMY, where
+## the standards they lead wear the counsel's mark, and a reading that names no
+## host has no sheet to open (wiki: military-generals § The hosts the court
+## would lead; DR-20261123-06; REQ-P5-01, REQ-P5-03).
+static func leads(pick: Dictionary) -> bool:
+	return int(pick.get("hosts", 0)) > 0
+
+
 ## The sheet's pick as it prints it: `{hosts, held, led, fallback, line}`. Empty
 ## when the session runs no planner for the crown, an observer session, a decided
 ## campaign, a session with no army layer or a walk the land pass cannot read.

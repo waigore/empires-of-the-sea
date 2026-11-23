@@ -6,8 +6,8 @@ extends RefCounted
 ## § Playable slice; DR-20261122-01).
 ##
 ## The reading is not a second opinion: it is `recruitment_orders` — the call
-## `MapPlayEconomyCourt.apply_turn` books every court's workers from, now read
-## through the court's own `recruit_orders` — over a court opened by
+## `MapPlayEconomyCourt.apply_turn` books every court's workers from, read here
+## through the larder's own `recruit_orders` — over a court opened by
 ## `MapPlayEconomyCourt.draft` and read through `rehearse`, the same figures the
 ## pass plans with, so the tab cannot name a hire the pass would not book
 ## (REQ-P2-03, REQ-P3-03).
@@ -62,12 +62,14 @@ static func pick(play: PlaySession) -> Dictionary:
 	court.rehearse()
 	if not (court.config is AiConfig):
 		return {}
-	# The slack and the fed reading come from the harvest's one home, so the
-	# sheet's counsel and the pass hire against the same figures (REQ-P2-03).
 	return of(
 		court.economy, court.config,
-		court.recruit_orders(MapPlayEconomyHarvestReadings.harvest_slack(court)),
-		MapPlayEconomyHarvestReadings.fed_slack(court), court.conquest_bank
+		MapPlayEconomyLarder.recruit_orders(
+			court, MapPlayEconomyLarder.harvest_slack(
+				play, faction, court.overseas, court.economy
+			)
+		),
+		MapPlayEconomyLarder.fed_slack(court), court.conquest_bank
 	)
 
 

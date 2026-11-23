@@ -15,6 +15,9 @@ signal action_pressed(action: String)
 ## wears it before its name, the mark the muster's forces and the realm's
 ## provinces wear (DR-20261122-12).
 const COURT_MARK: String = "▸"
+## What that mark means, under the line it answers: the yard keeps no footer, so
+## the sentence has nowhere else to stand (REQ-P1-07, REQ-P5-07; DR-20261123-08).
+const MARK_LEGEND: String = "A ▸ marks the pattern the court would muster this turn."
 
 ## The one press under the rows; it owns the arm, its timeout and its words.
 var _batch: RaiseBatchPress = null
@@ -28,6 +31,9 @@ var _pick_line: Label = null
 ## The pick the yard is printing, kept whole so the line and the mark come off
 ## one read: a pattern the line names wears COURT_MARK (DR-20261122-12).
 var _pick: Dictionary = {}
+## What the mark means, under the line it answers: shown only while a pattern is
+## named, so a yard that would raise nothing explains no glyph (DR-20261123-08).
+var _legend: Label = null
 
 
 func _ready() -> void:
@@ -50,6 +56,7 @@ func _make_batch() -> void:
 	add_child(_sum_line)
 	_pick_line = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
 	_pick_line.visible = false
+	_legend = MarkLegend.make(MARK_LEGEND)
 
 
 ## Rebuilds every drill-yard row from the training table, then the one press the
@@ -61,7 +68,8 @@ func _make_batch() -> void:
 func fill(rows: Array[Dictionary], pick: Dictionary = {}) -> void:
 	_make_batch()
 	for child: Node in get_children():
-		if child != _batch and child != _sum_line and child != _pick_line:
+		if child != _batch and child != _sum_line and child != _pick_line \
+				and child != _legend:
 			child.queue_free()
 	_fill_pick(pick)
 	var mark: String = _mark()
@@ -147,19 +155,29 @@ func _fill_sum(text: String) -> void:
 ## published muster would arm reads the line it would raise, and one it arms
 ## nothing for keeps the yard's published shape (DR-20261121-03). The line is
 ## worded from the pick the block holds, so the mark below cannot outrun it
-## (DR-20261122-12).
+## (DR-20261122-12) — and the sentence that says what that mark means stands
+## directly under the line, while the line names a pattern (DR-20261123-08).
 func _fill_pick(pick: Dictionary) -> void:
 	_pick = pick if pick != null else {}
 	var text: String = MapPlayPickProse.sentence_of(_pick)
 	_pick_line.text = text
 	_pick_line.visible = not text.is_empty()
+	MarkLegend.stand(_legend, not _mark().is_empty() and not text.is_empty())
 	if text.is_empty():
 		if _pick_line.get_parent() != null:
 			remove_child(_pick_line)
+		if _legend != null and _legend.get_parent() != null:
+			remove_child(_legend)
 		return
 	if _pick_line.get_parent() == null:
 		add_child(_pick_line)
 	move_child(_pick_line, 0)
+	if _legend != null and _legend.visible:
+		if _legend.get_parent() == null:
+			add_child(_legend)
+		move_child(_legend, _pick_line.get_index() + 1)
+	elif _legend != null and _legend.get_parent() != null:
+		remove_child(_legend)
 
 
 ## The pattern the line names, or empty when it names none (the yard stands at
@@ -177,6 +195,18 @@ func pick_line() -> String:
 ## The pattern the yard's rows mark, for tests and the mobile audit (REQ-P3-02).
 func mark_type() -> String:
 	return _mark()
+
+
+## The sentence that says what the yard's mark means, for tests and tooling
+## (REQ-P3-02, DR-20261123-08). Empty when the block was built without one.
+func legend_text() -> String:
+	return "" if _legend == null else _legend.text
+
+
+## Whether the legend stands under the line it answers: only while that line
+## names a pattern (REQ-P1-07, REQ-P5-06).
+func legend_shown() -> bool:
+	return _legend != null and _legend.visible
 
 
 ## The plan the yard's rows carry, or an empty one when a caller handed the block
