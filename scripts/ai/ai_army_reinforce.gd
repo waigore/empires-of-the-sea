@@ -13,7 +13,10 @@ extends RefCounted
 ## REQ-P3-03). The map adapter spends through ArmyTraining, so the AI can never
 ## buy a regiment the human rules would refuse. Line-pattern answers live on
 ## [AiArmyReinforceLine]; this owner keeps the turn plan and the food/purse
-## gates that decide whether a muster fires.
+## gates that decide whether a muster fires. The money goal banks a
+## storm-priced chest for the host the thinnest wall ahead prices (issue
+## #1381): the read raises the target at war, prices only money at peace —
+## without the wall ever moving.
 
 ## The gates `plan` names when it raises nothing, one home for the words a
 ## trace prints and the drill yard's advice repeats (DR-20261121-03).
@@ -54,6 +57,9 @@ const REASON_PAYABLE: String = "nothing payable"
 ## — and never while it banks for the army its conquest still needs (issue
 ## #995): `conquest_gap` drops the rebuild chest behind the line, because the
 ## army holds the land the yard stands on.
+## `storm_bank` is the storm host the court's thinnest wall prices (issue
+## #1381): the regiments the wall wants, handed in as `reserve` is — the
+## goal's bank and the muster read one chest, not one line regiment.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -65,7 +71,8 @@ static func plan(
 	held_row: Dictionary = {},
 	own_warships: int = -1,
 	harvest_slack: int = -2,
-	conquest_gap: bool = false
+	conquest_gap: bool = false,
+	storm_bank: int = 0
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
@@ -86,8 +93,12 @@ static func plan(
 	if harvest_slack >= -1 and harvest_slack < 1:
 		result["reasons"].append(REASON_HARVEST)
 		return result
-	var chest: int = AiIncome.hull_held(
-		config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
+	# The storm chest rides above the hull's (issue #1381): the host × line.
+	var chest: int = maxi(
+		AiIncome.hull_held(
+			config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
+		),
+		maxi(storm_bank, 0) * AiArmyReinforceLine.cheapest_line_price(economy)
 	)
 	# The hull's row is the fleet's once the chest is full: the muster spends
 	# only what stands above it, exactly as it spends only the purse above the
@@ -217,9 +228,10 @@ static func muster_hands(
 	return config.parameter("army.min_peasants") + RegimentEconomy.WORKER_COST
 
 
-## Regiments the court aims at on its published policy alone: the peace target,
-## raised by `army.war_extra` at war (wiki: ai-architecture § Land
-## reinforcement).
+## Regiments the court aims at: the guard plus the host the thinnest wall ahead
+## asks for (issue #1314). Every gate that reads the target — the muster, its
+## labour floor, the chest it holds — asks for the same host. Pure policy:
+## config in, count out (REQ-P2-03).
 static func guard_regiments(config: AiConfig, at_war: bool) -> int:
 	if config == null:
 		return 0
@@ -240,8 +252,13 @@ static func _target(config: AiConfig, at_war: bool) -> int:
 
 ## The wall reading the map layer hands in ([method
 ## MapPlayArmyMusterAi.storm_extra]); a court with no world passes none, and the
-## published target stands. Peace musters the published target too — the wall is
-## a war reading.
+## published target stands. At war the reading raises the muster target — the
+## wall is a war reading. At peace the reading prices only money: the conquest
+## bank sizes the storm chest from it (`AiIncome.storm_bank`), so a court that
+## plans conquest banks for the host its thinnest wall prices before it
+## declares (issue #1381) — the purse cannot be the reason a war never starts,
+## and the bank cannot freeze the economy a war is fought with (issue #1384,
+## the retuned stand-down). The peace target stays published.
 static func _storm_read(config: AiConfig, at_war: bool) -> Variant:
 	if config == null or not at_war:
 		return null
@@ -257,6 +274,20 @@ static func desired_regiments(config: AiConfig, at_war: bool) -> int:
 	return _target(config, at_war)
 
 
+## Regiments the thinnest wall ahead prices at war, read off the court's own
+## target: the `want` the storm reading stamped less the host the court already
+## fields, floored at zero — what stands between the guard and the wall
+## (`MapPlayArmyMusterAi.storm_extra` notes the reading on the shared config).
+## Zero with no reading — open ground, no wall in front of the court. At war
+## the money goal reads this off the shared read (`AiIncome.storm_want`); at
+## peace the map layer hands the host in (`MapPlayArmyMusterAi.storm_chest`).
+static func storm_want_read(config: AiConfig, own_regiments: int) -> int:
+	if config == null:
+		return 0
+	var want: int = int(config.storm_read.get("want", 0.0))
+	return maxi(want - maxi(own_regiments, 0), 0) if want > 0 else 0
+
+
 ## The line regiment this court would raise if its stores could pay for it.
 ## Owned by [AiArmyReinforceLine]; kept here so planners keep one call site.
 static func next_type(config: AiConfig, economy: PlayerEconomy) -> String:
@@ -269,19 +300,25 @@ static func next_type(config: AiConfig, economy: PlayerEconomy) -> String:
 ## holds inputs for upcoming recruits"; economy-planner § Reservations). The row
 ## is held even while the purse is still short of the muster — a court that only
 ## provisioned once it could pay would never stock the cloth it needs, and the
-## muster would starve with a full war chest (issue #474). Empty when the court
-## sits at its target or its fields cannot spare a hand, so a court that is not
-## arming sells freely.
+## muster would starve with a full war chest (issue #474). `storm_bank` is the
+## storm host the money goal banks for (issue #1381): it keeps the row too, and
+## zero when the court sits at its target or its fields cannot spare a hand.
 static func muster_reserve(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
 	at_war: bool,
-	pressure_extra: int = 0
+	pressure_extra: int = 0,
+	storm_bank: int = 0
 ) -> Dictionary:
 	if config == null or economy == null:
 		return {}
-	if own_regiments >= _target(config, at_war) + maxi(pressure_extra, 0):
+	var target: int = _target(config, at_war) + maxi(pressure_extra, 0)
+	# A court banking for the storm host provisions the line even past its
+	# published target; a court already fielding that host arms as published.
+	if own_regiments >= target and (
+		storm_bank <= 0 or own_regiments >= target + storm_want_read(config, own_regiments)
+	):
 		return {}
 	var type_id: String = saving_type(config, economy)
 	if type_id.is_empty():
@@ -295,17 +332,24 @@ static func saving_type(config: AiConfig, economy: PlayerEconomy) -> String:
 
 
 ## Treasury a court must hold before any muster is legal: `army.min_treasury`
-## still in the purse after paying for the cheapest line pattern its techs open.
-## 0 when it already stands at its target, can raise nothing, or has no peasant
-## to spare. Other planners read it as the war chest they must not spend, so a
-## court saving for its next regiment never funds itself into the deadlock where
-## every muster is one ducat short (wiki: ai-architecture § Land reinforcement;
-## growth-stage-planner § Recruitment modulation).
+## still in the purse after paying for the line it would raise — the cheapest
+## line pattern its techs open, or the storm host its thinnest wall prices when
+## the wall stands above it (issue #1381). Other planners read it as the war
+## chest they must not spend, so a court saving for its next regiment never
+## funds itself into the deadlock where every muster is one ducat short (wiki:
+## ai-architecture § Land reinforcement; growth-stage-planner § Recruitment
+## modulation). `storm_bank` is that host in regiments, read by the caller
+## (`AiIncome.storm_want` at war, `MapPlayArmyMusterAi.storm_chest` at peace):
+## the storm-sized chest is banked while the court plans the conquest — at
+## peace as at war — and a court already fielding that host keeps the cheaper
+## published chest. 0 when it already stands at its target, can raise nothing,
+## or has no peasant to spare.
 static func muster_floor(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
-	at_war: bool
+	at_war: bool,
+	storm_bank: int = 0
 ) -> int:
 	if config == null or economy == null:
 		return 0
@@ -317,7 +361,17 @@ static func muster_floor(
 	var cheapest: int = AiArmyReinforceLine.cheapest_line(economy)
 	if cheapest < 0:
 		return floor_treasury
-	return floor_treasury + cheapest
+	# The storm chest is one host the wall prices, handed in by the money
+	# goal: at war the caller read it off the shared config (`AiIncome.
+	# storm_want`), at peace the map layer read it from the map (`storm_bank`
+	# on `AiIncome.plan`). A chest of zero — open ground, no wall in front of
+	# the court, or a host already at the wall's size — keeps the published
+	# cheapest-line floor. The host is regiments: the chest prices them at
+	# the cheapest line the court's own purse saves for, so the goal and the
+	# muster read one purse (`MapPlayArmyMusterAi.storm_chest` reads the
+	# same rule).
+	var storm_want: int = maxi(storm_bank, 0)
+	return floor_treasury + maxi(cheapest, storm_want * cheapest)
 
 
 ## Why a court standing under its target prices no muster row ("" when the row

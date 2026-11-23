@@ -59,16 +59,23 @@ static func income_plan(
 	hull_chest: int = 0,
 	own_warships: int = -1,
 	muster_stall: int = 0,
-	conquest_gap: bool = false
+	conquest_gap: bool = false,
+	storm_bank: int = 0
 ) -> Dictionary:
-	# Mainline income has no hull_chest or escalation arg yet.
-	return _call(
+	# Mainline income has no hull_chest, escalation or storm_bank arg yet.
+	var row: Dictionary = _call(
 		kind, "ai_income.gd", "plan", [config, economy, at_war, regiments],
 		func() -> Dictionary: return AiIncome.plan(
 			config, economy, at_war, regiments, hull_chest, own_warships,
-			muster_stall, conquest_gap
+			muster_stall, conquest_gap, storm_bank
 		)
 	)
+	# The storm read is the submission surface's own (issue #1381): a frozen
+	# baseline keeps its published chest, so its row carries the key the
+	# economy pass reads — empty, never missing.
+	row["storm_want"] = int(row.get("storm_want", 0))
+	row["storm_bank"] = int(row.get("storm_bank", 0))
+	return row
 
 
 static func research_plan(
@@ -141,13 +148,14 @@ static func muster_reserve(
 	economy: PlayerEconomy,
 	regiments: int,
 	at_war: bool,
-	pressure_extra: int = 0
+	pressure_extra: int = 0,
+	storm_bank: int = 0
 ) -> Dictionary:
 	return _call(
 		kind, "ai_army_reinforce.gd", "muster_reserve",
 		[config, economy, regiments, at_war, pressure_extra],
 		func() -> Dictionary: return AiArmyReinforce.muster_reserve(
-			config, economy, regiments, at_war, pressure_extra
+			config, economy, regiments, at_war, pressure_extra, storm_bank
 		)
 	)
 
@@ -164,15 +172,16 @@ static func reinforce_plan(
 	held_row: Dictionary = {},
 	own_warships: int = -1,
 	harvest_slack: int = -2,
-	conquest_gap: bool = false
+	conquest_gap: bool = false,
+	storm_bank: int = 0
 ) -> Dictionary:
-	# Mainline reinforce has no hull reserve or harvest arg yet.
+	# Mainline reinforce has no hull reserve, harvest or storm_bank arg yet.
 	return _call(
 		kind, "ai_army_reinforce.gd", "plan",
 		[config, economy, regiments, at_war, pressure_extra, fed_slack],
 		func() -> Dictionary: return AiArmyReinforce.plan(
 			config, economy, regiments, at_war, pressure_extra, fed_slack, reserve,
-			held_row, own_warships, harvest_slack, conquest_gap
+			held_row, own_warships, harvest_slack, conquest_gap, storm_bank
 		)
 	)
 
