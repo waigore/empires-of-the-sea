@@ -36,8 +36,18 @@ static func muster(
 		play, model, faction, play.army_layer.regiment_count_all(faction)
 		if play != null and play.army_layer != null else 0
 	)
+	# The thinnest wall across every region the court fights in (issue
+	# #1381): each region's pass re-reads its own ground, so a wall-less
+	# colony region would overwrite the Old World read the money goal banks
+	# against — keep the smaller non-zero want, not the last region's.
 	if config is AiConfig:
-		(config as AiConfig).storm_read = wall
+		var shared: AiConfig = config as AiConfig
+		var kept: float = float(shared.storm_read.get("want", 0.0))
+		var want: float = float(wall.get("want", 0.0))
+		if want > 0.0 and (kept <= 0.0 or want < kept):
+			shared.storm_read = wall
+		elif want <= 0.0 and kept <= 0.0:
+			shared.storm_read = wall
 	var raised: bool = _reinforce(play, model, roster, faction, config, kind, trace)
 	var trained: bool = _pitch_train(play, model, roster, faction, kind, trace)
 	return raised or trained

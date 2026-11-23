@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
-  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:2f27e01d3d1b6583df3302c40a12b5ba802ee2c2dc0c7c25f6c65aa191ba310e",
-  "submission_git": "pr/1381-storm-host@9b65f1b2",
+  "commit": "1937f774b2527bcd7c8df299a2c1f1d806f9b7e3",
+  "submission_hash": "sha256:48dd88f3e76b27b8f6b6d051fb50f391e6d0601d65162d8fe42d48bef9e7ccc0",
+  "submission_git": "pr/1381-storm-host@1937f774",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1236.1724880382774,
+      "value": 1072.2434566145093,
       "direction": "max"
     },
     {
@@ -50,30 +50,31 @@
     },
     {
       "name": "funded_pct",
-      "value": 64.49900793650794,
+      "value": 75.52480158730158,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:9aaea5902990263b347e95ac879b6b92e274b6f8343d25d572ae4b080b226517",
-    "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
+    "ai_surface_hash": "sha256:48dd88f3e76b27b8f6b6d051fb50f391e6d0601d65162d8fe42d48bef9e7ccc0",
+    "mainline_git_sha": "8eea1422d511e82bb92016415ff8de0a84fa3296",
     "parts": {
       "provinces_old": 7,
       "provinces_new": 0,
       "regiments": 5,
       "ships": 1,
       "workers": 5,
-      "extraction_per_turn": 40.915789473684214,
-      "income_per_turn": 369.34090909090907,
-      "funded_pct": 64.49900793650794
+      "extraction_per_turn": 40.82105263157895,
+      "income_per_turn": 205.60135135135135,
+      "funded_pct": 75.52480158730158
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 64.49900793650794
+    "funded_pct": 75.52480158730158,
+    "run": ".gd-tools/bench1381/bench1500f"
   },
   "params": {
     "turns": 200,
@@ -81,14 +82,14 @@
     "size": 1
   },
   "final": false,
-  "official": true,
-  "official_reason": null,
+  "official": false,
+  "official_reason": "local manual re-score",
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T08:03:31Z",
+  "timestamp": "2026-11-23T09:07:28Z",
   "report_version": 1,
-  "signature": "hmac-sha256:4bdf91cc66ab3f0207c0693d7af85e58809aed41dbe6a8d2a6b06d79cbaa5a4d"
+  "signature": "hmac-sha256:746f196573b50b757c70a0dfead3c0fe0e2be3028f4b1b7deb72b8716e987eba"
 }
