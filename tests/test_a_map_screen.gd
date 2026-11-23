@@ -3431,7 +3431,7 @@ func test_the_home_fleet_carries_a_field_army_across_its_port() -> void:
 		_screen.army_layer.armies, play.player_faction
 	)
 	assert_not_null(home)
-	var detach: Dictionary = _screen.army_layer.split(home, [home.regiments[0]])
+	var detach: Dictionary = ArmyMusterOps.split(_screen.army_layer, home, [home.regiments[0]])
 	assert_true(bool(detach.get("ok", false)))
 	var army: ArmyState = detach["army"] as ArmyState
 	var fleet: FleetState = _screen.ship_layer.home_fleet(_screen.capital_province)

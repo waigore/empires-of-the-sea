@@ -101,8 +101,8 @@ static func _regiment(play: PlaySession, type_id: String) -> Dictionary:
 	if int(seat["province"]) == MapModel.NO_ID:
 		return _refuse(play, RegimentCatalog.display_name(type_id), "your capital is not in hand")
 	var roster: Array = play.army_layer.regions.value(int(seat["region"]), [])
-	var result: Dictionary = play.army_layer.recruit(
-		play.player_faction, type_id, play.economy.economy, roster
+	var result: Dictionary = ArmyMusterOps.recruit(
+		play.army_layer, play.player_faction, type_id, play.economy.economy, roster
 	)
 	if not bool(result.get("ok", false)):
 		return _refuse(play, RegimentCatalog.display_name(type_id), String(result.get("reason", "")))
