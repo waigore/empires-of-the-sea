@@ -943,8 +943,53 @@ func test_ai_military_walks_onto_own_land_before_nearer_wilderness() -> void:
 	)
 
 
-## The walk's own guards: no chart, no army, or a court the map gives no seat
-## names no step at all (DR-20261121-15).
+## A chart that holds no seat of the court lies across the sea, so the walk's
+## road ends at the crown's own harbour there — the quay its own sentence names
+## — and own ground beside the host is no end at all: the host walks for the
+## quay even when an own province stands one march away, because only a squadron
+## at that quay carries it home (wiki: military-armies § Movement and attacks;
+## DR-20261122-09, DR-20261123-09).
+func test_ai_military_walks_across_the_sea_toward_its_harbour() -> void:
+	# P0 the host; P1 the wilderness step nearer the quay on the tie; P3 the
+	# court's own inland ground beside it; P5 its own harbour, two marches on.
+	var model: MapModel = _walk_chart(
+		[[0, 1, 2], [3, 4, 5]], {3: 2, 5: 2}
+	)
+	model.region_id = FactionCatalog.NEW_WORLD
+	model.province_data(5).port_tile = Vector2i(2, 1)
+	var host: ArmyState = ArmyState.muster(
+		3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201
+	)
+
+	var walked: Dictionary = AiMilitaryPlanner._walk_home_order(model, host)
+
+	assert_eq(String(walked.get("kind", "")), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(
+		int(walked.get("province", -1)), 1,
+		"the step toward the quay, never the own ground beside it"
+	)
+
+
+## A crown that keeps no harbour on that chart leaves the host no road at all:
+## no squadron can take it aboard, so the walk names no step (wiki:
+## military-armies § Movement and attacks; DR-20261122-09, DR-20261123-09).
+func test_ai_military_walks_nothing_across_the_sea_without_a_harbour() -> void:
+	var model: MapModel = _walk_chart(
+		[[0, 1, 2], [3, 4, 5]], {3: 2, 5: 2}
+	)
+	model.region_id = FactionCatalog.NEW_WORLD
+	var host: ArmyState = ArmyState.muster(
+		3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201
+	)
+
+	assert_true(
+		AiMilitaryPlanner._walk_home_order(model, host).is_empty(),
+		"no harbour, no road home"
+	)
+
+
+## The walk's own guards: no chart, no army, or a court the catalogue gives no
+## chart names no step at all (DR-20261121-15).
 func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
 	assert_true(AiMilitaryPlanner._walk_home_order(null, null).is_empty())
 	var model: MapModel = _walk_chart([[0]], {0: 2})
@@ -953,7 +998,14 @@ func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
 	)
 	assert_true(
 		AiMilitaryPlanner._walk_home_order(model, host).is_empty(),
-		"a court with no seat has no road home"
+		"a host on its own ground has nowhere to walk"
+	)
+	var chartless: ArmyState = ArmyState.muster(
+		4, 99, 0, false, ["pikemen"] as Array[String], 301
+	)
+	assert_true(
+		AiMilitaryPlanner._walk_home_order(model, chartless).is_empty(),
+		"a court the catalogue gives no chart has no seat to read"
 	)
 
 
