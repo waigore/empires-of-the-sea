@@ -25,7 +25,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var armies: Array[ArmyState] = MapPlayCourtRoster.visible_armies(play, region)
 		var before: Array[ArmyState] = []
 		before.assign(armies)
-		for faction: int in MapPlayCourt.planning_factions(play):
+		for faction: int in MapPlayCourtHoldings.planning_factions(play):
 			var court: Dictionary = AiControl.court(play, faction)
 			if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 				continue

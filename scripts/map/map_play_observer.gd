@@ -299,7 +299,7 @@ static func _economy(play: PlaySession, faction: int) -> PlayerEconomy:
 
 static func _war_names(play: PlaySession, faction: int) -> Array[String]:
 	var names: Array[String] = []
-	for other: int in MapPlayCourt.at_war_with(play, faction):
+	for other: int in MapPlayCourtHoldings.at_war_with(play, faction):
 		names.append(FactionCatalog.name_of(other))
 	names.sort()
 	return names

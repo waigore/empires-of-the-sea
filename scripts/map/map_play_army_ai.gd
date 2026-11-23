@@ -50,7 +50,7 @@ static func _run_region(
 	play: PlaySession, model: MapModel, roster: Array[ArmyState], trace: Array[Dictionary]
 ) -> bool:
 	var changed: bool = false
-	for faction: int in MapPlayCourt.planning_factions(play):
+	for faction: int in MapPlayCourtHoldings.planning_factions(play):
 		var court: Dictionary = AiControl.court(play, faction)
 		if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 			continue

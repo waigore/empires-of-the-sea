@@ -1356,7 +1356,7 @@ func _printed_lines(entry: Control) -> Array[String]:
 func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 	var play: PlaySession = _screen.play
 	_lose_the_capital(play)
-	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), -1, "the seat is gone")
+	assert_eq(int(MapPlayCourtHoldings.crown_seat(play)["province"]), -1, "the seat is gone")
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
@@ -2518,7 +2518,7 @@ func _unowned_province() -> int:
 ## province and the flag goes with the court (wiki: capital-and-connectivity
 ## § Capital loss and reassignment).
 func _lose_the_capital(play: PlaySession) -> void:
-	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
+	var province: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
 	if province < 0:
 		return
 	var seat: ProvinceState = play.model.province_data(province)
@@ -2530,7 +2530,7 @@ func _lose_the_capital(play: PlaySession) -> void:
 ## (wiki: capital-and-connectivity § Capital loss and reassignment).
 func _move_the_seat(play: PlaySession, province: int) -> void:
 	var model: MapModel = play.model
-	var current: int = int(MapPlayCourt.crown_seat(play)["province"])
+	var current: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
 	if current >= 0:
 		CapitalLoss.clear_seat(model.province_data(current))
 	var seat: ProvinceState = model.province_data(province)

@@ -22,7 +22,7 @@ const AT_SEAT_ONLY: String = "Civilians are trained at the capital — %s."
 ## Queues a civilian hire at the capital. The treasury and paper are paid and
 ## the unit musters when the turn closes, so it takes orders with the next turn.
 static func train(play: PlaySession, type_id: String) -> void:
-	var seat: Dictionary = MapPlayCourt.crown_seat(play)
+	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
 	var at_seat: bool = (
 		int(seat["region"]) == play.region_index
 		and play.selected_province == int(seat["province"])
@@ -46,7 +46,7 @@ static func train(play: PlaySession, type_id: String) -> void:
 ## (wiki: civilian-units § Training; REQ-P2-03). The muster lands on the seat's
 ## own chart, whether or not that chart is the one the crown is looking at.
 static func settle(play: PlaySession, type_id: String) -> Dictionary:
-	var seat: Dictionary = MapPlayCourt.crown_seat(play)
+	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
 	if int(seat["province"]) == MapModel.NO_ID:
 		return {"ok": false, "reason": "Your capital is not in hand."}
 	var reason: String = _blocked_reason(play, type_id)
@@ -95,7 +95,7 @@ static func _blocked_reason(play: PlaySession, type_id: String) -> String:
 ## The free tile a hire would muster on: the seat's own chart, whatever chart is
 ## on screen (wiki: civilian-units § Training).
 static func _muster_tile(play: PlaySession) -> Vector2i:
-	var seat: Dictionary = MapPlayCourt.crown_seat(play)
+	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
 	var model: MapModel = seat["model"]
 	if model == null or int(seat["province"]) == MapModel.NO_ID:
 		return CivilianState.NO_TILE

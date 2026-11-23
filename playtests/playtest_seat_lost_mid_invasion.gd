@@ -190,10 +190,10 @@ func _seat_orders_after_move(seat: int) -> void:
 	_say("")
 	_say("--- the new seat's own orders ---")
 	_say("crown seat read: region %d, province %s" % [
-		int(MapPlayCourt.crown_seat(_play)["region"]),
-		_province_name(int(MapPlayCourt.crown_seat(_play)["province"])),
+		int(MapPlayCourtHoldings.crown_seat(_play)["region"]),
+		_province_name(int(MapPlayCourtHoldings.crown_seat(_play)["province"])),
 	])
-	_play.switch_region(int(MapPlayCourt.crown_seat(_play)["region"]))
+	_play.switch_region(int(MapPlayCourtHoldings.crown_seat(_play)["region"]))
 	await process_frame
 	_say("Home Army stands at %s" % _home_army_place())
 	MapPlayInput.select_province(_play, seat, Vector2.ZERO)

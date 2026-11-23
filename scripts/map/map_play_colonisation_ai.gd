@@ -27,7 +27,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		# The full-AI observer has no human court: the former player slot runs
 		# every planner like any rival (wiki: game-setup § Human/AI slot
 		# assignment; docs/ai-observer.md).
-		for faction: int in MapPlayCourt.planning_factions(play):
+		for faction: int in MapPlayCourtHoldings.planning_factions(play):
 			var court: Dictionary = AiControl.court(play, faction)
 			if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 				continue

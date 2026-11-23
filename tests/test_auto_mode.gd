@@ -272,12 +272,12 @@ func test_the_seat_runs_the_rivals_planner_surface() -> void:
 	play.auto_active = true
 	play.ai_stage_faction = play.player_faction
 	assert_eq(
-		MapPlayCourt.planning_factions(play), [play.player_faction],
+		MapPlayCourtHoldings.planning_factions(play), [play.player_faction],
 		"a staged pass plans the crown alone"
 	)
 	play.ai_stage_faction = MapModel.NO_ID
 	assert_false(
-		MapPlayCourt.planning_factions(play).has(play.player_faction),
+		MapPlayCourtHoldings.planning_factions(play).has(play.player_faction),
 		"the rival passes never plan the crown's seat twice"
 	)
 	# The seat spends the crown's own purse: the planners read one ledger per

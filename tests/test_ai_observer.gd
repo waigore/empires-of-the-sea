@@ -945,18 +945,18 @@ func test_the_dashboard_paints_one_snapshot() -> void:
 
 func test_court_reader_names_the_planning_courts() -> void:
 	var play: PlaySession = _screen.play
-	var planning: Array[int] = MapPlayCourt.planning_factions(play)
+	var planning: Array[int] = MapPlayCourtHoldings.planning_factions(play)
 	assert_true(planning.has(play.player_faction), "the observer's former player court plans")
 	assert_eq(planning.size(), FactionCatalog.great_power_ids().size(), "every crown plans")
 	# The human's own court is never handed to a rival pass.
 	play.observer_mode = false
 	assert_false(
-		MapPlayCourt.planning_factions(play).has(play.player_faction),
+		MapPlayCourtHoldings.planning_factions(play).has(play.player_faction),
 		"a human court keeps its own orders"
 	)
 	play.observer_mode = true
 	play.ai_mode = AiControl.NOOP
-	assert_true(MapPlayCourt.planning_factions(play).is_empty(), "a noop session plans nowhere")
+	assert_true(MapPlayCourtHoldings.planning_factions(play).is_empty(), "a noop session plans nowhere")
 
 
 ## A fallen crown plans nothing: its seat drops out of the shared gate once it
@@ -966,7 +966,7 @@ func test_the_court_gate_drops_a_crown_that_holds_no_land() -> void:
 	var play: PlaySession = _screen.play
 	play.ai_mode = AiControl.FULL
 	var fallen: int = FactionCatalog.great_power_ids()[0]
-	var land: Array[int] = MapPlayCourt.planning_factions(play)
+	var land: Array[int] = MapPlayCourtHoldings.planning_factions(play)
 	assert_true(land.has(fallen), "the crown plans while it holds land")
 	var world: WorldMap = play.world
 	for region_index in world.region_count():
@@ -976,7 +976,7 @@ func test_the_court_gate_drops_a_crown_that_holds_no_land() -> void:
 				province.owner = MapModel.NO_ID
 	assert_false(MapPlayCourt.holds_land(play, fallen), "no province, no seat")
 	assert_false(
-		MapPlayCourt.planning_factions(play).has(fallen),
+		MapPlayCourtHoldings.planning_factions(play).has(fallen),
 		"a fallen crown is out of the planner list"
 	)
 
@@ -1098,7 +1098,7 @@ func test_court_reader_counts_only_fighting_hulls() -> void:
 	war.at_war = true
 	assert_true(MapPlayCourt.at_war(play, owner), "the declaring court reads at war")
 	var enemies: Array[int] = [rival]
-	assert_eq(MapPlayCourt.at_war_with(play, owner), enemies, "the enemy is named")
+	assert_eq(MapPlayCourtHoldings.at_war_with(play, owner), enemies, "the enemy is named")
 	assert_eq(
 		MapPlayCourtHoldings.hostile_ships(play, owner), MapPlayCourtHoldings.ships(play, rival),
 		"the threat counts the enemy's hulls"
