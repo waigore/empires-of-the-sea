@@ -41,17 +41,20 @@ func before_all() -> void:
 	saved = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_clean_codec_dir()
 	_chart_bound = false
+	Fixture.park_screen(mounted)
 
 
 func after_each() -> void:
 	Fixture.restore(Fixture.world(), saved)
 	get_tree().paused = false
 	_clean_codec_dir()
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
