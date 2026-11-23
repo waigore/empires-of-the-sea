@@ -227,8 +227,8 @@ func _attempt(province: int, rival: int, men: int) -> ArmyState:
 	_play.model.province_data(province).fort_level = 0
 	_seat(rival, province, men, 100, false)
 	_seat(_play.player_faction, province, HOST_MEN, 200, true)
-	var battles: Array[Dictionary] = _play.army_layer.resolve_battles(
-		_play.world, MapPlayLandTurn.battle_context(_play)
+	var battles: Array[Dictionary] = ArmyTurnPass.resolve_battles(
+		_play.army_layer, _play.world, MapPlayLandTurn.battle_context(_play)
 	)
 	if battles.is_empty():
 		_say("no battle was fought")

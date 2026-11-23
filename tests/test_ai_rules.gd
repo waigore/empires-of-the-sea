@@ -904,8 +904,53 @@ func test_ai_military_walks_onto_own_land_before_nearer_wilderness() -> void:
 	)
 
 
-## The walk's own guards: no chart, no army, or a court the map gives no seat
-## names no step at all (DR-20261121-15).
+## A chart that holds no seat of the court lies across the sea, so the walk's
+## road ends at the crown's own harbour there — the quay its own sentence names
+## — and own ground beside the host is no end at all: the host walks for the
+## quay even when an own province stands one march away, because only a squadron
+## at that quay carries it home (wiki: military-armies § Movement and attacks;
+## DR-20261122-09, DR-20261123-09).
+func test_ai_military_walks_across_the_sea_toward_its_harbour() -> void:
+	# P0 the host; P1 the wilderness step nearer the quay on the tie; P3 the
+	# court's own inland ground beside it; P5 its own harbour, two marches on.
+	var model: MapModel = _walk_chart(
+		[[0, 1, 2], [3, 4, 5]], {3: 2, 5: 2}
+	)
+	model.region_id = FactionCatalog.NEW_WORLD
+	model.province_data(5).port_tile = Vector2i(2, 1)
+	var host: ArmyState = ArmyState.muster(
+		3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201
+	)
+
+	var walked: Dictionary = AiMilitaryPlanner._walk_home_order(model, host)
+
+	assert_eq(String(walked.get("kind", "")), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(
+		int(walked.get("province", -1)), 1,
+		"the step toward the quay, never the own ground beside it"
+	)
+
+
+## A crown that keeps no harbour on that chart leaves the host no road at all:
+## no squadron can take it aboard, so the walk names no step (wiki:
+## military-armies § Movement and attacks; DR-20261122-09, DR-20261123-09).
+func test_ai_military_walks_nothing_across_the_sea_without_a_harbour() -> void:
+	var model: MapModel = _walk_chart(
+		[[0, 1, 2], [3, 4, 5]], {3: 2, 5: 2}
+	)
+	model.region_id = FactionCatalog.NEW_WORLD
+	var host: ArmyState = ArmyState.muster(
+		3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201
+	)
+
+	assert_true(
+		AiMilitaryPlanner._walk_home_order(model, host).is_empty(),
+		"no harbour, no road home"
+	)
+
+
+## The walk's own guards: no chart, no army, or a court the catalogue gives no
+## chart names no step at all (DR-20261121-15).
 func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
 	assert_true(AiMilitaryPlanner._walk_home_order(null, null).is_empty())
 	var model: MapModel = _walk_chart([[0]], {0: 2})
@@ -914,7 +959,14 @@ func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
 	)
 	assert_true(
 		AiMilitaryPlanner._walk_home_order(model, host).is_empty(),
-		"a court with no seat has no road home"
+		"a host on its own ground has nowhere to walk"
+	)
+	var chartless: ArmyState = ArmyState.muster(
+		4, 99, 0, false, ["pikemen"] as Array[String], 301
+	)
+	assert_true(
+		AiMilitaryPlanner._walk_home_order(model, chartless).is_empty(),
+		"a court the catalogue gives no chart has no seat to read"
 	)
 
 
@@ -7840,6 +7892,46 @@ func test_the_feedstock_source_leads_while_the_manufacture_is_short() -> void:
 	)
 
 
+## Riches clear straight to the treasury, so a worked mine is the income the
+## workshop's crops cannot bring: a mine leads a crop nobody is short of, and a
+## raw the workshop wants still leads the mine (wiki: commodity-catalog
+## § Riches and treasury; issue #1382).
+func test_a_mine_leads_a_crop_nobody_is_short_of() -> void:
+	var model: MapModel = _hospital_model()
+	model.resource[model.index_of(3, 1)] = 4
+	model.resource[model.index_of(OUTER_TOWN.x, OUTER_TOWN.y)] = 3
+	var works := LandWorks.new()
+	for x in 5:
+		works.set_transport(model, Vector2i(x, 1), LandWorks.TRANSPORT_ROAD)
+	works.set_prospected(0, model, OUTER_TOWN)
+	var unit: CivilianState = CivilianState.create(1, 0, "builder", CAPITAL)
+	var context: Dictionary = {"capital_tile": CAPITAL}
+	var caps: Dictionary = {"grain": 2, "wool": 2, "gold": 2, "timber": 2}
+	var fed: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 20, "grain": 20}
+
+	var mine: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, fed,
+			caps, {"land_enclosure": true, "gold_mining": true}, context, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(mine["tile"]), OUTER_TOWN,
+		"the mine leads a crop nobody is short of"
+	)
+	var short: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 20, "grain": 0}
+	var farm: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, short,
+			caps, {"land_enclosure": true, "gold_mining": true}, context, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(farm["tile"]), Vector2i(3, 1),
+		"a raw the workshop is short of still leads the mine"
+	)
+
+
 ## Rival Engineer policy after it left the civilian dispatcher
 ## (wiki: civilian-work-planner § Engineer; capital-and-connectivity;
 ## civilian-units § Engineer, § Rail Builder). These cases pin the split: the
@@ -11350,6 +11442,58 @@ func test_a_colonist_lands_on_the_ground_its_workshop_feeds() -> void:
 	assert_false(
 		AiEconomyPlanner.ground_appetite(_ai_colonisation_config(), economy, 4).has("sugarCane"),
 		"a raw already in store is no reason to cross"
+	)
+
+
+## A court on **earn** sails for cash, and the New World ground that clears to
+## the treasury is a deposit no chart shows until an Explorer digs it. So its
+## Explorer's landing prefers ground worth surveying — and weighs every
+## prospectable tile the same, because the chart cannot say which deposit lies
+## under it (wiki: fog-and-exploration § Prospect-Required Resources; issue
+## #1382). A raw the workshop is short of still leads the bet.
+func test_an_earn_crowns_explorer_lands_on_ground_worth_surveying() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(
+		1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0)
+	)
+	assert_true(bool(CivilianVoyage.embark(world.region(0), unit, fleet)["ok"]))
+	assert_true(bool(FleetSortie.apply(world.region(0), fleet, 0)["ok"]))
+	fleet.moved = false
+	assert_true(bool(WarpTravel.apply_crossing(world, 0, fleet)["ok"]))
+	fleet.moved = false
+	# A hill hiding gold and a peak hiding gems, both uncharted deposits: the
+	# compass order reaches the hill first, so a landing at the peak would mean
+	# the planner had read a mineral the court has not surveyed.
+	new_world.terrain[new_world.index_of(1, 1)] = MapModel.Terrain.HILLS
+	new_world.terrain[new_world.index_of(2, 1)] = MapModel.Terrain.MOUNTAINS
+	new_world.resource[new_world.index_of(1, 1)] = 3
+	new_world.resource[new_world.index_of(2, 1)] = 11
+	var plain: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+		null, AiPhasePlanner.PHASE_PEACE, false, {}
+	)
+	assert_eq(
+		Vector2i(plain.get("tile", Vector2i(-1, -1))), Vector2i(0, 1),
+		"a court that does not sail for income keeps the published compass order"
+	)
+	var earning: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+		null, AiPhasePlanner.PHASE_PEACE, true, {}
+	)
+	assert_eq(
+		Vector2i(earning.get("tile", Vector2i(-1, -1))), Vector2i(1, 1),
+		"an earn court's Explorer lands on ground worth surveying"
+	)
+	new_world.resource[new_world.index_of(3, 1)] = 13
+	var fed: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+		null, AiPhasePlanner.PHASE_PEACE, true, {"sugarCane": 4}
+	)
+	assert_eq(
+		Vector2i(fed.get("tile", Vector2i(-1, -1))), Vector2i(3, 1),
+		"a raw the workshop wants still leads the bet on the ground"
 	)
 
 
@@ -16702,7 +16846,7 @@ func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:
 	var chain: AiObjective = _by_id(objectives, "colonise.tribe_chain")
 
 	assert_true(chain != null, "a colony in reach is a priced aim")
-	assert_eq(int(chain.utility), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain.utility), AiObjectiveExpeditionPlan.W_TRIBE_COLONY)
 	assert_eq(int(chain.cost["treasury"]), DiplomacyCatalog.EMBASSY_COST)
 	assert_eq(int(chain.cost["orders"]), 1, "the chain spends the court's one order")
 	var report: Dictionary = AiObjectiveLedger.run(
@@ -16734,7 +16878,7 @@ func test_the_deed_the_court_saves_for_is_a_priced_aim() -> void:
 	var deed: AiObjective = _by_id(objectives, "market.deed")
 
 	assert_true(deed != null, "a priced deed is an aim")
-	assert_eq(int(deed.utility), AiObjectivesPlan.W_DEED)
+	assert_eq(int(deed.utility), AiObjectiveTreasuryPlan.W_DEED)
 	assert_eq(int(deed.cost["treasury"]), 750, "the published 15 x base price")
 	AiObjectiveLedger.run(
 		objectives,
@@ -17030,7 +17174,7 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
 
 	assert_true(build != null, "a court at war with no fighting hull builds one")
-	assert_eq(int(build.utility), AiObjectivesPlan.W_NAVY_BUILD, "the yard leads")
+	assert_eq(int(build.utility), AiObjectiveNavyPlan.W_NAVY_BUILD, "the yard leads")
 	assert_eq(int(build.cost["treasury"]), 5500, "priced at the cheapest warship")
 	assert_false(
 		(build.cost as Dictionary).has("hull"),
@@ -17055,7 +17199,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 
 	assert_true(build != null, "the yard is still the court's aim")
 	assert_eq(
-		int(build.utility), AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		int(build.utility), AiObjectiveNavyPlan.W_NAVY_BUILD_WAITING,
 		"but the yard waits behind the army it would starve"
 	)
 	assert_true(
@@ -17079,7 +17223,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	readings["treasury"] = 5500
 	assert_true(
 		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility)
-		> AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		> AiObjectiveNavyPlan.W_NAVY_BUILD_WAITING,
 		"the chest is in hand: the yard is no longer parked behind the line"
 	)
 	# Fleetless rebuild never yields the yard to the muster (#484).
@@ -17087,7 +17231,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	readings["treasury"] = 5342
 	assert_eq(
 		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility),
-		AiObjectivesPlan.W_NAVY_BUILD,
+		AiObjectiveNavyPlan.W_NAVY_BUILD,
 		"a lost last sloop keeps the yard ahead of the line"
 	)
 
@@ -17171,7 +17315,7 @@ func test_a_court_outmatched_on_its_own_coast_replaces_before_it_expands() -> vo
 
 	assert_true(build != null, "outmatched, the court replaces its hulls")
 	assert_true(
-		int(build.utility) > int(AiObjectivesPlan.W_NAVY),
+		int(build.utility) > int(AiObjectiveNavyPlan.W_NAVY),
 		"and the replacement outranks a sortie"
 	)
 
@@ -17356,7 +17500,7 @@ func test_the_adapter_reads_a_charted_tribe_as_a_colony_in_reach() -> void:
 		if String(row["id"]) == "colonise.tribe_chain":
 			chain = row
 	assert_false(chain.is_empty(), "the envoy chain is priced")
-	assert_eq(int(chain["utility"]), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain["utility"]), AiObjectiveExpeditionPlan.W_TRIBE_COLONY)
 	assert_eq(int(chain["cost"]["treasury"]), DiplomacyCatalog.EMBASSY_COST)
 	assert_ne(String(chain["status"]), AiObjective.STATUS_BLOCKED, "the shore and the purse both stand")
 	play.ship_layer.free()
