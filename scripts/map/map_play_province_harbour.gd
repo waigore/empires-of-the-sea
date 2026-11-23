@@ -22,9 +22,18 @@ static func line(play: PlaySession, model: MapModel, province_id: int) -> String
 	var table: MapRegionTable = play.ship_layer.regions
 	if table != null and table.has_region(model.region_id):
 		fleets = table.value(model.region_id, []) as Array
+	# The hosts the squadrons carry read off the same chart's roster, so a
+	# regiment aboard a hull names the men the rules let this crown read
+	# (DR-20261123-18).
+	var armies: Array = []
+	var roster: MapRegionTable = (
+		play.army_layer.regions if play.army_layer != null else null
+	)
+	if roster != null and roster.has_region(model.region_id):
+		armies = roster.value(model.region_id, []) as Array
 	# The rule's own gate: another court's hulls are read where this crown's grid
 	# holds the province at `fogged` or better; a session with no fog reads all.
 	var known: bool = play.visibility == null or play.visibility.is_province_known(province_id)
 	return ProvinceHarbour.line(
-		fleets, province_id, province.owner, play.player_faction, known
+		fleets, province_id, province.owner, play.player_faction, known, armies
 	)
