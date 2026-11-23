@@ -123,6 +123,11 @@ static func _seat_commanders(play: PlaySession) -> void:
 static func refresh_dossier(play: PlaySession) -> void:
 	if play.hud == null or play.model == null or play.land_works == null:
 		return
+	# The province sheet's Hosts row reads the chart's armies and the crown's own
+	# fog off the session it is seated with, reseated here with every dossier
+	# refresh (wiki: fog-and-exploration § Order-of-battle readings;
+	# DR-20261123-13).
+	MapPlayProvinceHosts.seat(play)
 	play.hud.panels.panel.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.visibility,
 		play.capital_tile, play.player_faction, play.tech_caps(),

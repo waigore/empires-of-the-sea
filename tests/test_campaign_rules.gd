@@ -472,6 +472,66 @@ func test_a_fallen_crown_leaves_no_deed_behind() -> void:
 	assert_eq(DeedProtection.province_holders(model, MINOR_PROVINCE), {})
 
 
+# --- the province sheet's Hosts row ---
+## The hosts standing on one province, counted for a reading crown: its own
+## everywhere, another court's only where its grid holds the province at
+## `fogged` or better (wiki: fog-and-exploration § Order-of-battle readings;
+## DR-20261123-13).
+func test_the_hosts_row_counts_what_the_rules_let_a_crown_read() -> void:
+	var own: ArmyState = ArmyState.create(
+		1, FactionCatalog.PLAYER_FACTION, 5, false, ["unit_1", "unit_2"],
+		{"unit_1": "pikemen", "unit_2": "arquebusiers"}
+	)
+	var rival: ArmyState = ArmyState.create(
+		2, BUYER, 5, false, ["unit_3", "unit_4", "unit_5"],
+		{"unit_3": "pikemen", "unit_4": "pikemen", "unit_5": "pikemen"}
+	)
+	var elsewhere: ArmyState = ArmyState.create(
+		3, BUYER, 6, false, ["unit_6"], {"unit_6": "pikemen"}
+	)
+	var armies: Array = [own, rival, elsewhere]
+	# A fogged province reads the crown's own host alone.
+	assert_eq(
+		ProvinceHosts.line(armies, 5, BUYER, FactionCatalog.PLAYER_FACTION, false),
+		"%s 2 regiments" % FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION)
+	)
+	# Charted, the province's own court leads and every other court follows.
+	assert_eq(
+		ProvinceHosts.line(armies, 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"%s 3 regiments · %s 2 regiments" % [
+			FactionCatalog.name_of(BUYER),
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+		]
+	)
+	assert_eq(ProvinceHosts.counts(armies, 5, FactionCatalog.PLAYER_FACTION, true)[BUYER], 3)
+	# Ground nobody stands on, an emptied standard and a host aboard its
+	# squadron name nothing.
+	assert_eq(ProvinceHosts.line(armies, 9, BUYER, FactionCatalog.PLAYER_FACTION, true), "")
+	assert_eq(ProvinceHosts.line([] as Array, 5, BUYER, FactionCatalog.PLAYER_FACTION, true), "")
+	# A province owner with no host on its own ground leads nothing, and a null
+	# entry in the table reads as no army rather than as one.
+	var landless: Array = armies.duplicate()
+	landless.append(null)
+	assert_eq(
+		ProvinceHosts.line(landless, 5, MINOR, FactionCatalog.PLAYER_FACTION, true),
+		"%s 2 regiments · %s 3 regiments" % [
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+			FactionCatalog.name_of(BUYER),
+		],
+		"a landless owner leads nothing; the rest read by id"
+	)
+	var embarked: ArmyState = ArmyState.create(
+		4, BUYER, 5, false, ["unit_7"], {"unit_7": "pikemen"}
+	)
+	embarked.embarked_fleet = 1
+	var empty: ArmyState = ArmyState.create(5, BUYER, 5, false)
+	assert_eq(
+		ProvinceHosts.line([embarked, empty], 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"",
+		"a host ashore only, and a standard with no men names none"
+	)
+
+
 func test_one_deed_is_worth_protecting_and_two_are_serious() -> void:
 	var world: WorldMap = _minor_world()
 	assert_true(DeedProtection.worth_protecting(world, BUYER, MINOR))

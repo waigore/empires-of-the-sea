@@ -1246,6 +1246,18 @@ domain = "muster"
 match = "scripts/map/map_play_counsel_bind.gd*"
 domain = "muster"
 
+# The province sheet's Hosts row (DR-20261123-13): the boot's own seat, the
+# chart reading the sheet asks of it and the pure count behind both. They ride
+# the boot that calls them — the ledgers suite boots the screen and reads the
+# row — and the rules read names the campaign suite that proves the count.
+[[rules]]
+match = "scripts/map/map_play_province_hosts.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/rules/province_hosts.gd*"
+domain = "province_hosts"
+
 # A reading's own rules module, the turn that publishes it and the two map
 # hooks that carry it. First match wins, so these sit above the ai/fog/
 # diplomacy globs below.
@@ -2385,6 +2397,13 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# The hosts a province holds, counted for a reading crown (DR-20261123-13): one
+# pure read over the chart's armies and the crown's fog. The campaign suite
+# proves the count, the ledger's own rule; nothing else reads it.
+[domains.province_hosts]
+suites = [
+  "test_campaign_rules.gd",
+]
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
 domain = "province_sheet"

@@ -14,6 +14,12 @@ var fort: Label = null
 ## (wiki: siege-mechanics § Wall Protection; DR-20261120-06). The row leaves the
 ## grid for open ground rather than printing a zero.
 var wall: Label = null
+## The hosts standing on the province's ground, by court and in regiments — the
+## count the rules let a crown read (wiki: fog-and-exploration § Order-of-battle
+## readings; DR-20261123-13). The row hides for ground nobody stands on rather
+## than printing a zero. Its reading is the panel's, handed in as a callable, so
+## this grid owns no session.
+var hosts: Label = null
 var hospital: Label = null
 ## The courts that have bought land in this province (wiki: factions § Tribe —
 ## "unless another GP has invested in the province"; DR-20261120-05). The row
@@ -36,6 +42,7 @@ func _ready() -> void:
 	road = _add_row("Roads")
 	fort = _add_row("Fort")
 	wall = _add_row("Wall")
+	hosts = _add_row("Hosts")
 	hospital = _add_row("Hospital")
 	deeds = _add_row("Deeds")
 
@@ -53,6 +60,9 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
 	_show_row(wall, WallRead.line(data.fort_level))
+	# The hosts are the panel's own reading (it alone may ask the session), so a
+	# fresh province clears the row until that call arrives.
+	set_hosts("")
 	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
 	_show_row(
 		deeds, DeedBar.holders(DeedProtection.province_holders(model, province_id))
@@ -73,6 +83,7 @@ func fill(values: Dictionary) -> void:
 	road.tooltip_text = ""
 	fort.text = String(values.get("fort", ""))
 	_show_row(wall, String(values.get("wall", "")))
+	set_hosts(String(values.get("hosts", "")))
 	hospital.text = String(values.get("hospital", ""))
 	_show_row(deeds, String(values.get("deeds", "")))
 
@@ -88,6 +99,13 @@ func set_estate_roads(
 	else:
 		road.text = DossierCopy.roads(rows)
 	road.tooltip_text = DossierCopy.roads_tip(data, rows)
+
+
+## The Hosts row: the courts standing on this ground, each with its regiments
+## (`England 3 regiments · Aztec 1 regiment`), or `""` for ground nobody holds —
+## the row leaves the grid rather than printing an absence.
+func set_hosts(text: String) -> void:
+	_show_row(hosts, text)
 
 
 ## Repaints the live crown rows after a road completed or a town grew, without
