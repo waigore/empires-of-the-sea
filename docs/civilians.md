@@ -13,12 +13,10 @@ Units: explore, improve, colonize, spy.
 - **Roster** (`CivilianCatalog`): six types.
 - **Hiring:** the rail names each craft's work and study gate
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
-  a gold line names the court's hire pass, its craft `▸`
-  (`MapPlayHirePick`, DR-20261122-12/15).
+  the hire pass names its craft `▸` (`MapPlayHirePick`, DR-20261122-12/15).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, walks
-  the idle ones and names the court's pick, its crews marked `▸`
-  (DR-20261121-12/22-06); a crew aboard reads **Aboard** and answers no order
-  chip.
+  the idle ones, marks the pick `▸` (DR-20261121-12/22-06); a crew aboard reads
+  **Aboard** and answers no order chip.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders keep to crown land, Explorer, Merchant, Spy cross borders; one crew
   per tile per crown.
@@ -28,7 +26,7 @@ Units: explore, improve, colonize, spy.
   ([espionage.md](espionage.md)).
 - **Work orders** (Builders: any owned tile); materials spent at assign,
   never refunded on cancel. **Aboard** a squadron a crew is off the map and
-  takes no order, and no ledger hands it one. Explore ≤3, **prospect 1**
+  takes no order. Explore ≤3, **prospect 1**
   (charted ground), improve 1–4, **upgrade town** (National Bureaucracy), road,
   port (one per seaboard), rail, fort 1–5 ([forts.md](forts.md)), hospital 1–2.
 - **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
@@ -38,12 +36,14 @@ Units: explore, improve, colonize, spy.
   an idle crew's dossier names its pick, priced by its ledger.
 - **Towns:** Builders raise them to 4; port towns cap extraction;
   levels 2, 4 manufacture ([economy.md](economy.md)).
-- **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
+- **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
+  per hull, no troops); lands on a coastal tile beside its zone
   ([DR-20261119-03](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-03));
-  lands on a coastal tile; Explorers/Merchants any coast, others crown land.
-  **A rival reads the ground:** its colonist takes the charted coast its
-  workshop can turn, plus mineral-bearing terrain by `economy.riches_route_weight`
-  ([DR-20261123-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261123-09)).
+  Explorers/Merchants any coast, others crown land. **A rival reads the
+  ground:** its colonist takes the charted coast its workshop can turn, and,
+  once charted, mineral-bearing terrain by `economy.riches_route_weight` —
+  never above a wanted raw
+  ([DR-20261123-21](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261123-21)).
   **The crown reads her own step:** the passenger block names the voyage and
   marks its press (DR-20261121-08/22-21).
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,

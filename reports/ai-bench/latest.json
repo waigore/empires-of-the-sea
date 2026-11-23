@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:4ee47d94d031a83e813fa72d5fe3b86d7563dd58063a126f439880df5f5ef9cb",
-  "submission_git": "fix/1384-bank-holds-declaration@936cec4f",
+  "submission_hash": "sha256:3bd05fa7dcf659bd242ca1bca7cbf8cacc37ce17b203a0c9bff9475123cfec4e",
+  "submission_git": "fix/riches-under-workshop@0446270e",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:c9554bc1f64e3dbe74a3f52d9e7a8d99ab5e3ac892644e3595ec8fad9b2b8cee",
+    "ai_surface_hash": "sha256:d1a9d9578b412c6f92022f11ab8bd317325cb8448e14d2fa58b81a42b7aca8f1",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T15:56:28Z",
+  "timestamp": "2026-11-23T16:09:08Z",
   "report_version": 1,
-  "signature": "hmac-sha256:05948da56f15570ff2b2202dfe428fc5eda92cf2ac1108a3c7a0440ae3780876"
+  "signature": "hmac-sha256:8fcab8ff58b40885fc331936ccef46d1183d3989459f217cc21e81e0d890dbde"
 }
