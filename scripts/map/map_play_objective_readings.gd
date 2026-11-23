@@ -34,6 +34,14 @@ static func readings(
 	var readings: Dictionary = _force(play, config, faction, economy, pressure, host)
 	readings.merge(_navy(economy, host))
 	var purse: Dictionary = _purse(config, economy, host, pressure)
+	# The banked split (issue #1384): on `earn` the college leads from the
+	# invest floor — the same cash floor every other claim reads — so the
+	# ledger prices the study on the purse the pass actually spends from,
+	# never against a number the planner would not spend (REQ-P3-01). A
+	# baseline court keeps its published chest reading.
+	if String(purse["goal"]) == AiIncome.GOAL_EARN \
+			and AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE:
+		purse["invest_floor"] = AiResearchPlanner.research_floor(config)
 	readings.merge(purse)
 	readings.merge(_study(config, economy, purse))
 	readings.merge(_court(play, faction, economy, phase))
@@ -178,7 +186,10 @@ static func _purse(
 static func _study(
 	config: AiConfig, economy: PlayerEconomy, purse: Dictionary
 ) -> Dictionary:
-	var reserve: int = int(purse["reserve"])
+	# The banked split (issue #1384): the invest floor — the court's own cash
+	# floor — is what the ladder reads while the court banks, so the study
+	# the ledger prices is the study the college funds.
+	var reserve: int = int(purse.get("invest_floor", purse["reserve"]))
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
 	var standing: String = AiResearchPlanner.standing_funding(config, economy, reserve)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0

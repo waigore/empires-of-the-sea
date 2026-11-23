@@ -3200,6 +3200,61 @@ func test_an_unbanked_court_keeps_the_published_hire_purses() -> void:
 	assert_eq(String(chart["type_id"]), "explorer")
 
 
+## The banked ladder's own split (issue #1384): the region's own asks are the
+## income investments the court banks for — the chart they open prospect the
+## mine that refills the chest — so an Explorer the region's own target asks
+## for keeps the works purse while the court banks. A court whose roster
+## already meets every ask but the court's own taste keeps the bank's face:
+## the taste's extra crew is the spending that can wait.
+func test_a_banked_court_hires_the_crew_its_own_asks_name() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var banked: Dictionary = _civilian_context()
+	banked["conquest_bank"] = true
+	# The region's own ask (not the taste's raise): the hire leads.
+	banked["staff_targets"] = {"explorer": 2}
+	banked["own_targets"] = {"explorer": 2}
+	var chart: Dictionary = AiCivilianHire.training_order(config, [], banked)
+	assert_true(
+		bool(chart.get("ok", false)),
+		"the region's own chart asks for the Explorer the chest is banked for"
+	)
+	assert_eq(String(chart["type_id"]), "explorer")
+	# The taste's own crew beyond the asks stands behind the chest: the taste
+	# table raises the same ask's target, so the hire the court's own
+	# archetype alone wanted is the spending that can wait. The roster
+	# already fields the region's own ask — only the raised target wants one
+	# more.
+	var taste: Dictionary = banked.duplicate()
+	taste["own_targets"] = {"explorer": 1}
+	taste["staff_targets"] = {"explorer": 2}
+	var rosters: Array = [
+		CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
+	]
+	var extra: Dictionary = AiCivilianHire.training_order(config, rosters, taste)
+	assert_eq(
+		String(extra.get("reason", "")), AiCivilianHire.REASON_BANK,
+		"the taste's extra chart waits while the bank holds"
+	)
+
+
+## The banked split (issue #1384): every banking read is also an `earn` read —
+## the purse stands under the chest — so the investments follow the goal. A
+## caller with no ledger keeps the published behaviour.
+func test_the_bank_reads_earn_as_the_investments_goal() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var ai := AiState.new()
+	var economy: PlayerEconomy = ai.economy_for(0)
+	economy.treasury = 1200
+	var earn: Dictionary = AiIncome.plan(config, economy, false, 1)
+	earn["goal"] = AiIncome.GOAL_EARN
+	assert_true(AiIncome.invests(config, ai, earn))
+	assert_false(AiIncome.invests(config, ai, {}), "no ledger, no read")
+	assert_false(AiIncome.invests(null, ai, earn), "no config, no read")
+	var spend: Dictionary = earn.duplicate()
+	spend["goal"] = AiIncome.GOAL_SPEND
+	assert_false(AiIncome.invests(config, ai, spend))
+
+
 ## Staff targets read the region's work: plains floor, hills digs, and the
 ## voyage slot — and training stops when every target is already met. The court
 ## here is neutral, so the targets are the region's own and nothing else: the
@@ -4278,6 +4333,49 @@ func test_other_courts_keep_the_single_slot_ladder() -> void:
 	for row: Dictionary in plan["assignments"]:
 		paid += ResearchFunding.gold(String(row["funding"]))
 	assert_eq(paid, 150, "three slots at the single-slot preset, as published")
+
+
+## The banked split (issue #1384): while the court banks, the college's ladder
+## and doors lead from the invest floor — the court's own cash floor — not the
+## chest, so the bank's fill is paid for by the studies it opens. The same
+## purse priced behind the storm chest reads the `none` preset; above the
+## invest floor it keeps the published preset.
+func test_the_banked_college_leads_from_the_invest_floor() -> void:
+	var config: AiConfig = _research_config()
+	# The chest is the storm host the wall prices (issue #1381): 4,400 above
+	# the court's own 500 floor. The published read priced the whole ladder
+	# behind it — every slot at `none`, an unpaid study — and the court
+	# learned nothing for the whole save.
+	var frozen: PlayerEconomy = _purse(2600)
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, frozen,
+		{
+			"treasury_floor": 4400, "cash_floor": 500, "defer_standing": true,
+			"conquest_reserve": 4400,
+		}
+	)
+	assert_false((plan["assignments"] as Array).is_empty(), "the slots still plan")
+	for row: Dictionary in plan["assignments"]:
+		assert_eq(
+			String(row["funding"]), ResearchFunding.ORDER[0],
+			"the published chest prices every slot out of the purse"
+		)
+	# The banked split: the same purse leads from the invest floor — the
+	# court's own 500 — so the ladder keeps the published preset and pays it.
+	var split: PlayerEconomy = _purse(2600)
+	var led: Dictionary = AiResearchPlanner.plan(
+		config, split,
+		{
+			"treasury_floor": 500, "cash_floor": 500, "defer_standing": true,
+			"conquest_reserve": 500,
+		}
+	)
+	assert_false(
+		(led["assignments"] as Array).is_empty(),
+		"the invest floor keeps the college learning while the bank fills"
+	)
+	for row: Dictionary in led["assignments"]:
+		assert_eq(String(row["funding"]), "medium")
 
 
 ## Issue #484: while the navy chest is the money-goal reserve, the standing

@@ -4014,10 +4014,11 @@ func test_the_capital_rail_names_the_hire_the_court_would_take() -> void:
 
 
 
-## A court banking for the army its win bar wants takes no crew its purse cannot
-## spare, so the rail prints the bank's own refusal instead of naming a hire the
-## published order would never take (wiki: civilian-units § Training;
-## DR-20261121-06, issue #995).
+## A court banking for the army its win bar wants keeps its own asks working:
+## the region's own hire leads and the rail names the purse that cannot cover
+## it while the chest itself fills — the bank's blanket refusal is the taste's
+## own reading now (wiki: civilian-units § Training; DR-20261121-06, #995,
+## #1384).
 func test_the_capital_rail_prints_the_bank_that_holds_the_hire() -> void:
 	var play: PlaySession = _screen.play
 	var faction: int = play.player_faction
@@ -4034,9 +4035,18 @@ func test_the_capital_rail_prints_the_bank_that_holds_the_hire() -> void:
 		"a short chest over a win-bar gap banks for the line"
 	)
 	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
-	assert_eq(
-		_screen.hud.panels.panel.hire_line_text(), MapPlayHirePick.BANK_LINE,
-		"the rail names the bank the hire order answers, not a hire it refuses"
+	var pick: Dictionary = MapPlayHirePick.pick(play)
+	assert_true(
+		not pick.is_empty() and not String(pick.get("line", "")).is_empty(),
+		"the banked court's own ask still names the hire it would take"
+	)
+	assert_true(
+		String(pick.get("line", "")).contains("the purse cannot cover"),
+		"the rail names the purse the ask waits on: %s" % pick.get("line", "")
+	)
+	assert_false(
+		String(pick.get("line", "")) == MapPlayHirePick.BANK_LINE,
+		"the region's own ask is not the bank's refusal: %s" % pick.get("line", "")
 	)
 	economy.treasury = purse
 	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
