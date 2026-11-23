@@ -8959,36 +8959,46 @@ func test_roster_counts_every_region() -> void:
 const overlay_Fixture = preload("res://tests/map_fixture.gd")
 const NAMES: Array[String] = ["España", "England"]
 
-## One mount for the HUD plate cases: under coverage a mount costs seconds and
-## each case only needs a bare chart with the news lane and the plates reset, so
-## they share the chart and re-seat from the pristine save (docs/testing.md
-## § Speed rules). Non-underscore: gd-tools clones a fresh suite instance per
-## test and does not copy underscore fields out of before_all.
-var hud_mounted: MapScreen = null
-var hud_pristine: Dictionary = {}
+## HUD plate cases share one chart, mounted lazily so the ~550 pure combat cases
+## never pay a MapScreen boot under coverage (docs/testing.md § Speed rules;
+## same pattern as `test_map_view_rules` crown-road). `static` keeps the screen
+## across gd-tools' per-case clones; `hud_host` is the before_all node they
+## parent onto.
+var hud_host: Node = null
 var hud_pristine_map: Array = []
+static var _hud_screen: MapScreen = null
+static var _hud_pristine: Dictionary = {}
 
 
 func before_all() -> void:
 	hud_pristine_map = overlay_Fixture.snapshot(overlay_Fixture.world())
-	hud_mounted = overlay_Fixture.attach_screen(self)
-	hud_pristine = overlay_Fixture.suite_capture(hud_mounted)
+	hud_host = Node.new()
+	add_child(hud_host)
 
 
 func after_all() -> void:
-	if is_instance_valid(hud_mounted):
-		hud_mounted.free()
-	hud_mounted = null
-	hud_pristine = {}
+	if is_instance_valid(_hud_screen):
+		_hud_screen.free()
+	_hud_screen = null
+	_hud_pristine = {}
+	if is_instance_valid(hud_host):
+		hud_host.free()
+	hud_host = null
 	hud_pristine_map = []
 
 
-## A plate case starts on the pristine chart, as a mount did: the reset drops
-## the previous case's plates, queues, news and sheets.
+## A plate case starts on the pristine chart: first call mounts once, later
+## calls re-seat from the pristine save (~0.15 s vs ~0.5–2 s remount).
 func _hud() -> MapScreen:
 	overlay_Fixture.restore(overlay_Fixture.world(), hud_pristine_map)
-	overlay_Fixture.suite_reset(hud_mounted, hud_pristine)
-	return hud_mounted
+	if not is_instance_valid(_hud_screen):
+		_hud_screen = overlay_Fixture.attach_screen(hud_host)
+		_hud_pristine = overlay_Fixture.suite_capture(_hud_screen)
+	else:
+		overlay_Fixture.suite_reset(
+			_hud_screen, _hud_pristine, overlay_Fixture.world()
+		)
+	return _hud_screen
 
 
 func test_the_plate_shows_a_battle_and_finishes_on_skip() -> void:

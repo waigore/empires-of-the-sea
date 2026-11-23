@@ -44,8 +44,8 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	# Projection cases never wake the shared chart; an idle MapScreen still
-	# runs HUD/fog under coverage (docs/testing.md § Speed rules).
+	# Snapshot-only cases never call `_attach()`; park so idle HUD/fog work
+	# does not run under every pure case (docs/testing.md § Speed rules).
 	Fixture.park_screen(screen)
 
 

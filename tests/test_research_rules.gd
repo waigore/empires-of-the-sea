@@ -26,24 +26,19 @@ var _panel_state: ResearchState = null
 
 ## Pure college cases only need state and purse. The pocket chart and the
 ## ResearchPanel are bound on demand so 100+ rule cases never pay Fixture.build
-## or a panel mount under coverage (docs/testing.md § Speed rules).
+## or a panel mount under coverage (docs/testing.md § Speed rules). The live
+## MapScreen for sheet cases mounts lazily in `_screen()` too.
 func before_each() -> void:
 	_state = ResearchState.make()
 	_economy = PlayerEconomy.starting()
 	_turn_economy = PlayerEconomy.starting()
 	_turn_state = _turn_economy.research
-	# The merged screen suite parks its chart so the 100+ rule cases never pay
-	# an idle MapScreen's `_process` under coverage.
-	if research_mounted != null:
-		ScreenFixture.park_screen(research_mounted)
 
 
 func after_each() -> void:
 	if is_instance_valid(_panel):
 		_panel.free()
 	_panel = null
-	if research_mounted != null:
-		ScreenFixture.park_screen(research_mounted)
 
 
 ## Discovery cases read a 5×5 pocket chart; bind it only when a case asks.
@@ -1646,7 +1641,7 @@ func test_the_chart_aims_the_queue_and_can_clear_it() -> void:
 	chart._canvas.node("national_bureaucracy").pressed.emit()
 	assert_eq(chart._goal_button.text, "Set as research goal")
 	chart._goal_button.pressed.emit()
-	var state: ResearchState = research_mounted.economy.economy.research
+	var state: ResearchState = _research_screen.economy.economy.research
 	assert_eq(state.goal, "national_bureaucracy", "the queue is aimed")
 	assert_eq(chart._goal_button.text, "Clear the goal", "the door now clears it")
 	assert_true(
@@ -1670,7 +1665,7 @@ func test_the_chart_invites_a_goal_when_none_is_set() -> void:
 ## reading: the slot stays free and no ducat moves (DR-20261121-20).
 func test_the_chart_names_and_marks_the_courts_pick() -> void:
 	var chart: TechTreePanel = await _chart()
-	var screen: MapScreen = research_mounted
+	var screen: MapScreen = _research_screen
 	var pick: Dictionary = MapPlayResearchPick.pick(screen.play)
 	assert_false(pick.is_empty(), "a fresh college has a study to open")
 	var line: String = chart.counsel_text()
@@ -1701,7 +1696,7 @@ func test_the_goal_and_the_court_can_mark_one_advance() -> void:
 	chart._goal_button.pressed.emit()
 	await get_tree().process_frame
 	assert_eq(
-		research_mounted.play.economy.economy.research.goal, pick,
+		_research_screen.play.economy.economy.research.goal, pick,
 		"the goal door still aims the queue"
 	)
 	var node: TechTreeNode = chart._canvas.node(pick)
@@ -1761,10 +1756,10 @@ func test_a_college_with_no_free_slot_names_no_pick_on_the_chart() -> void:
 func test_back_sets_the_chart_aside_before_the_college() -> void:
 	var chart: TechTreePanel = await _chart()
 	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
-	assert_true(BackRequest.handle(research_mounted.play, null), "back is consumed")
+	assert_true(BackRequest.handle(_research_screen.play, null), "back is consumed")
 	assert_false(chart.is_open(), "the chart closes first")
-	assert_true(research_mounted.hud.panels.is_research_open(), "the college stays")
-	research_mounted.hud.panels.hide_research()
+	assert_true(_research_screen.hud.panels.is_research_open(), "the college stays")
+	_research_screen.hud.panels.hide_research()
 
 
 # --- the road to an advance (TechPlan) ---------------------------------------
@@ -1933,37 +1928,48 @@ func _label_containing(text: String) -> Label:
 ## economy (REQ-P2-03). The chart is mounted once for the boot and re-seated for
 ## each screen case, so this merged suite pays one mount instead of one boot.
 
-## The one chart the sheet cases drive (the rules cases need no nodes).
-var research_mounted: MapScreen = null
-var research_pristine: Dictionary = {}
+## The one chart the sheet cases drive (the rules cases need no nodes). Mounted
+## lazily so ~150 pure college cases never pay a MapScreen boot (docs/testing.md
+## § Speed rules). `static` keeps the screen across gd-tools' per-case clones.
+var research_host: Node = null
 var research_pristine_map: Array = []
+static var _research_screen: MapScreen = null
+static var _research_pristine: Dictionary = {}
 
 
 func before_all() -> void:
 	research_pristine_map = ScreenFixture.snapshot(ScreenFixture.world())
-	research_mounted = ScreenFixture.attach_screen(self)
-	research_pristine = ScreenFixture.suite_capture(research_mounted)
-	ScreenFixture.park_screen(research_mounted)
+	research_host = Node.new()
+	add_child(research_host)
 
 
 func after_all() -> void:
-	if is_instance_valid(research_mounted):
-		research_mounted.free()
-	research_mounted = null
-	research_pristine = {}
+	if is_instance_valid(_research_screen):
+		_research_screen.free()
+	_research_screen = null
+	_research_pristine = {}
+	if is_instance_valid(research_host):
+		research_host.free()
+	research_host = null
 	research_pristine_map = []
 
 
-## A screen case starts on a pristine chart, as a mount did. Cases that never
-## read the chart never pay the re-seat.
+## A screen case starts on a pristine chart. First call mounts once; later calls
+## re-seat. Cases that never ask never pay the mount.
 func _screen() -> MapScreen:
 	ScreenFixture.restore(ScreenFixture.world(), research_pristine_map)
-	ScreenFixture.suite_reset(research_mounted, research_pristine)
+	if not is_instance_valid(_research_screen):
+		_research_screen = ScreenFixture.attach_screen(research_host)
+		_research_pristine = ScreenFixture.suite_capture(_research_screen)
+	else:
+		ScreenFixture.suite_reset(
+			_research_screen, _research_pristine, ScreenFixture.world()
+		)
 	# The chart is a modal sheet: a case that leaves it up would answer the next
 	# case's back press.
-	if research_mounted.hud.tech_tree != null:
-		research_mounted.hud.tech_tree.close()
-	return research_mounted
+	if _research_screen.hud.tech_tree != null:
+		_research_screen.hud.tech_tree.close()
+	return _research_screen
 
 
 ## The college's chart, raised through the college's own door on the mounted
