@@ -23,7 +23,7 @@ on a fresh clone ([testing.md](testing.md)). Three columns on a desktop; below
 | Control | What it changes |
 |---------|-----------------|
 | Ground | OPEN / HILL / WOODS / TOWN / MARSH lane terrain |
-| Fort | none / Wood / Stone / Modern (`fort_level` 0–3) |
+| Fort | none / Wood / Stone / Modern / Bastion / Star (`fort_level` 0–5) |
 | Battery | the garrison's line — Royal / Heavy / Siege (`FortRules.EMPLACED_TECHS`) |
 | Attacker, Defender | three slots a side, 0–20 each |
 | Attacker plan / Defender plan | aggressive / balanced / defensive script |
@@ -41,13 +41,13 @@ initiative ties between rival attackers only
 ## What it shows
 
 - The plate paints a landscape per terrain with the fort's wall and three
-  gatehouses; a breached gate is a jagged hole with rubble on the field.
+  gatehouses; a breached gate is a jagged hole with rubble.
 - The despatch lists every round's actions in the game's copy — losses, mauled
   men, guns silenced, gates breached, the battery taking the blow — then the
   aftermath: ground, the wings broken, the siege line, losses by type, wounds,
   chevrons and the outcome.
 - The readout prints limits, terrain, wall reduction, gate threshold, lanes,
-  guns and the levers set.
+  guns and levers set.
 
 ## Scenarios worth running
 

@@ -21,7 +21,8 @@ var town_development: int = 0
 ## The capital tile in a capital province; otherwise the port or a deterministic
 ## centre tile. -1 on hand-built maps that predate town assignment.
 var town_tile: Vector2i = Vector2i(-1, -1)
-## Fort level 0–3 (wiki: siege-mechanics). Walls and guns derive from it.
+## Fort level 0–5 (wiki: siege-mechanics § Fort Levels; FortRules.MAX_LEVEL).
+## Walls and guns derive from it.
 var fort_level: int = 0
 ## Hospital level 0–2 (wiki: combat § Regiment condition; DR-20261111-12).
 ## Rest share and battle wear derive from it.
