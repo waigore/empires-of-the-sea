@@ -75,19 +75,37 @@ static func muster_reserve(
 	return RegimentEconomy.training_inputs(type_id)
 
 
+## Ducats the muster holds back for the next man of the storm host (issue
+## #1381): one man, priced on the line the host is sized with ([method
+## AiArmyReinforceLine.storm_price]), never the whole host. A chest sized
+## to the whole host froze the measured run: three crowns filled 24,200 ducats
+## against a wall that asked twelve men and raised not one in 200 turns, because
+## each regiment had to leave the whole chest untouched behind it and no court
+## can hold a host's price and pay its government at once. The wall's host is
+## the muster **target** (that is what raises the men); the purse only keeps the
+## next man's own price, so the host is paid as it is raised and the muster is
+## never one payment short. `storm_bank` is the host still missing (the map
+## layer's own read). Zero when no host is due or no line is open.
+static func storm_line_hold(
+	config: AiConfig, economy: PlayerEconomy, storm_bank: int
+) -> int:
+	if config == null or economy == null or maxi(storm_bank, 0) <= 0:
+		return 0
+	return AiArmyReinforceLine.storm_price(config, economy)
+
+
 ## Treasury a court must hold before any muster is legal: `army.min_treasury`
 ## still in the purse after paying for the line it would raise — the cheapest
-## line pattern its techs open, or the storm host its thinnest wall prices when
-## the wall stands above it (issue #1381). Other planners read it as the war
-## chest they must not spend, so a court saving for its next regiment never
-## funds itself into the deadlock where every muster is one ducat short (wiki:
+## line pattern its techs open, or the next man of the storm host when the wall
+## stands above it (issue #1381). Other planners read it as the war chest they
+## must not spend, so a court saving for its next regiment never funds itself
+## into the deadlock where every muster is one ducat short (wiki:
 ## ai-architecture § Land reinforcement; growth-stage-planner § Recruitment
-## modulation). `storm_bank` is that host in regiments, read by the caller
+## modulation). `storm_bank` is the host still missing, read by the caller
 ## (`AiIncome.storm_want` at war, `MapPlayArmyMusterAi.storm_chest` at peace):
-## the storm-sized chest is banked while the court plans the conquest — at
-## peace as at war — and a court already fielding that host keeps the cheaper
-## published chest. 0 when it already stands at its target, can raise nothing,
-## or has no peasant to spare.
+## the court arms toward that host one man at a time — the host is the target,
+## the purse is its next man. 0 when it already stands at its target, can raise
+## nothing, or has no peasant to spare.
 static func muster_floor(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -105,17 +123,10 @@ static func muster_floor(
 	var cheapest: int = AiArmyReinforceLine.cheapest_line(economy)
 	if cheapest < 0:
 		return floor_treasury
-	# The storm chest is one host the wall prices, handed in by the money
-	# goal: at war the caller read it off the shared config (`AiIncome.
-	# storm_want`), at peace the map layer read it from the map (`storm_bank`
-	# on `AiIncome.plan`). A chest of zero — open ground, no wall in front of
-	# the court, or a host already at the wall's size — keeps the published
-	# cheapest-line floor. The host is regiments: the chest prices them at
-	# the cheapest line the court's own purse saves for, so the goal and the
-	# muster read one purse (`MapPlayArmyMusterAi.storm_chest` reads the
-	# same rule).
-	var storm_want: int = maxi(storm_bank, 0)
-	return floor_treasury + maxi(cheapest, storm_want * cheapest)
+	# The storm host prices the next man on the line it is raised with, so a
+	# court mustering toward a wall never pays the cheapest pattern while its
+	# host is sized on a dearer one. No host due keeps the published line.
+	return floor_treasury + maxi(cheapest, storm_line_hold(config, economy, storm_bank))
 
 
 ## Why a court standing under its target prices no muster row ("" when the row

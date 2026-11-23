@@ -88,6 +88,12 @@ static func region_context(
 				"diplomacy": play.diplomacy,
 				"visibility": MapPlayCourtFog.view_for(play, faction, region),
 				"treasury": int(court["spendable"]),
+				# The region's own survey, so a deposit is priced only once the
+				# court's Explorer has dug it (issue #1383).
+				"land_works": (
+					play.civilian_layer.works_regions.value(region, null)
+					if play.civilian_layer != null else null
+				),
 			}
 		)
 		context["deed_price"] = int(deed.get("price", 0))
@@ -195,6 +201,11 @@ static func bank_crops(config: Variant, economy: PlayerEconomy) -> Array:
 ## A plan on `earn` keeps only what refills the store: extraction and surveys,
 ## or the conquest bank's farms and the farm line's own feedstock, with the one
 ## road that puts an off-network town on the crown's network (issue #489, #995).
+## The banked trim retuned (issue #1384): the conquest bank's own clause still
+## names the farms and the line's feedstock — the works that keep the estate
+## engine feeding the chest — while the non-banked earn trim keeps every
+## extraction work and survey. Either way the purchases that draw the chest
+## down (towns, ports, the roads that wait with them) stay trimmed.
 static func trim_to_purse(
 	plan: Dictionary, model: MapModel, works: LandWorks, faction: int,
 	capital_tile: Vector2i, crops: Array, conquest_bank: bool

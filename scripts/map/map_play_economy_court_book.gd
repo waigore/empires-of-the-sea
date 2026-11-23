@@ -64,12 +64,27 @@ static func door_tech(
 
 ## What the court studies this turn: surplus above the money-first reserve,
 ## the navy unlock door first and the Tribe chain after it (issue #484, #490).
+## While the court banks (issue #995) the bank's own chest holds the purse —
+## and the bank's income investments lead from the purse above it (issue
+## #1384): the college's ladder and doors read the invest floor — the court's
+## own cash floor — so the bank's fill is paid for by the studies it opens,
+## and the chest itself stays the reserve the bank holds.
 static func research(court: MapPlayEconomyCourt) -> Dictionary:
 	var revealed: Dictionary = MapPlayCourtFog.research_revealed(court.play, court.faction)
 	# Surplus research still leaves the money-first reserve alone; the standing
 	# study alone may dip to the cash floor so a war-time court parked at 500
 	# while saving 2,400 still learns (issue #490).
 	var research_floor: int = AiBindEconomy.research_floor(court.kind, court.config)
+	# The banked split (issue #1384): the invest floor — the same cash floor
+	# every other claim reads — is what the ladder and the doors lead from,
+	# while the chest itself stays the reserve the bank holds. A court not
+	# banking keeps the published goal reserve; the standing study keeps the
+	# #490 cash-floor gate either way, so a court parked at the floor still
+	# learns.
+	var invest_floor: int = (
+		maxi(int(court.config.parameter("economy.min_treasury")), 0)
+		if court.invest_bank else 0
+	)
 	# The court's open door: the yard's next hull, else the Tribe chain, else the
 	# deed's buyer (issue #484, #841; DR-20261114-05). One home for the chain, so
 	# the crown's college reads the same door this plan walks
@@ -83,27 +98,38 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 	# money goal's own reserve wobbles when the #603 valve re-routes it to the
 	# cash floor, and a floor that falls with the wobble lets the college's
 	# ladder burn the very fill the bank is holding for — measured 450 ducats
-	# on the one turn a big sale landed. The door studies already read this
-	# chest; with it the ordinary ladder reads it too. A court not banking
-	# keeps its published goal reserve; the standing study keeps the #490
-	# cash-floor gate either way, so a court parked at the floor still learns.
+	# on the one turn a big sale landed.
 	var bank_chest: int = (
 		int(court.income.get("bank_chest", 0)) if court.conquest_bank else 0
+	)
+	# The floors the college reads: the banked split hands the ladder and the
+	# doors the invest floor (issue #1384); every other court keeps the
+	# published chest — the bank chest on the conquest bank, the money goal's
+	# own reserve otherwise.
+	var ladder_floor: int = (
+		invest_floor
+		if court.invest_bank
+		else bank_chest if court.conquest_bank else court.floor
+	)
+	var door_floor: int = (
+		invest_floor if court.invest_bank
+		else bank_chest if court.conquest_bank else 0
 	)
 	return AiBindEconomy.research_plan(
 		court.kind, court.config, court.economy,
 		{
 			"at_war": court.at_war,
 			"revealed": revealed,
-			"treasury_floor": bank_chest if court.conquest_bank else court.floor,
+			"treasury_floor": ladder_floor,
 			"cash_floor": research_floor,
 			"door": door,
 			"defer_standing": court.hull_chest > 0,  # yard fills before standing (#484)
-			# The bank the doors honor while the court arms (issue #995), and the
-			# chest the yard is banking for (issue #1126): a door study priced
-			# over the cash floor alone spent 150 ducats the turn the hull's
-			# chest closed, so the yard never laid the hull it had saved for.
-			"conquest_reserve": bank_chest if court.conquest_bank else 0,
+			# The bank the doors honor while the court arms (issue #995), and
+			# the chest the yard is banking for (issue #1126): a door study
+			# priced over the cash floor alone spent 150 ducats the turn the
+			# hull's chest closed, so the yard never laid the hull it had
+			# saved for.
+			"conquest_reserve": door_floor,
 			"navy_reserve": court.hull_chest,
 			# The standing slot carries the ration ladder while the court
 			# banks (issue #1059): the farms the host eats from lift their

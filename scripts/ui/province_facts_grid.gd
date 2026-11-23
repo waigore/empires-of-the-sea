@@ -20,11 +20,12 @@ var wall: Label = null
 ## than printing a zero. Its reading is the panel's, handed in as a callable, so
 ## this grid owns no session.
 var hosts: Label = null
-## The squadrons standing in the province's harbour, by court and in hulls — the
-## count the rules let a crown read in a charted port (wiki: fog-and-exploration
-## § Order-of-battle readings; DR-20261123-14). The row hides for a harbour no
-## squadron rides rather than printing a zero. Its reading is the panel's, handed
-## in as a callable, so this grid owns no session.
+## The squadrons standing in the province's harbour, by court, in hulls and in
+## the regiments they carry — the count the rules let a crown read in a charted
+## port (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-14,
+## DR-20261123-18). The row hides for a harbour no squadron rides rather than
+## printing a zero. Its reading is the panel's, handed in as a callable, so this
+## grid owns no session.
 var harbour: Label = null
 var hospital: Label = null
 ## The courts that have bought land in this province (wiki: factions § Tribe —
@@ -54,7 +55,18 @@ func _ready() -> void:
 	deeds = _add_row("Deeds")
 
 
-func show_province(model: MapModel, province_id: int, data: ProvinceState) -> void:
+## `viewer` is the crown reading the sheet and `tech` its own studies: the wall's
+## storm clause reads the crown's own battery exactly and another court's as the
+## published envelope, because a rival's studies are not hers to read (wiki:
+## siege-mechanics § Storming an empty walled province; DR-20261123-20). A grid
+## with no viewer reads no battery, so it prints the envelope.
+func show_province(
+	model: MapModel,
+	province_id: int,
+	data: ProvinceState,
+	viewer: int = -1,
+	tech: Dictionary = {}
+) -> void:
 	_data = data
 	terrain.text = _terrain_row(model, province_id)
 	var port_tile: Vector2i = data.port_tile
@@ -66,7 +78,14 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	town.text = DossierCopy.town(data)
 	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
-	_show_row(wall, WallRead.line(data.fort_level))
+	var known: bool = data.owner == viewer
+	_show_row(
+		wall,
+		WallRead.line(
+			data.fort_level, WallRead.storm_line(data.fort_level, tech, known)
+		)
+	)
+	wall.tooltip_text = WallRead.storm_tip(data.fort_level, known)
 	# The hosts are the panel's own reading (it alone may ask the session), so a
 	# fresh province clears the row until that call arrives.
 	set_hosts("")
@@ -92,6 +111,7 @@ func fill(values: Dictionary) -> void:
 	road.tooltip_text = ""
 	fort.text = String(values.get("fort", ""))
 	_show_row(wall, String(values.get("wall", "")))
+	wall.tooltip_text = String(values.get("wall_tip", ""))
 	set_hosts(String(values.get("hosts", "")))
 	set_harbour(String(values.get("harbour", "")))
 	hospital.text = String(values.get("hospital", ""))
@@ -118,9 +138,10 @@ func set_hosts(text: String) -> void:
 	_show_row(hosts, text)
 
 
-## The Squadrons row: the courts riding this harbour, each with its hulls
-## (`England 3 hulls · Spain 1 hull`), or `""` for a harbour no squadron rides —
-## the row leaves the grid rather than printing an absence.
+## The Squadrons row: the courts riding this harbour, each with its hulls and the
+## regiments they carry (`England 3 hulls, 2 regiments aboard · Spain 1 hull`),
+## or `""` for a harbour no squadron rides — the row leaves the grid rather than
+## printing an absence.
 func set_harbour(text: String) -> void:
 	_show_row(harbour, text)
 

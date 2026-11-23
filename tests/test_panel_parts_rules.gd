@@ -483,10 +483,11 @@ func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
 	assert_false(grid.harbour.visible, "a reading with no harbour prints no row")
 
 
-## The province sheet names what the wall soaks and what it spares the garrison
-## — the fort table's own figures, so a plan is made against the wall a battle
-## would fight — and leaves the row out on open ground (wiki: siege-mechanics
-## § Wall Protection; DR-20261120-06).
+## The province sheet names what the wall soaks, what it spares the garrison and
+## the storm it sets — the fort table's own figures, so a plan is made against
+## the wall a battle would fight — and leaves the row out on open ground (wiki:
+## siege-mechanics § Wall Protection, § Storming an empty walled province;
+## DR-20261120-06, DR-20261123-20).
 func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_setup_province_panel()
 	_province_panel_panel.set_data(
@@ -498,10 +499,30 @@ func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 1
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	assert_true(grid.wall.visible, "the row arrives with the wall")
-	assert_eq(grid.wall.text, "40 wall hp · 10% off a blow")
+	assert_eq(
+		grid.wall.text,
+		"40 wall hp · 10% off a blow · storm needs 51–59 strength",
+		"another court's guns are not the crown's to read, so her wall prints the envelope"
+	)
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 3
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
-	assert_eq(grid.wall.text, "120 wall hp · 30% off a blow", "a modern wall")
+	assert_eq(
+		grid.wall.text,
+		"120 wall hp · 30% off a blow · storm needs 153–177 strength",
+		"a modern wall's storm, both ends the fort table's own"
+	)
+	assert_true(
+		grid.wall.tooltip_text.contains("costs one regiment"),
+		"the tip prices what a storm past the wall costs: %s" % grid.wall.tooltip_text
+	)
+	# The crown's own battery is her own ledger, so her wall names one figure.
+	_model.province_data(Fixture.PLAYER_PROVINCE).fort_level = 1
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(
+		grid.wall.text,
+		"40 wall hp · 10% off a blow · storm needs 51 strength",
+		"the crown's own guns read exactly"
+	)
 
 
 ## The province sheet prints the court's own reading and hides it when the

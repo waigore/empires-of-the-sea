@@ -1268,7 +1268,7 @@ domain = "province_harbour"
 
 [[rules]]
 match = "scripts/map/map_play_province_harbour.gd*"
-domain = "muster"
+domain = "province_harbour_sheet"
 
 # A reading's own rules module, the turn that publishes it and the two map
 # hooks that carry it. First match wins, so these sit above the ai/fog/
@@ -2418,11 +2418,20 @@ suites = [
 ]
 
 # The squadrons riding a province's harbour, counted for a reading crown
-# (DR-20261123-14): one pure read over the chart's fleets and the crown's fog.
-# The campaign suite proves the count, the ledger's own rule.
+# (DR-20261123-14, DR-20261123-18): one pure read over the chart's fleets, the
+# chart's armies and the crown's fog. The campaign suite proves the count, the
+# ledger's own rule, and the mounted sheet proves the boot's seat.
 [domains.province_harbour]
 suites = [
   "test_campaign_rules.gd",
+]
+
+# The map hook that carries the harbour row to the sheet: the ledgers suite
+# mounts the screen and reads the row off the boot's own bind, so the hook rides
+# that one suite instead of the muster fan-out (DR-20261123-14).
+[domains.province_harbour_sheet]
+suites = [
+  "test_ledgers.gd",
 ]
 [[rules]]
 match = "scripts/ui/province_panel.gd*"

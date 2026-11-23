@@ -1176,6 +1176,22 @@ func test_the_observer_reads_one_province_in_its_owners_terms() -> void:
 	)
 	assert_eq(bool(reading["capital"]), data.capital, "the CAPITAL badge reads the record")
 	assert_eq(String(reading["fort"]), FortRules.describe(data.fort_level), "the wall")
+	# The storm the wall sets reads the owner's own battery, because the observer
+	# reads for the court that holds the province (wiki: siege-mechanics
+	# § Storming an empty walled province; DR-20261123-20).
+	if FortRules.is_siege(data.fort_level):
+		var ledger: PlayerEconomy = play.ledger_for(data.owner)
+		var tech: Dictionary = {} if ledger == null else ledger.tech_unlocked
+		assert_true(
+			String(reading["wall"]).contains(
+				WallRead.storm_line(data.fort_level, tech, true)
+			),
+			"the wall names the storm its own guns set: %s" % reading["wall"]
+		)
+		assert_true(
+			String(reading["wall_tip"]).contains("costs one regiment"),
+			"the tip prices the storm: %s" % reading["wall_tip"]
+		)
 	assert_eq(
 		String(reading["hospital"]),
 		HospitalRules.describe(data.hospital_level, data.hospital_staffed),

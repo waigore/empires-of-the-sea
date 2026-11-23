@@ -98,8 +98,9 @@ static func _voyage_posture(play: PlaySession, faction: int, posture: String) ->
 
 ## The raws this court's workshop can turn and does not hold in number: a landing
 ## is the one ground a court takes overseas, so the plan names the ground its own
-## recipes feed (DR-20261119-05). A frozen baseline keeps its published walk and
-## reads none.
+## recipes feed (DR-20261119-05). The court's own chart rides in beside it, so
+## the riches weight names only a shore the chart has reached (issue #1382). A
+## frozen baseline keeps its published walk and reads none.
 static func _appetite(
 	play: PlaySession, faction: int, kind: String, config: Variant
 ) -> Dictionary:
@@ -110,7 +111,7 @@ static func _appetite(
 	if economy == null or typed == null:
 		return {}
 	return AiEconomyPlanner.ground_appetite(
-		typed, economy, TownIndustry.best_level(play.world, faction)
+		typed, economy, TownIndustry.best_level(play.world, faction), play.court_charts
 	)
 
 

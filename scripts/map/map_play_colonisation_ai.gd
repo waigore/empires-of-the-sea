@@ -233,7 +233,10 @@ static func _appetite(
 		)
 		if economy != null and config is AiConfig:
 			appetite = AiEconomyPlanner.ground_appetite(
-				config as AiConfig, economy, TownIndustry.best_level(play.world, faction)
+				config as AiConfig, economy, TownIndustry.best_level(play.world, faction),
+				# The court's own chart: the riches weight rides the shore it
+				# has reached, never a shore it has not seen (issue #1382).
+				play.court_charts
 			)
 	cache[faction] = appetite
 	return appetite

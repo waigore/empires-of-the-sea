@@ -743,11 +743,14 @@ func test_a_march_into_a_walled_province_names_the_wall() -> void:
 	assert_eq(field.province, target)
 	assert_eq(
 		_last_toast(),
-		WallRead.march_line(_screen.model.province_name(target), 2),
-		"the receipt names the wall it must break"
+		WallRead.march_line(
+			_screen.model.province_name(target), 2, WallRead.storm_line(2)
+		),
+		"the receipt names the wall it must break, and the storm it would take"
 	)
 	assert_true(_last_toast().contains("80 wall hp"), _last_toast())
 	assert_true(_last_toast().contains("2 emplaced guns"), _last_toast())
+	assert_true(_last_toast().contains("storm needs"), _last_toast())
 
 
 func test_enemy_armies_are_observed_not_ordered() -> void:

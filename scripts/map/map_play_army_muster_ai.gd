@@ -41,6 +41,7 @@ static func muster(
 	# colony region would overwrite the Old World read the money goal banks
 	# against — keep the smaller non-zero want, not the last region's.
 	_note_read(config, wall)
+	_note_techs(config, play)
 	var raised: bool = _reinforce(play, model, roster, faction, config, kind, trace)
 	var trained: bool = _pitch_train(play, model, roster, faction, kind, trace)
 	return raised or trained
@@ -142,27 +143,29 @@ static func storm_extra(
 	var at_war: bool = MapPlayCourt.at_war(play, faction)
 	var target: int = AiArmyReinforce.guard_regiments(config, at_war)
 	return AiStormGate.extra(
-		thinnest_wall(model, faction),
+		thinnest_wall(model, faction, MapPlayCampaign.tech_by_faction(play)),
 		float(RegimentCatalog.strength(
-			AiArmyReinforceLine.strongest_line(economy.tech_unlocked)
+			AiArmyReinforceLine.storm_line(config, economy)
 		)),
 		target,
 		own_regiments
 	)
 
 
-## The storm host this court's money goal banks for (issue #1381): the
-## regiments the thinnest wall it does not own prices — `AiStormGate.
-## regiments_for` on its own reading — so a court that plans conquest saves
-## for the storm host before it declares, at peace as at war. The same read
-## the march prices at war ([method storm_extra]) prices the chest here, at
-## the guard target the peace publishes, so the wall never moves and the
-## muster pays its own ladder. The chest in ducats is the host × the line's
-## own price, read once inside `AiArmyReinforce.muster_floor`. Zero when the
-## court faces no wall, has no economy, or — at peace — cannot yet fund the
-## line it would raise today: the wall prices money alone at peace, and a
-## bank no poorer court can reach would freeze its economy. Pure: state in,
-## host out.
+## The storm host the court still has to raise for its money goal (issue
+## #1381): the host the thinnest wall it does not own prices (`AiStormGate.
+## regiments_for`) less the men it already fields — so the bank is the price of
+## the host **still missing**, and every regiment mustered draws it down. A
+## chest sized to the whole host and never spent froze the measured run at the
+## wall's own price while the host stood at its guard (#1381: three crowns
+## parked at 24,200 ducats and raised not one regiment in 200 turns). The same
+## read the march prices at war ([method storm_extra]) prices the chest here,
+## at the guard target the peace publishes. The chest in ducats is the missing
+## host × the line's own price, read once inside `AiArmyReinforce.muster_floor`.
+## Zero when the court faces no wall, has no economy, already fields the host,
+## or — at peace — cannot yet fund the line it would raise today: the wall
+## prices money alone at peace, and a bank no poorer court can reach would
+## freeze its economy. Pure: state in, host out.
 static func storm_chest(
 	play: PlaySession,
 	model: MapModel,
@@ -174,34 +177,37 @@ static func storm_chest(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return 0
+	var config: Variant = AiControl.court(play, faction).get("config", null)
 	var strength: float = float(RegimentCatalog.strength(
-		AiArmyReinforceLine.strongest_line(economy.tech_unlocked)
+		AiArmyReinforceLine.storm_line(config, economy)
 	))
 	if strength <= 0.0:
 		return 0
 	var want: int = AiStormGate.regiments_for(
-		thinnest_wall(model, faction), strength
+		thinnest_wall(model, faction, MapPlayCampaign.tech_by_faction(play)), strength
 	)
-	if want <= own_regiments:
+	var missing: int = maxi(want - maxi(own_regiments, 0), 0)
+	if missing <= 0:
 		return 0
 	# A peaceful court banks the chest only once it can already fund the line
 	# it would raise today (issue #603's reach test, #1381's wall): the wall
-	# prices money alone at peace, so a bank no poorer court can reach would
+	# prices money alone at peace, so a bank no poorer court could reach would
 	# freeze its economy. A court at war arms for the host the read names.
 	if not MapPlayCourt.at_war(play, faction) \
 			and AiArmyReinforceLine.cheapest_line(economy) < 0:
 		return 0
-	return want
+	return missing
 
 
 ## The lowest storm threshold among the walled provinces this court does not
-## own, 0 when none stands. The battery follows the **defender's** studies
-## (wiki: siege-mechanics § Emplaced Artillery — Royal → Heavy → Siege), which
-## this muster cannot read for another court, so it prices the top of the line
-## ([method FortRules.storm_ceiling]): the host it asks for clears the wall
-## whatever battery stands behind it ([method FortRules.storm_threshold] with
-## the Royal floor would size a host the ladder could repel; issue #1314).
-static func thinnest_wall(model: MapModel, faction: int) -> float:
+## own, 0 when none stands. Each province is priced with the battery its holder
+## mounts (issue #1381): the campaign's tech table, noted by the map layer, read
+## the same way the resolver reads it (`FortRules.storm_threshold`) — a Minor
+## Nation's Wood wall is a Royal floor, a Great Power's the emplaced line its
+## studies open. A caller with no table prices the top of the ladder
+## ([method FortRules.storm_ceiling]), which no longer sizes every minor's wall
+## as if it carried siege guns.
+static func thinnest_wall(model: MapModel, faction: int, techs: Dictionary = {}) -> float:
 	if model == null:
 		return 0.0
 	var thinnest: float = 0.0
@@ -212,6 +218,10 @@ static func thinnest_wall(model: MapModel, faction: int) -> float:
 		if not FortRules.is_siege(level):
 			continue
 		var threshold: float = FortRules.storm_ceiling(level)
+		if not techs.is_empty():
+			var tech: Variant = techs.get(model.province_owner(province), {})
+			if tech is Dictionary:
+				threshold = FortRules.storm_threshold(tech as Dictionary, level)
 		if thinnest <= 0.0 or threshold < thinnest:
 			thinnest = threshold
 	return thinnest
@@ -237,6 +247,17 @@ static func _note_read(config: Variant, wall: Dictionary) -> void:
 		shared.storm_read = wall
 	elif want <= 0.0 and kept <= 0.0:
 		shared.storm_read = wall
+
+
+## Notes the campaign's own tech table on the court (issue #1381), so the storm
+## gate prices each wall with the battery its holder mounts — the same read the
+## resolver makes. The game's table covers every Great Power and the seat; a
+## Minor Nation or Tribe keeps the Royal floor. A caller with no session, or a
+## court whose config is not ours, notes nothing.
+static func _note_techs(config: Variant, play: PlaySession) -> void:
+	if not (config is AiConfig) or play == null:
+		return
+	(config as AiConfig).wall_techs = MapPlayCampaign.tech_by_faction(play)
 
 
 static func _reinforce(

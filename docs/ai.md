@@ -7,7 +7,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Registry, profiles** (`AiParameterRegistry`, `AiConfig`, `AiPersonality`,
   `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas (DR-20261120-08).
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
-  (`AiNavy`), else `economy.min_treasury`; on `earn` the auction keeps it
+  (`AiNavy`), else `economy.min_treasury`; on `earn` the auction holds it
   (DR-20261113-19/22, DR-20261114-06/11).
 - **Power** (`AiPower`): provinces×10 + regiments + ships×5; bands +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda;
@@ -42,13 +42,12 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   affordable tier keeps a peasant and cash floor.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots
   above the money-goal reserve (DR-20261111-27); when `none`, one Low study
-  pays the cash floor (DR-20261113-24) and, banking, the
-  ration-estate cap study (#1059).
-- **Civilian planner** (`AiCivilianPlanner`, `MapPlayCivilianAi`,
-  `AiMerchantWork`): builders finish towns, engineers raise roads/ports/
-  forts/hospitals (DR-20261111-16), explorers prospect, merchants buy deeds
-  (DR-20261111-10); one crew more of the archetype's type (`AiStaffTaste`).
-- **Spy** (`AiSpyPlanner`): station abroad; screen at war.
+  pays the cash floor (DR-20261113-24) and, banking, the ration cap (#1059),
+  invest floor (#1384).
+- **Civilian planner** (`AiCivilianPlanner`, `MapPlayCivilianAi`):
+  builders finish towns, engineers raise roads/ports/forts/hospitals
+  (DR-20261111-16), explorers prospect, merchants buy deeds
+  (DR-20261111-10); one crew more of the archetype's type (`AiStaffTaste`).- **Spy** (`AiSpyPlanner`): station abroad; screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above
   reserve, bid short inputs; merchants sail home, a hull more when tonnage
   outruns (DR-20261110-26).
@@ -68,8 +67,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   aims near the bar (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank, then
   allocate 0–100 utility.
-- **Persistence:** agendas, cooldowns, ledgers, claims
-  (`AiState.to_dict`), temperaments; bank (#995/#1059).
+- **Persistence:** agendas, cooldowns, ledgers, claims (`AiState.to_dict`),
+  temperaments; bank (#995/#1059).
 
 ## Deferred (REQ-P2-02)
 None; gaps: [`deferred.md`](deferred.md).
