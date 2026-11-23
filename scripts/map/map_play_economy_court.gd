@@ -159,7 +159,10 @@ func rehearse() -> void:
 		# A war chest the court has stalled on re-routes (#603).
 		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line"),
 		# The win-bar reading the bank rides on (issue #995).
-		int(pressure["need"]) > 0
+		int(pressure["need"]) > 0,
+		# The storm chest the thinnest wall ahead prices (issue #1381): the
+		# same read the muster pass banks, on the one shared config.
+		MapPlayArmyMusterAi.storm_chest(play, play.model, faction, regiments)
 	)
 	# The blunt earn-and-chest production skip (issue #484) froze every
 	# manufacture — lumber, cast iron, cloth — for the whole save, so a
@@ -170,7 +173,7 @@ func rehearse() -> void:
 	# works keep the manufactures they pay for.
 	var chest: Dictionary = MapPlayEconomyLarder.chest_rows(
 		play, faction, kind, config, economy, at_war, regiments, warships,
-		hull_chest, int(pressure["extra_regiments"])
+		hull_chest, int(pressure["extra_regiments"]), int(income["storm_bank"])
 	)
 	muster_row = chest["muster_row"] as Dictionary
 	navy_row = chest["navy_row"] as Dictionary
@@ -245,7 +248,7 @@ func apply_turn() -> Dictionary:
 ## REQ-P2-03); `apply_turn` adds a rival's resolution to the same row.
 func book_orders() -> Dictionary:
 	economy.production.clear_assignments()
-	for assignment: Dictionary in production["assignments"]:
+	for assignment: Dictionary in production.get("assignments", []):
 		economy.production.set_assignment(
 			String(assignment["recipe"]), int(assignment["units"])
 		)

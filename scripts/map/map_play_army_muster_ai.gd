@@ -36,8 +36,11 @@ static func muster(
 		play, model, faction, play.army_layer.regiment_count_all(faction)
 		if play != null and play.army_layer != null else 0
 	)
-	if config is AiConfig:
-		(config as AiConfig).storm_read = wall
+	# The thinnest wall across every region the court fights in (issue
+	# #1381): each region's pass re-reads its own ground, so a wall-less
+	# colony region would overwrite the Old World read the money goal banks
+	# against — keep the smaller non-zero want, not the last region's.
+	_note_read(config, wall)
 	var raised: bool = _reinforce(play, model, roster, faction, config, kind, trace)
 	var trained: bool = _pitch_train(play, model, roster, faction, kind, trace)
 	return raised or trained
@@ -56,8 +59,11 @@ static func extra_regiments(play: PlaySession, faction: int, config: Variant) ->
 ## eleven readings `AiArmyReinforce.plan` takes — its line, footing, food gate,
 ## the hull's chest and row, the victory pressure and the conquest bank —
 ## assembled once, so the drill yard's advice and the rival pass's muster cannot
-## drift (REQ-P2-03; DR-20261121-03). Pure: the plan reads the state and writes
-## none of it.
+## drift (REQ-P2-03; DR-20261121-03). The twelfth reading is the storm chest
+## (issue #1381): the purse the thinnest wall ahead prices, handed to the money
+## goal so the bank fills for the storm host — one call prices it, so the
+## muster, the ledger and the money goal cannot disagree about the host the
+## wall wants. Pure: the plan reads the state and writes none of it.
 static func plan(
 	play: PlaySession,
 	faction: int,
@@ -79,12 +85,13 @@ static func plan(
 			MapPlayCourt.hostile_warships(play, faction),
 			economy, MapPlayCourt.hull_types(play, faction)
 		)
+	var own: int = play.army_layer.regiment_count_all(faction)
 	var slack: int = MapPlayEconomyLarder.noted_slack(play, faction)
 	return AiBindEconomy.reinforce_plan(
 		kind,
 		config,
 		economy,
-		play.army_layer.regiment_count_all(faction),
+		own,
 		MapPlayCourt.at_war(play, faction),
 		extra_regiments(play, faction, config),
 		AiBindEconomy.fed_slack(
@@ -103,7 +110,10 @@ static func plan(
 		kind != AiControl.KIND_BASELINE
 		and AiVictoryPressure.below_bar(
 			play.world, faction, play.human_faction_id(), play.difficulty
-		)
+		),
+		# The storm host the thinnest wall ahead prices (issue #1381): the
+		# same host the muster pass banks, on the one shared config.
+		storm_chest(play, play.model, faction, own)
 	)
 
 
@@ -112,7 +122,9 @@ static func plan(
 ## wall plus its battery, so a court musting only its published target never
 ## crosses one and its land stays foreign. The reading is the thinnest wall the
 ## court does not own against its strongest line, from its own target and
-## strength; [method AiArmyReinforce.desired_regiments] raises the guard on it.
+## strength; [method AiArmyReinforce.desired_regiments] raises the guard on it
+## at war, and the money goal banks a storm-priced chest from it at peace
+## (issue #1381, [method storm_chest]).
 static func storm_extra(
 	play: PlaySession,
 	model: MapModel,
@@ -137,6 +149,49 @@ static func storm_extra(
 		target,
 		own_regiments
 	)
+
+
+## The storm host this court's money goal banks for (issue #1381): the
+## regiments the thinnest wall it does not own prices — `AiStormGate.
+## regiments_for` on its own reading — so a court that plans conquest saves
+## for the storm host before it declares, at peace as at war. The same read
+## the march prices at war ([method storm_extra]) prices the chest here, at
+## the guard target the peace publishes, so the wall never moves and the
+## muster pays its own ladder. The chest in ducats is the host × the line's
+## own price, read once inside `AiArmyReinforce.muster_floor`. Zero when the
+## court faces no wall, has no economy, or — at peace — cannot yet fund the
+## line it would raise today: the wall prices money alone at peace, and a
+## bank no poorer court can reach would freeze its economy. Pure: state in,
+## host out.
+static func storm_chest(
+	play: PlaySession,
+	model: MapModel,
+	faction: int,
+	own_regiments: int
+) -> int:
+	if play == null or model == null:
+		return 0
+	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
+	if economy == null:
+		return 0
+	var strength: float = float(RegimentCatalog.strength(
+		AiArmyReinforceLine.strongest_line(economy.tech_unlocked)
+	))
+	if strength <= 0.0:
+		return 0
+	var want: int = AiStormGate.regiments_for(
+		thinnest_wall(model, faction), strength
+	)
+	if want <= own_regiments:
+		return 0
+	# A peaceful court banks the chest only once it can already fund the line
+	# it would raise today (issue #603's reach test, #1381's wall): the wall
+	# prices money alone at peace, so a bank no poorer court can reach would
+	# freeze its economy. A court at war arms for the host the read names.
+	if not MapPlayCourt.at_war(play, faction) \
+			and AiArmyReinforceLine.cheapest_line(economy) < 0:
+		return 0
+	return want
 
 
 ## The lowest storm threshold among the walled provinces this court does not
@@ -168,6 +223,22 @@ static func thinnest_wall(model: MapModel, faction: int) -> float:
 ## DR-20261111-04). The regiment joins the Home Army at the capital through
 ## `ArmyTraining`, so the AI pays the same treasury, materials and peasant the
 ## human drill yard does (REQ-P2-03).
+## Notes one region's wall reading on the court's shared config, keeping the
+## thinnest wall across every region it fights in (issue #1381): a wall-less
+## colony region erases nothing, and a thinner wall replaces a thicker one.
+## A caller with no config keeps nothing.
+static func _note_read(config: Variant, wall: Dictionary) -> void:
+	if not (config is AiConfig):
+		return
+	var shared: AiConfig = config as AiConfig
+	var kept: float = float(shared.storm_read.get("want", 0.0))
+	var want: float = float(wall.get("want", 0.0))
+	if want > 0.0 and (kept <= 0.0 or want < kept):
+		shared.storm_read = wall
+	elif want <= 0.0 and kept <= 0.0:
+		shared.storm_read = wall
+
+
 static func _reinforce(
 	play: PlaySession,
 	model: MapModel,

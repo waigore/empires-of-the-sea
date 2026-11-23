@@ -39,7 +39,10 @@ static func context(world: WorldMap, supplied: Dictionary, player: int) -> Dicti
 		shared["charts"] = supplied["charts"]
 	if supplied.has("stockpiles"):
 		shared["stockpiles"] = supplied["stockpiles"]
-	for key: String in ["hull_chests", "warships", "victory_press", "conquest_gaps", AiFrontier.KEY]:
+	for key: String in [
+		"hull_chests", "warships", "victory_press", "conquest_gaps",
+		"storm_banks", AiFrontier.KEY
+	]:
 		if supplied.has(key):
 			shared[key] = supplied[key]
 	return shared
@@ -66,7 +69,9 @@ static func reading(shared: Dictionary, faction: int, income: Dictionary = {}) -
 ## the same read for the crown, so the advice and the pass cannot drift
 ## (DR-20261121-05). The caller resolves the config — the seed and the bound
 ## temperament are the caller's, so a reading never plans on the neutral profile.
-## Pure: the state is read, never written.
+## The storm chest rides the goal (issue #1381): the caller's `storm_banks` docket
+## names the purse the court's thinnest wall prices, and a court with none banks
+## its published chest. Pure: the state is read, never written.
 static func court(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -78,13 +83,19 @@ static func court(
 	if config == null:
 		return {}
 	var phase: Dictionary = AiPhasePlanner.plan(config, state)
+	var regiments: int = int(
+		(shared.get("regiments", {}) as Dictionary).get(faction, 0)
+	)
 	var income: Dictionary = AiIncome.plan(
 		config, ledger(ai_state, faction), AiIncome.at_war(state, faction),
-		int((shared.get("regiments", {}) as Dictionary).get(faction, 0)),
+		regiments,
 		int((shared.get("hull_chests", {}) as Dictionary).get(faction, 0)),
 		int((shared.get("warships", {}) as Dictionary).get(faction, -1)),
 		0,
-		bool((shared.get("conquest_gaps", {}) as Dictionary).get(faction, false))
+		bool((shared.get("conquest_gaps", {}) as Dictionary).get(faction, false)),
+		# The storm chest the court's thinnest wall prices (issue #1381): the
+		# goal the planners stand down against is the host the war must fund.
+		int((shared.get("storm_banks", {}) as Dictionary).get(faction, 0))
 	)
 	var read: Dictionary = reading(shared, faction, income)
 	var tech: Dictionary = (shared.get("tech", {}) as Dictionary).get(faction, {})

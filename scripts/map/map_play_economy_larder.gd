@@ -157,10 +157,11 @@ static func chest_rows(
 	regiments: int,
 	warships: int,
 	hull_chest: int,
-	extra_regiments: int
+	extra_regiments: int,
+	storm_bank: int = 0
 ) -> Dictionary:
 	var muster: Dictionary = AiBindEconomy.muster_reserve(
-		kind, config, economy, regiments, at_war, extra_regiments
+		kind, config, economy, regiments, at_war, extra_regiments, storm_bank
 	)
 	var navy: Dictionary = (
 		AiNavy.due_row(
