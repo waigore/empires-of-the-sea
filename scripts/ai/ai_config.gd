@@ -17,7 +17,7 @@ var agenda_traits: Dictionary = {}
 ## is the court's one shared instance for the run (issue #1356), so the
 ## reading a live pass notes is what every reader in the turn — the counsel,
 ## the ledger, the observer — sees. At war the read raises the muster target
-## (`AiArmyReinforce._target`); at peace it prices only money — the conquest
+## (`AiArmyReinforceHost.target`); at peace it prices only money — the conquest
 ## bank sizes the storm chest from it, so the war the court plans is funded
 ## for the host the wall wants before it declares (issue #1381). The bench's
 ## frozen mainline builds its own configs and carries no reading, and a court
