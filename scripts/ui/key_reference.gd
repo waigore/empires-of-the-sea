@@ -114,6 +114,33 @@ const GROUPS: Array[Dictionary] = [
 	},
 ]
 
+## Desktop-only tooling (issue #1393). A phone has no keyboard and no game-cache
+## folder to capture into, so its keys page never lists these rows; the drift
+## guard still names them, so a new capture key cannot ship unread.
+const DESKTOP_GROUPS: Array[Dictionary] = [
+	{
+		"title": "Playtest capture (desktop)",
+		"rows":
+		[
+			{
+				"label": "Capture mode",
+				"actions": [InputActions.PLAYTEST_TOGGLE],
+				"door": "Capture plaque",
+			},
+			{
+				"label": "Screenshot",
+				"actions": [InputActions.PLAYTEST_SHOT],
+				"door": "Capture › Shot",
+			},
+			{
+				"label": "Record video",
+				"actions": [InputActions.PLAYTEST_RECORD],
+				"door": "Capture › Record",
+			},
+		],
+	},
+]
+
 ## Nothing to print for an action no keyboard answers.
 const NO_KEY: String = "—"
 
@@ -123,19 +150,26 @@ const NO_KEY: String = "—"
 static func groups() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for raw: Variant in GROUPS:
-		var group: Dictionary = raw
-		var rows: Array[Dictionary] = []
-		for raw_row: Variant in group.get("rows", []):
-			var row: Dictionary = raw_row
-			rows.append({
-				"label": String(row.get("label", "")),
-				"keys": keys_for(
-					row.get("actions", []), bool(row.get("spaced", false))
-				),
-				"door": String(row.get("door", "")),
-			})
-		out.append({"title": String(group.get("title", "")), "rows": rows})
+		out.append(_resolve(raw as Dictionary))
+	if not OS.has_feature("mobile"):
+		for raw: Variant in DESKTOP_GROUPS:
+			out.append(_resolve(raw as Dictionary))
 	return out
+
+
+## One raw group with its keys read off the live InputMap.
+static func _resolve(group: Dictionary) -> Dictionary:
+	var rows: Array[Dictionary] = []
+	for raw_row: Variant in group.get("rows", []):
+		var row: Dictionary = raw_row
+		rows.append({
+			"label": String(row.get("label", "")),
+			"keys": keys_for(
+				row.get("actions", []), bool(row.get("spaced", false))
+			),
+			"door": String(row.get("door", "")),
+		})
+	return {"title": String(group.get("title", "")), "rows": rows}
 
 
 ## The keys one row prints, in the order the action list names them: the primary
@@ -171,9 +205,15 @@ static func primary(action: String) -> String:
 static func actions() -> Array[String]:
 	var out: Array[String] = []
 	for raw: Variant in GROUPS:
-		for raw_row: Variant in (raw as Dictionary).get("rows", []):
-			for raw_action: Variant in (raw_row as Dictionary).get("actions", []):
-				var action: String = String(raw_action)
-				if not out.has(action):
-					out.append(action)
+		_collect_actions(out, raw as Dictionary)
+	for raw: Variant in DESKTOP_GROUPS:
+		_collect_actions(out, raw as Dictionary)
 	return out
+
+
+static func _collect_actions(out: Array[String], group: Dictionary) -> void:
+	for raw_row: Variant in group.get("rows", []):
+		for raw_action: Variant in (raw_row as Dictionary).get("actions", []):
+			var action: String = String(raw_action)
+			if not out.has(action):
+				out.append(action)

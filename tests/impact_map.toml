@@ -2228,6 +2228,14 @@ suites = [
   "test_a_map_screen.gd",
 ]
 
+# Playtest capture mode (issue #1393): the metadata/report helpers, the overlay
+# and the controller. Its own suite keeps the capture state machine off the
+# heavy chart boot.
+[domains.playtest_capture]
+suites = [
+  "test_playtest_capture.gd",
+]
+
 [domains.fold_diplomacy_screen]
 suites = [
   "test_diplomacy_screen.gd",
@@ -4622,6 +4630,12 @@ domain = "menu"
 [[rules]]
 match = "scripts/input_actions.gd"
 domain = "crown_road"
+
+# Playtest capture mode (issue #1393): its own suite, before the broad debug
+# rule below, so a capture change never pays the whole chart boot.
+[[rules]]
+match = "scripts/debug/playtest_capture*.gd*"
+domain = "playtest_capture"
 
 # Agent Debug Bridge (issue #699): the pure projector and the thin loopback
 # WebSocket node. Query-only debug tooling, so a change here runs its own suite
