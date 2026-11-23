@@ -16681,7 +16681,7 @@ func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:
 	var chain: AiObjective = _by_id(objectives, "colonise.tribe_chain")
 
 	assert_true(chain != null, "a colony in reach is a priced aim")
-	assert_eq(int(chain.utility), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain.utility), AiObjectiveExpeditionPlan.W_TRIBE_COLONY)
 	assert_eq(int(chain.cost["treasury"]), DiplomacyCatalog.EMBASSY_COST)
 	assert_eq(int(chain.cost["orders"]), 1, "the chain spends the court's one order")
 	var report: Dictionary = AiObjectiveLedger.run(
@@ -16713,7 +16713,7 @@ func test_the_deed_the_court_saves_for_is_a_priced_aim() -> void:
 	var deed: AiObjective = _by_id(objectives, "market.deed")
 
 	assert_true(deed != null, "a priced deed is an aim")
-	assert_eq(int(deed.utility), AiObjectivesPlan.W_DEED)
+	assert_eq(int(deed.utility), AiObjectiveTreasuryPlan.W_DEED)
 	assert_eq(int(deed.cost["treasury"]), 750, "the published 15 x base price")
 	AiObjectiveLedger.run(
 		objectives,
@@ -17009,7 +17009,7 @@ func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
 	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
 
 	assert_true(build != null, "a court at war with no fighting hull builds one")
-	assert_eq(int(build.utility), AiObjectivesPlan.W_NAVY_BUILD, "the yard leads")
+	assert_eq(int(build.utility), AiObjectiveNavyPlan.W_NAVY_BUILD, "the yard leads")
 	assert_eq(int(build.cost["treasury"]), 5500, "priced at the cheapest warship")
 	assert_false(
 		(build.cost as Dictionary).has("hull"),
@@ -17034,7 +17034,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 
 	assert_true(build != null, "the yard is still the court's aim")
 	assert_eq(
-		int(build.utility), AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		int(build.utility), AiObjectiveNavyPlan.W_NAVY_BUILD_WAITING,
 		"but the yard waits behind the army it would starve"
 	)
 	assert_true(
@@ -17058,7 +17058,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	readings["treasury"] = 5500
 	assert_true(
 		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility)
-		> AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		> AiObjectiveNavyPlan.W_NAVY_BUILD_WAITING,
 		"the chest is in hand: the yard is no longer parked behind the line"
 	)
 	# Fleetless rebuild never yields the yard to the muster (#484).
@@ -17066,7 +17066,7 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	readings["treasury"] = 5342
 	assert_eq(
 		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility),
-		AiObjectivesPlan.W_NAVY_BUILD,
+		AiObjectiveNavyPlan.W_NAVY_BUILD,
 		"a lost last sloop keeps the yard ahead of the line"
 	)
 
@@ -17150,7 +17150,7 @@ func test_a_court_outmatched_on_its_own_coast_replaces_before_it_expands() -> vo
 
 	assert_true(build != null, "outmatched, the court replaces its hulls")
 	assert_true(
-		int(build.utility) > int(AiObjectivesPlan.W_NAVY),
+		int(build.utility) > int(AiObjectiveNavyPlan.W_NAVY),
 		"and the replacement outranks a sortie"
 	)
 
@@ -17335,7 +17335,7 @@ func test_the_adapter_reads_a_charted_tribe_as_a_colony_in_reach() -> void:
 		if String(row["id"]) == "colonise.tribe_chain":
 			chain = row
 	assert_false(chain.is_empty(), "the envoy chain is priced")
-	assert_eq(int(chain["utility"]), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain["utility"]), AiObjectiveExpeditionPlan.W_TRIBE_COLONY)
 	assert_eq(int(chain["cost"]["treasury"]), DiplomacyCatalog.EMBASSY_COST)
 	assert_ne(String(chain["status"]), AiObjective.STATUS_BLOCKED, "the shore and the purse both stand")
 	play.ship_layer.free()
