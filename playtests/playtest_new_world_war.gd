@@ -41,7 +41,7 @@ func _run() -> void:
 		_play.world.region(FactionCatalog.OLD_WORLD).province_name(_play.capital_province),
 		FactionCatalog.region_label(FactionCatalog.OLD_WORLD),
 	])
-	_play.switch_region(FactionCatalog.NEW_WORLD)
+	_play.screen.switch_region(FactionCatalog.NEW_WORLD)
 	await process_frame
 	_say("chart on screen: %s" % FactionCatalog.region_label(_play.region_index))
 	_survey()
@@ -261,7 +261,7 @@ func _farthest_own(from: int) -> int:
 ## and must land at the capital wherever the crown is looking (wiki:
 ## workers-and-population § Phase placement; military-armies § Home Army).
 func _seat_pass() -> void:
-	_play.switch_region(FactionCatalog.OLD_WORLD)
+	_play.screen.switch_region(FactionCatalog.OLD_WORLD)
 	await process_frame
 	var seat: int = _play.capital_province
 	_say("")
@@ -280,7 +280,7 @@ func _seat_pass() -> void:
 	var hull: String = _hull_type()
 	MapPlayFleetYard.launch(_play, hull)
 	_say("ordered a %s: %s" % [hull, _toasts_line()])
-	_play.switch_region(FactionCatalog.NEW_WORLD)
+	_play.screen.switch_region(FactionCatalog.NEW_WORLD)
 	await process_frame
 	_say("chart flipped to %s at turn %d — closing the turn here" % [
 		FactionCatalog.region_label(_play.region_index), _play.turn,

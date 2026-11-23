@@ -193,7 +193,7 @@ func _seat_orders_after_move(seat: int) -> void:
 		int(MapPlayCourt.crown_seat(_play)["region"]),
 		_province_name(int(MapPlayCourt.crown_seat(_play)["province"])),
 	])
-	_play.switch_region(int(MapPlayCourt.crown_seat(_play)["region"]))
+	_play.screen.switch_region(int(MapPlayCourt.crown_seat(_play)["region"]))
 	await process_frame
 	_say("Home Army stands at %s" % _home_army_place())
 	MapPlayInput.select_province(_play, seat, Vector2.ZERO)
