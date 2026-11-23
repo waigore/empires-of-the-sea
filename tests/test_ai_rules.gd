@@ -8627,20 +8627,43 @@ func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 
 
 ## The levy's own hand (issue #1355): `army.min_peasants` names the free hands
-## the levy draws from, so a court at war with one free peasant raises its levy,
-## and the reservation and the war chest read the same floor.
+## the levy draws from, so a court at war with one free peasant raises its levy
+## when its stores carry no recipe's raw, and the reservation and the war chest
+## read the same floor.
 func test_the_levy_draws_the_floors_own_hand() -> void:
 	var config: AiConfig = _work_config()
+	# No wool, no timber: the workshop has nothing to run, so the levy drafts
+	# the one free hand as published (issue #1355).
+	var bare: PlayerEconomy = _work_economy(12000, 1)
+	bare.stockpile.erase("wool")
 	assert_true(
-		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 1)),
+		AiArmyReinforceLine.labour_floor_ok(config, bare),
 		"one free peasant is the floor the levy draws from"
 	)
 	assert_false(
 		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 0)),
 		"an empty pool holds the floor"
 	)
-	var muster: Dictionary = AiArmyReinforce.plan(config, _work_economy(12000, 1), 3, true)
+	var muster: Dictionary = AiArmyReinforce.plan(config, bare, 3, true)
 	assert_eq(String(muster["muster"]), "arquebusiers", "a war-time court with one free hand arms up")
+	# The recipe pair (issue #1375): a court under its worker target that holds
+	# a build input's raw keeps the two hands one labour-2 run spends, so the
+	# pool the muster drafts to zero can still weave and hire.
+	assert_false(
+		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 1)),
+		"the workshop's raw holds its pair of hands"
+	)
+	assert_true(
+		AiArmyReinforceLine.labour_floor_ok(config, _work_economy(12000, 3)),
+		"the pair plus the levy's hand is the floor the raw holds"
+	)
+	# A court at its worker target drafts as published whatever it holds.
+	var full: PlayerEconomy = _work_economy(12000, 1)
+	full.workers = WorkerPool.make(1, 9)
+	assert_true(
+		AiArmyReinforceLine.labour_floor_ok(config, full),
+		"at the worker target the levy drafts as published"
+	)
 	# The reservation keeps a head above the floor so a levy that drew the pool
 	# to its head would not strand the next muster with an empty pool.
 	var economy: PlayerEconomy = _work_economy(12000, 1)
@@ -8651,7 +8674,7 @@ func test_the_levy_draws_the_floors_own_hand() -> void:
 		"the fields keep the floor plus the levy's hand"
 	)
 	assert_true(
-		AiArmyReinforce.muster_floor(config, _work_economy(12000, 1), 3, true) > 0,
+		AiArmyReinforce.muster_floor(config, bare, 3, true) > 0,
 		"the war chest reads the same floor"
 	)
 
@@ -8659,8 +8682,11 @@ func test_the_levy_draws_the_floors_own_hand() -> void:
 func test_a_thin_labour_pool_stops_the_muster() -> void:
 	# The retuned floor is 1 free hand (issue #1314 companion; issue #1355): the
 	# floor names the hands the levy draws, so a pool of one raises the levy and
-	# an empty pool is where the labour floor holds.
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 1), 3, false)
+	# an empty pool is where the labour floor holds. A court whose stores carry
+	# a build input's raw keeps the recipe pair above it instead (issue #1375).
+	var bare: PlayerEconomy = _work_economy(12000, 1)
+	bare.stockpile.erase("wool")
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), bare, 3, false)
 
 	assert_eq(String(plan["muster"]), "arquebusiers", "the levy's own hand is drawn")
 	# An empty pool and the muster fires nothing — the floor holds.
@@ -15754,8 +15780,11 @@ func test_the_victory_pressure_raises_the_muster_target() -> void:
 
 func test_planner_a_thin_labour_pool_stops_the_muster() -> void:
 	# The retuned floor is 1 free hand (issue #1314 companion; issue #1355): a
-	# pool of one draws the levy, an empty pool is where the floor holds.
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 1), 3, false)
+	# pool of one draws the levy when the stores carry no recipe's raw, an empty
+	# pool is where the floor holds. The raw keeps the recipe pair (issue #1375).
+	var bare: PlayerEconomy = _ai_army_reinforce_economy(12000, 1)
+	bare.stockpile.erase("wool")
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), bare, 3, false)
 
 	assert_eq(String(plan["muster"]), "arquebusiers", "the levy's own hand is drawn")
 	var empty: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 0), 3, false)
