@@ -8,6 +8,9 @@ extends PanelContainer
 signal action_pressed(action: String)
 signal close_pressed
 signal dock_side_pressed
+## The head's realm door, forwarded as the panel's own: the HUD wires one signal
+## instead of searching the sheet for the head it built (REQ-P3-02).
+signal realm_pressed
 
 var _head: ProvinceSheetHead = null
 ## The court's own reading, asked at every refresh: the work its civilian pass
@@ -73,6 +76,7 @@ func _build() -> void:
 
 	_head = ProvinceSheetHead.new()
 	_head.close_pressed.connect(func() -> void: close_pressed.emit())
+	_head.realm_pressed.connect(func() -> void: realm_pressed.emit())
 	_shell.add_block(_head)
 
 	# The court's own reading sits under the head and above the facts it answers:

@@ -33,7 +33,7 @@ func _run() -> void:
 		_finish()
 		return
 	_play = _screen.play
-	_play.switch_region(FactionCatalog.NEW_WORLD)
+	_play.screen.switch_region(FactionCatalog.NEW_WORLD)
 	await process_frame
 	var model: MapModel = _play.model
 	_say("seed %s · turn %d · %s · chart %s" % [
