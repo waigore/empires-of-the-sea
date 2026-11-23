@@ -21,6 +21,25 @@ extends RefCounted
 ## own workshop can turn and does not hold in number: the best such ground wins,
 ## the compass order breaks ties, and a caller that reads no appetite keeps the
 ## published order tile for tile.
+##
+## **Riches are ground, not a mineral** (issue #1382): a court on **earn** sails
+## for cash, and the one New World ground that clears straight to the treasury is
+## a deposit no chart shows until an Explorer digs it (fog-and-exploration
+## § Prospect-Required Resources; DR-20261111-26). So while that court wants
+## income, an Explorer's landing prefers a prospectable tile — swamp, hills, peak
+## or desert — over bare ground its workshop has no use for, and a raw the
+## workshop is short of still leads it. The deposit is never named: every
+## prospectable tile weighs the same until its survey lands (REQ-P2-03).
+
+
+## The one crew that may read ground: only an Explorer digs a deposit out of the
+## chart, so only an Explorer's landing is worth aiming at hills (issue #1382).
+const EXPLORER: String = "explorer"
+
+## Weight one prospectable tile carries while the court sails for income: enough
+## to outrank bare ground and a crop nobody is short of, never a raw the
+## workshop wants (a wanted raw counts its own shortfall, one point a unit).
+const RICHES_GROUND: int = 1
 
 
 ## One order for this court in this region, or an empty dictionary.
@@ -62,7 +81,9 @@ static func plan(
 		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
 		if carried == null:
 			return {}
-		return _voyage(world, region, model, fleet, carried, target, charts, appetite)
+		return _voyage(
+			world, region, model, fleet, carried, target, charts, appetite, wants_income
+		)
 	if region != home:
 		# No colonist aboard: a squadron left across the water sails home, so the
 		# court's hulls are not stranded there for the rest of the campaign (they
@@ -168,7 +189,9 @@ static func _board_step(
 
 
 ## One voyage step: cross at a Passage, otherwise sail toward the next waypoint,
-## and land as soon as the coast is in reach.
+## and land as soon as the coast is in reach. `wants_income` is the court's own
+## purse footing: an earn court's Explorer aims at the ground worth surveying
+## (issue #1382), while every other landing keeps the workshop's appetite.
 static func _voyage(
 	world: WorldMap,
 	region: int,
@@ -177,8 +200,12 @@ static func _voyage(
 	unit: CivilianState,
 	target: int,
 	charts: CourtCharts,
-	appetite: Dictionary = {}
+	appetite: Dictionary = {},
+	wants_income: bool = false
 ) -> Dictionary:
+	var riches: int = 0
+	if wants_income and unit.type_id == EXPLORER:
+		riches = RICHES_GROUND
 	if region != target:
 		if fleet.is_at_sea() and world.is_warp_zone(region, fleet.sea_zone):
 			return {"kind": "cross", "fleet": fleet.id}
@@ -193,8 +220,8 @@ static func _voyage(
 		tiles = charts.charted_tiles(unit.owner, model.region_id, tiles)
 	if not tiles.is_empty():
 		tiles.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-			var left: int = _ground_weight(model, a, appetite)
-			var right: int = _ground_weight(model, b, appetite)
+			var left: int = _ground_weight(model, a, appetite, riches)
+			var right: int = _ground_weight(model, b, appetite, riches)
 			if left != right:
 				return left > right
 			# The published compass order breaks every tie, so a court that reads
@@ -207,7 +234,7 @@ static func _voyage(
 			"kind": "land", "fleet": fleet.id, "unit": unit.id, "tile": tiles[0],
 		}
 	var coast: int = _sail(
-		model, fleet, _landing_zones(model, unit.type_id, unit.owner, charts, appetite),
+		model, fleet, _landing_zones(model, unit.type_id, unit.owner, charts, appetite, riches),
 		charts, unit.owner
 	)
 	if coast < 0:
@@ -256,11 +283,12 @@ static func _sail(
 ## Sea zones with at least one land tile this type may land on, and whose water
 ## the court has charted. A zone that fronts a ground the court's workshop turns
 ## comes first, so the expedition sails for the coast that grows what it needs
-## (DR-20261119-05); the zone id breaks every tie, so a caller with no appetite
-## keeps the published order.
+## (DR-20261119-05); a zone fronting ground worth surveying follows `riches`
+## while the court sails for income (issue #1382); the zone id breaks every tie,
+## so a caller with no appetite keeps the published order.
 static func _landing_zones(
 	model: MapModel, type_id: String, owner: int, charts: CourtCharts = null,
-	appetite: Dictionary = {}
+	appetite: Dictionary = {}, riches: int = 0
 ) -> Array[int]:
 	var weights: Dictionary = {}
 	for zone: SeaZoneState in model.sea_zones:
@@ -295,20 +323,24 @@ static func _zone_borders_province(model: MapModel, zone: int, province: int) ->
 	return NavalMovement.province_sea_zones(model, province).has(zone)
 
 
-## How much this ground is worth to the court's workshop: the appetite weight of
-## the commodity the tile carries, else zero. A ground nobody can read (no raw,
-## or a mineral the chart never shows unprospected) weighs nothing, so the
-## compass order decides it (DR-20261119-05).
-static func _ground_weight(model: MapModel, tile: Vector2i, appetite: Dictionary) -> int:
-	if appetite.is_empty():
-		return 0
+## How much this ground is worth to the court on its water: the appetite weight
+## of the raw the tile carries, else the weight of the bet that a prospectable
+## tile hides a deposit (`riches`), else zero. A mineral is never read before its
+## survey — the bet is on the ground, identical for every prospectable tile, so
+## no chart can name a deposit the court has not dug (DR-20261111-26; issue
+## #1382). A caller with no appetite and no bet keeps the compass order.
+static func _ground_weight(
+	model: MapModel, tile: Vector2i, appetite: Dictionary, riches: int = 0
+) -> int:
 	var resource: int = model.resource_at(tile.x, tile.y)
-	if resource < 0:
-		return 0
-	var commodity: String = ImprovementCatalog.commodity(resource)
-	if commodity.is_empty():
-		return 0
-	return maxi(int(appetite.get(commodity, 0)), 0)
+	if resource >= 0 and not appetite.is_empty():
+		var commodity: String = ImprovementCatalog.commodity(resource)
+		var wanted: int = maxi(int(appetite.get(commodity, 0)), 0)
+		if wanted > 0:
+			return wanted
+	if riches > 0 and MineralSurvey.prospectable(model, tile):
+		return riches
+	return 0
 
 
 static func _carried_id(fleet: FleetState) -> int:
