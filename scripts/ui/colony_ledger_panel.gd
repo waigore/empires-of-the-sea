@@ -10,7 +10,19 @@ extends LedgerSheet
 ## No key of its own: the letters are spent (DR-20261116-16), so the court's
 ## own door is the one way in.
 
+## The door the line's own court answers: a Tribe the crown has not bought has no
+## colony row, and the chain the line names is pressed on THE COURT, so the sheet
+## carries the one press that takes the crown there (wiki: diplomacy § The
+## crown's own envoy; DR-20261123-05; REQ-P5-01).
+const FOLLOW: String = "Open the court"
+const FOLLOW_TIP: String = "Open THE COURT on %s — the chain this line names"
+const NOT_IN_CONTACT: String = "%s is not in contact, so no court sheet opens."
+
 var _notes: VBoxContainer = null
+## The door the reading names, or null before the body builds.
+var _follow: Button = null
+## The pick the sheet is printing, so the door opens the court the line names.
+var _pick: Dictionary = {}
 
 
 func _init() -> void:
@@ -23,13 +35,15 @@ func _init() -> void:
 	# The reading is the panel's own method, not a closure handed in from the
 	# session: a bound callable cannot outlive the session it reads
 	# (DR-20261121-14, DR-20261121-16).
-	counsel_source = _read_counsel
+	counsel_source = _read_pick
 
 
 ## The Tribe the court's own colony chain is buying this turn, read off the
-## sheet's bound session (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16).
-func _read_counsel(_data: Dictionary) -> String:
-	return MapPlayColonyPick.line(play)
+## sheet's bound session (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16). The
+## pick travels whole rather than worded, so the gold line and the door come off
+## one read (DR-20261123-05).
+func _read_pick(_data: Dictionary) -> Dictionary:
+	return MapPlayColonyPick.pick(play)
 
 
 ## Re-reads both charts and the crown's diplomacy record, then repaints.
@@ -39,6 +53,7 @@ func refresh() -> void:
 	_snapshot = MapPlayColonies.snapshot(play)
 	_fit()
 	_sync_counsel()
+	_sync_follow()
 	_apply_filter()
 
 
@@ -72,9 +87,58 @@ func _build_body(column: VBoxContainer) -> void:
 
 
 ## What sits under the chips and above the rows: the court's own reading in gold
-## (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16).
+## and the one press that follows it to the court it names (wiki: diplomacy
+## § GP–Tribe Rules; DR-20261121-16, DR-20261123-05).
 func _under_chips() -> Control:
-	return _counsel_line()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	_counsel_line(box)
+	_follow = UiRowBuilder.button(FOLLOW, 38.0, 0.0, 13)
+	_follow.visible = false
+	_follow.pressed.connect(_on_follow)
+	box.add_child(_follow)
+	return box
+
+
+## The door stands while the reading names a court and stands down when it names
+## none (a footing that shuts new chains), off the same pick the gold line
+## prints — so the press never opens a court the sentence does not name
+## (DR-20261123-05; REQ-P1-07: printed, never a hover).
+func _sync_follow() -> void:
+	if _follow == null:
+		return
+	_pick = {} if _counsel == null else _counsel.pick
+	var court: int = MapPlayColonyPick.door(_pick)
+	_follow.visible = court >= 0
+	if court >= 0:
+		_follow.tooltip_text = FOLLOW_TIP % FactionCatalog.name_of(court)
+
+
+## The door: THE COURT opens on the court the line names, and the colony sheet
+## steps aside so the envoy rows are the sheet the crown reads (REQ-P5-01). A
+## court the crown is not in contact with says so rather than leaving the press
+## silent (REQ-P5-05). Nothing is offered, signed, bought or spent (REQ-P2-03).
+func _on_follow() -> void:
+	var court: int = MapPlayColonyPick.door(_pick)
+	if court < 0:
+		return
+	if not MapPlayDiplomacy.open_court(play, court):
+		if play != null and play.hud != null:
+			play.hud.toast(NOT_IN_CONTACT % FactionCatalog.name_of(court))
+		return
+	close()
+
+
+## The court the sheet's reading names, or -1 — the door's own target, exposed so
+## a suite asserts it instead of walking the rebuilt children (REQ-P3-02).
+func door_court() -> int:
+	return MapPlayColonyPick.door(_pick)
+
+
+## The door press as the sheet prints it: null before the body builds
+## (REQ-P3-02).
+func follow_press() -> Button:
+	return _follow
 
 
 func _note(text: String) -> Label:

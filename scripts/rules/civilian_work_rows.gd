@@ -9,9 +9,10 @@ extends RefCounted
 
 
 ## The order as the court reads it. A fort is the one order that lands at one of
-## three levels, each with its own price, wait and tech gate, so the order names
-## the level it would raise — "Build fort" alone cannot be told from "Build
-## fort" for a higher wall (wiki: siege-mechanics § Fort Levels).
+## the ladder's levels (`FortRules.MAX_LEVEL`, five since the retune), each with
+## its own price, wait and tech gate, so the order names the level it would raise
+## — "Build fort" alone cannot be told from "Build fort" for a higher wall
+## (wiki: siege-mechanics § Fort Levels).
 static func order_label(
 	action: String, model: MapModel, tile: Vector2i, plain: String
 ) -> String:

@@ -57,8 +57,9 @@ crown's own bar moves.
 
 ## Not in this slice
 
-AI income per turn and tutorial/advisor toggles stay outside the layer
-([`deferred.md`](deferred.md)). Difficulty is fixed at creation.
+Money goals live in `AiIncome`, not this layer. Tutorial/advisor toggles
+and other difficulty extras stay out of scope ([`deferred.md`](deferred.md)).
+Difficulty is fixed at creation.
 
 ## Tests
 

@@ -80,8 +80,9 @@ fills (`share_rows`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds it), a `LARDER` block
 (`LarderRead`): next store, every appetite, the striking tier; court recruits
-gold (`MapPlayRecruitPick`, DR-20261122-01). Tier rows print their deal
-(`LedgerWorkersText.recruit_line`): price, gate or ration (DR-20261118-03).
+gold, `▸`-marked (DR-20261122-01, DR-20261123-08). Tier rows print
+their deal (`LedgerWorkersText.recruit_line`): price, gate or ration
+(DR-20261118-03).
 
 ## Deferred (REQ-P2-02)
 
