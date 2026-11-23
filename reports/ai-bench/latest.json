@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
-  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:f5dc24333c38b0078900eec5726c916be3b89a8f588793001cdc34e7859eef95",
-  "submission_git": "refactor/larder-owns-hire-slack@9e3c724f+dirty",
+  "commit": "66206c72f579da11e54ec3c57cf6624952b4eb07",
+  "submission_hash": "sha256:e979469b56952feb9849704f70781a3b5266a98cf6a06bdd34570f1cb20661dd",
+  "submission_git": "fix/conquest-bank-storm-host@66206c72",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,46 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1210.2802665679378,
+      "value": 1091.6689509007417,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 10.0,
+      "value": 7.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 10.0,
+      "value": 6.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 62.65853174603175,
+      "value": 75.52480158730158,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:1617a06294b9d1493d3a0d10e82d8726978b8f332d1dc52e3715da5fe1b71954",
-    "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
+    "ai_surface_hash": "sha256:e979469b56952feb9849704f70781a3b5266a98cf6a06bdd34570f1cb20661dd",
+    "mainline_git_sha": "77a16369802a73e48882f9e188ca8ed09e5dcbda",
     "parts": {
       "provinces_old": 7,
-      "provinces_new": 3,
-      "regiments": 10,
-      "ships": 0,
-      "workers": 0,
-      "extraction_per_turn": 44.270270270270274,
-      "income_per_turn": 171.73972602739727,
-      "funded_pct": 62.65853174603175
+      "provinces_new": 0,
+      "regiments": 5,
+      "ships": 1,
+      "workers": 5,
+      "extraction_per_turn": 40.82105263157895,
+      "income_per_turn": 225.0268456375839,
+      "funded_pct": 75.52480158730158
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 62.65853174603175
+    "funded_pct": 75.52480158730158,
+    "run": ".gd-tools/bench1381/bench1500"
   },
   "params": {
     "turns": 200,
@@ -81,14 +82,14 @@
     "size": 1
   },
   "final": false,
-  "official": true,
-  "official_reason": null,
+  "official": false,
+  "official_reason": "local manual re-score",
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T00:41:19Z",
+  "timestamp": "2026-11-23T07:08:17Z",
   "report_version": 1,
-  "signature": "hmac-sha256:92fc713b83c02050d81c1889872836510d5dd0de53e9fe44c45cc870685b19ff"
+  "signature": "hmac-sha256:5a4c30d16d21363fe563235c765984708f044ae8d6f041685b036fb03b7f7e89"
 }

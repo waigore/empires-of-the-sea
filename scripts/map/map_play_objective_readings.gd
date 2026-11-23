@@ -78,14 +78,25 @@ static func _force(
 	var at_war: bool = bool(host["at_war"])
 	var regiments: int = int(host["regiments"])
 	var records: Dictionary = host["records"]
-	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
+	# The storm chest the court's money goal banks for (issue #1381): the
+	# ledger prices the same war chest the reserve holds — the host the
+	# thinnest wall wants, not one line regiment — so the muster's aim and the
+	# bank read one number.
+	var storm: int = MapPlayArmyMusterAi.storm_chest(
+		play, play.model, faction, regiments
+	)
+	var muster_floor: int = AiArmyReinforce.muster_floor(
+		config, economy, regiments, at_war, storm
+	)
 	return {
 		"at_war": at_war,
 		"war_desire": MapPlayObjectiveWar.desire(play, config, faction, pressure),
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
-		"muster_row": AiArmyReinforce.muster_reserve(config, economy, regiments, at_war),
+		"muster_row": AiArmyReinforce.muster_reserve(
+			config, economy, regiments, at_war, 0, storm
+		),
 		# Why a court standing under its target prices no muster row: the gate
 		# the muster's own rules name (labour floor, no pattern its techs open),
 		# so a silent absence cannot hide the starvation again (issue #1143).

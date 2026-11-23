@@ -6957,6 +6957,119 @@ func test_a_court_with_no_ledger_keeps_the_published_behaviour() -> void:
 	assert_eq(AiIncome.label(""), "spending", "an unknown goal reads as the published one")
 
 
+## The war chest prices the storm host the thinnest wall wants, not one line
+## regiment (issue #1381): at war the read rides the config the map layer
+## notes, and the muster floor names the same host the target arms for.
+func test_the_war_chest_banks_the_storm_host() -> void:
+	var config := AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var guard: int = AiArmyReinforce.guard_regiments(config, true)
+	var cheapest: int = AiArmyReinforce.cheapest_line_price(economy)
+	config.storm_read = {"want": guard + 3, "extra": 3}
+	var own: int = guard - 3
+	var want: int = AiArmyReinforce.storm_want_read(config, own)
+	assert_eq(want, guard + 3 - own, "the read is the wall's own want, net")
+	# The war chest the income goal holds is the storm host priced on the
+	# court's own line, not one regiment under the wall.
+	var host_chest: int = want * cheapest
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, own, true, want),
+		config.parameter("army.min_treasury") + host_chest,
+		"the floor names the storm host the wall prices"
+	)
+	assert_eq(
+		AiIncome.reserve(config, economy, true, own, 0, -1, 0, false, want),
+		AiArmyReinforce.muster_floor(config, economy, own, true, want),
+		"the reserve holds the same chest"
+	)
+	# A host at the wall's size banks nothing: the wall is crossed.
+	assert_eq(
+		AiIncome.storm_want(config, guard + 3), 0,
+		"a court at the wall's own host banks no storm chest"
+	)
+
+
+## At peace the wall prices money alone (issue #1381): the storm host stands
+## only while the court can already fund the line it would raise, and the
+## poorer court keeps its published cash floor instead of a bank that would
+## freeze its economy.
+func test_the_storm_bank_at_peace_asks_the_line_first() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(300)
+	var price: int = AiArmyReinforce.cheapest_line_price(economy)
+	assert_true(price > 0, "the techs open a line to save for")
+	# Below the line's own price the storm chest never rides: the reach test
+	# the war chest already reads (issue #603) gates the wall's bank too.
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 1, 0, -1, 0, false, 4),
+		config.parameter("economy.min_treasury"),
+		"a poorer court banks no storm chest"
+	)
+	# In reach, the storm bank stands: the chest is the larger of the line's
+	# own price and the storm host it prices — never one under the wall.
+	var purse: PlayerEconomy = _purse(price)
+	var chest: int = AiIncome.reserve(config, purse, false, 1, 0, -1, 0, false, 4)
+	assert_true(
+		chest >= config.parameter("army.min_treasury") + 4 * price
+		and chest >= config.parameter("army.min_treasury") + price,
+		"the storm chest is the line and the wall, not one under the other"
+	)
+
+
+## The wall never moves (issue #1314, kept): the peace-time muster target is
+## the published guard even with a reading in the config, and the storm bank
+## raises no muster the rules refuse — it only prices the purse. The muster
+## reads the larger chest, so a storm-priced purse does not block the line.
+func test_the_storm_bank_prices_the_purse_not_the_target() -> void:
+	var config := AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var guard: int = AiArmyReinforce.guard_regiments(config, false)
+	config.storm_read = {"want": guard + 5, "extra": 5}
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, false), guard,
+		"peace musters the published target"
+	)
+	# A court under its target on a storm-priced purse still musters — the
+	# bank is the war chest it holds, not a block on the line. The host rides
+	# as regiments (4), priced at the cheapest line inside the floor.
+	var plan: Dictionary = AiArmyReinforce.plan(
+		config, economy, 1, false, 0, -1, 0, {}, -1, -2, false, 4
+	)
+	assert_eq(int(plan["target"]), guard, "the target is the published guard")
+	assert_eq(String(plan["muster"]), AiArmyReinforce.next_type(config, economy),
+		"the storm-priced purse raises the line")
+	# The row keeps its cloth while the court banks for the storm host.
+	assert_true(
+		AiArmyReinforce.muster_reserve(config, economy, guard, false, 0, 4).size() > 0,
+		"the storm bank keeps the line's own cloth row"
+	)
+	# At the published target the row is genuinely quiet: the bank adds no
+	# muster past it — the storm host arms at war, where the read raises the
+	# target itself.
+	assert_true(
+		AiArmyReinforce.muster_reserve(config, economy, guard, false, 0, 0).is_empty(),
+		"no bank, no row past the target"
+	)
+
+
+## A baseline court with no reading keeps every published chest (issue #1381):
+## no storm read, no storm bank, and the #995 conquest chest stands alone.
+func test_a_court_with_no_wall_reading_banks_no_storm() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(300)
+	assert_eq(AiIncome.storm_want(config, 1), 0, "no reading reads no storm host")
+	assert_eq(
+		AiIncome.reserve(config, economy, true, 1, 0, -1, 0, true, 0),
+		AiArmyReinforce.muster_floor(config, economy, 1, true),
+		"the #995 conquest chest is the whole bank"
+	)
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 1),
+		config.parameter("economy.min_treasury"),
+		"the published peace reserve stands"
+	)
+
+
 func test_an_earning_court_funds_no_study() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(1200)
