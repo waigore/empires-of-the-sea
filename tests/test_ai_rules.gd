@@ -7107,6 +7107,49 @@ func test_a_court_with_no_ledger_keeps_the_published_behaviour() -> void:
 	assert_eq(AiIncome.label(""), "spending", "an unknown goal reads as the published one")
 
 
+## The bank holds the declaration (issue #1384): a court saving for the army its
+## conquest needs opens no new war while the chest fills — the same veto the
+## pact break and the envoy rung already answer (#995, #1135). The bank releases
+## at the host's own price, and the published declaration leads again.
+func test_a_banked_court_declares_no_new_war() -> void:
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var state: DiplomacyState = _phase_court()
+	var ai_state := AiState.new()
+	var world: WorldMap = AiFixture.world(
+		[PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_MINOR]
+	)
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 20, PHASE_RIVAL: 5},
+		"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1},
+		"ships": {PHASE_OWNER: 1},
+		"treasury": {PHASE_OWNER: 600},
+		"income": {
+			"goal": AiIncome.GOAL_EARN, "reserve": 2200, "bank_chest": 2200,
+			"treasury": 600, "regiments": 1, "conquest_gap": true,
+		},
+	}
+	var blocked: String = AiDiplomacyGates.war_block(
+		config, state, ai_state, 30, PHASE_RIVAL,
+		state.relation(PHASE_OWNER, PHASE_RIVAL), 80, world, context,
+		AiPhasePlanner.PHASE_PEACE
+	)
+	assert_true(
+		blocked.begins_with("the court is banking"),
+		"the bank holds the declaration: %s" % blocked
+	)
+	# The bank releases at the host's own price: the published declaration leads.
+	(context["income"] as Dictionary)["treasury"] = 9000
+	assert_eq(
+		AiDiplomacyGates.war_block(
+			config, state, ai_state, 30, PHASE_RIVAL,
+			state.relation(PHASE_OWNER, PHASE_RIVAL), 80, world, context,
+			AiPhasePlanner.PHASE_PEACE
+		),
+		"",
+		"a court past its host price declares as published"
+	)
+
+
 ## The war chest prices the storm host the thinnest wall wants, not one line
 ## regiment (issue #1381): at war the read rides the config the map layer
 ## notes, and the muster floor names the same host the target arms for.

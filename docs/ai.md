@@ -47,7 +47,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Civilian planner** (`AiCivilianPlanner`, `MapPlayCivilianAi`):
   builders finish towns, engineers raise roads/ports/forts/hospitals
   (DR-20261111-16), explorers prospect, merchants buy deeds
-  (DR-20261111-10); one crew more of the archetype's type (`AiStaffTaste`).- **Spy** (`AiSpyPlanner`): station abroad; screen at war.
+  (DR-20261111-10); one crew more of the archetype's type (`AiStaffTaste`).
+- **Spy** (`AiSpyPlanner`): station abroad; screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above
   reserve, bid short inputs; merchants sail home, a hull more when tonnage
   outruns (DR-20261110-26).
