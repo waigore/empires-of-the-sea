@@ -24,6 +24,12 @@ static func wall_height(height: float, fort: int) -> float:
 	return BattlePlateWall.wall_height(height, fort)
 
 
+## The painted wall a level stands behind (three paintings; Bastion and Star
+## stand on the Modern one — see [method BattlePlateWall.wall_art]).
+static func wall_art(fort: int) -> String:
+	return BattlePlateWall.wall_art(fort)
+
+
 static func parapet_y(height: float, fort: int) -> float:
 	return BattlePlateWall.parapet_y(height, fort)
 

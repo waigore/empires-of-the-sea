@@ -25,15 +25,13 @@ const CHROME_HEIGHT: float = 52.0
 
 var play: PlaySession = null
 ## The always-present AUTO plaque: the seat's door and its state.
-var toggle: Button = null
+var toggle: AutoSeal = null
 
 var _state_label: Label = null
-var _speed_seal: Button = null
-var _speed_icon: Icon = null
+var _speed_seal: AutoSeal = null
 var _speed_label: Label = null
 ## The whole-log door: the plate prints the newest lines, this opens the rest.
-var _log_seal: Button = null
-var _log_caption: Label = null
+var _log_seal: AutoSeal = null
 var _log: AutoLogPlate = null
 ## Whether the plate held lines back on the last mirror, so the seal re-fits its
 ## width once per boundary instead of every frame.
@@ -46,20 +44,17 @@ var _signature: String = ""
 ## Whether the seat's chrome was up on the last mirror, so its two boundaries
 ## re-lay the despatch lane exactly once each.
 var _was_showing: bool = false
+## The last run the plaque's face was set to (`null` until the first mirror), so
+## a quiet frame repaints no stylebox.
+var _was_live: Variant = null
 
 
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_build()
-	resized.connect(_relayout)
+	resized.connect(relayout)
 	_mirror()
-
-
-## The plaque follows every viewport change (GameHud lays its own chrome out the
-## same way), so a phone rotation never strands the log off screen.
-func _relayout() -> void:
-	_layout(get_parent() as GameHud)
 
 
 ## True while the seat's chrome is up: armed, held, or the log has news.
@@ -71,9 +66,18 @@ func is_showing() -> bool:
 func bind(p_session: PlaySession, hud: GameHud) -> void:
 	play = p_session
 	_log.bind(play, hud)
-	_layout(hud)
+	relayout()
 	_signature = ""
 	_mirror()
+
+
+## The HUD laid its chrome out again (a resize, a rotation, a shifted safe
+## area): the plaque, the pace and the log follow it, so a phone rotation never
+## strands the log off screen (GameHud lays its own chrome out the same way).
+## AutoBar's `_ready` connects here, so Auto mode owns its chrome instead of the
+## HUD naming a child (REQ-P3-01).
+func relayout() -> void:
+	_layout(get_parent() as GameHud)
 
 
 func _process(delta: float) -> void:
@@ -111,76 +115,24 @@ func _drive(delta: float) -> void:
 
 
 func _build() -> void:
-	toggle = Button.new()
-	toggle.name = "AutoToggle"
-	toggle.custom_minimum_size = Vector2(PLAQUE_WIDTH, TOUCH_HEIGHT)
-	toggle.tooltip_text = "Auto mode — hand the AI your seat for a while"
-	toggle.focus_mode = Control.FOCUS_ALL
-	toggle.add_theme_stylebox_override("normal", _plaque(Color(0.13, 0.10, 0.07, 0.82), Palette.GOLD_DIM))
-	toggle.add_theme_stylebox_override("hover", _plaque(Color(0.22, 0.17, 0.11, 0.92), Palette.GOLD))
-	toggle.add_theme_stylebox_override("pressed", _plaque(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_PALE))
-	toggle.add_theme_stylebox_override("focus", _plaque(Color(0.0, 0.0, 0.0, 0.0), Palette.GOLD_PALE))
+	toggle = AutoSeal.new(
+		"AutoToggle", "auto", "AUTO",
+		"Auto mode — hand the AI your seat for a while",
+		Vector2(PLAQUE_WIDTH, TOUCH_HEIGHT), true
+	)
+	_state_label = toggle.set_detail()
+	toggle.set_live(false)
+	_was_live = false
 	toggle.pressed.connect(_on_toggle_pressed)
 	add_child(toggle)
 
-	var row := HBoxContainer.new()
-	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	row.offset_left = 8.0
-	row.offset_right = -8.0
-	row.add_theme_constant_override("separation", 6)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	toggle.add_child(row)
-
-	var helm := Icon.new("auto", 20.0, Palette.GOLD)
-	helm.name = "Medallion"
-	row.add_child(helm)
-
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", -2)
-	column.alignment = BoxContainer.ALIGNMENT_CENTER
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(column)
-
-	var caption := Label.new()
-	caption.name = "Caption"
-	caption.text = "AUTO"
-	caption.add_theme_font_size_override("font_size", 13)
-	caption.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(caption)
-
-	_state_label = Label.new()
-	_state_label.name = "AutoState"
-	_state_label.add_theme_font_size_override("font_size", 10)
-	_state_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	_state_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(_state_label)
-
-	_speed_seal = Button.new()
-	_speed_seal.name = "AutoSpeed"
-	_speed_seal.tooltip_text = "Pace — pause, 1x, 2x, 3x"
-	_speed_seal.custom_minimum_size = Vector2(TOUCH_HEIGHT, TOUCH_HEIGHT)
-	_speed_seal.add_theme_stylebox_override("normal", _plaque(Color(0.13, 0.10, 0.07, 0.86), Palette.GOLD_DIM))
-	_speed_seal.add_theme_stylebox_override("hover", _plaque(Color(0.22, 0.17, 0.11, 0.94), Palette.GOLD))
-	_speed_seal.add_theme_stylebox_override("pressed", _plaque(Color(0.09, 0.07, 0.05, 0.96), Palette.GOLD_PALE))
+	_speed_seal = AutoSeal.new(
+		"AutoSpeed", "play", "1x", "Pace — pause, 1x, 2x, 3x",
+		Vector2(TOUCH_HEIGHT, TOUCH_HEIGHT)
+	)
+	_speed_label = _speed_seal.caption()
 	_speed_seal.pressed.connect(_on_speed_pressed)
 	add_child(_speed_seal)
-
-	var speed_row := HBoxContainer.new()
-	speed_row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	speed_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	speed_row.add_theme_constant_override("separation", 3)
-	speed_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_speed_seal.add_child(speed_row)
-	_speed_icon = Icon.new("play", 16.0, Palette.GOLD_PALE)
-	speed_row.add_child(_speed_icon)
-	_speed_label = Label.new()
-	_speed_label.text = "1x"
-	_speed_label.add_theme_font_size_override("font_size", 12)
-	_speed_label.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_speed_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	speed_row.add_child(_speed_label)
 
 	_build_log_seal()
 	_log = AutoLogPlate.new()
@@ -193,47 +145,16 @@ func _build() -> void:
 	add_child(_prompt)
 
 
-func _plaque(fill: Color, border: Color) -> StyleBoxFlat:
-	var style := UiTheme.box(fill, border, 1, 3, Vector4(8, 2, 8, 2))
-	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
-	style.shadow_size = 2
-	style.shadow_offset = Vector2(0.0, 1.0)
-	return style
-
-
 ## The LOG seal: the plate's own door to the whole kept log, so a busy turn's
 ## first orders are read after the plate has moved on (REQ-P5-05).
 func _build_log_seal() -> void:
-	_log_seal = Button.new()
-	_log_seal.name = "AutoLogSeal"
-	_log_seal.custom_minimum_size = Vector2(LOG_SEAL_WIDTH, TOUCH_HEIGHT)
-	_log_seal.focus_mode = Control.FOCUS_ALL
-	_log_seal.add_theme_stylebox_override(
-		"normal", _plaque(Color(0.13, 0.10, 0.07, 0.86), Palette.GOLD_DIM)
-	)
-	_log_seal.add_theme_stylebox_override(
-		"hover", _plaque(Color(0.22, 0.17, 0.11, 0.94), Palette.GOLD)
-	)
-	_log_seal.add_theme_stylebox_override(
-		"pressed", _plaque(Color(0.09, 0.07, 0.05, 0.96), Palette.GOLD_PALE)
+	_log_seal = AutoSeal.new(
+		"AutoLogSeal", "scroll", "LOG",
+		"The crown's whole action log",
+		Vector2(LOG_SEAL_WIDTH, TOUCH_HEIGHT)
 	)
 	_log_seal.pressed.connect(_on_log_pressed)
 	add_child(_log_seal)
-
-	var row := HBoxContainer.new()
-	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 4)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_log_seal.add_child(row)
-	row.add_child(Icon.new("scroll", 16.0, Palette.GOLD_PALE))
-	_log_caption = Label.new()
-	_log_caption.name = "Caption"
-	_log_caption.text = "LOG"
-	_log_caption.add_theme_font_size_override("font_size", 12)
-	_log_caption.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_log_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(_log_caption)
 
 
 ## Geometry follows the viewport: the plaque rides top-centre under the
@@ -327,29 +248,23 @@ func _mirror() -> void:
 	_log.mirror()
 	_log_seal.visible = _log.is_showing()
 	var held: int = _log.held_back()
-	_log_caption.text = "LOG" if held <= 0 else "LOG +%d" % held
+	_log_seal.set_caption("LOG" if held <= 0 else "LOG +%d" % held)
 	_log_seal.tooltip_text = _log_tooltip()
 	if (held > 0) != _was_counted:
 		_was_counted = held > 0
-		_relayout()
-	_state_label.text = _state_text()
-	_state_label.add_theme_color_override(
-		"font_color", Palette.GOLD_PALE if play.auto_active else Palette.TEXT_DIM
-	)
+		relayout()
+	toggle.set_state_text(_state_text())
+	toggle.set_state_ink(Palette.GOLD_PALE if play.auto_active else Palette.TEXT_DIM)
 	# Paused, the bars say it on their own; a live pace prints its rate beside
 	# them, so the seal fits a phone's 44-point target either way.
 	_speed_label.visible = play.auto_speed > 0
 	_speed_label.text = MapPlayAuto.speed_label(play)
-	_speed_icon.kind = "play" if play.auto_speed > 0 else "pause"
-	_speed_icon.queue_redraw()
-	toggle.add_theme_stylebox_override(
-		"normal",
-		_plaque(
-			Color(0.22, 0.17, 0.11, 0.92) if play.auto_active
-			else Color(0.13, 0.10, 0.07, 0.82),
-			Palette.GOLD if play.auto_active else Palette.GOLD_DIM
-		)
-	)
+	_speed_seal.set_icon("play" if play.auto_speed > 0 else "pause")
+	# The seat's face follows its run: the plaque warms while Auto holds the
+	# turn, and one face serves every hover and press (AutoSeal owns the tones).
+	if _was_live != play.auto_active:
+		_was_live = play.auto_active
+		toggle.set_live(play.auto_active)
 	var hud := get_parent() as GameHud
 	if _was_showing != is_showing():
 		_was_showing = is_showing()

@@ -33,10 +33,12 @@ func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -2851,22 +2853,25 @@ func test_training_is_refused_outside_the_capital() -> void:
 
 ## The seat is the crown's own, read off the world: the chart on screen frames a
 ## holding, so a seat-scoped order still lands at the capital (wiki:
-## capital-and-connectivity § Capital).
+## capital-and-connectivity § Capital). `crown_seat` ignores the view, so the
+## framing flip is `region_index` alone — no `_cycle_region` under coverage.
 func test_the_seat_reads_the_same_from_either_chart() -> void:
 	var play: PlaySession = _screen.play
 	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
 	assert_gt(seat, -1, "the crown holds a seat")
-	_screen._cycle_region()
-	assert_ne(play.region_index, FactionCatalog.OLD_WORLD, "the other chart is on screen")
+	play.region_index = FactionCatalog.NEW_WORLD
+	assert_ne(play.region_index, FactionCatalog.OLD_WORLD, "the other chart is framed")
 	assert_eq(int(MapPlayCourt.crown_seat(play)["region"]), FactionCatalog.OLD_WORLD)
 	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), seat, "the seat stays home")
-	_screen._cycle_region()
+	play.region_index = FactionCatalog.OLD_WORLD
 	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), seat)
 
 
 ## A hire ordered at the seat musters there even when the turn closes on the
 ## other chart: the muster tile is the seat's, never a colony wearing its number
 ## (wiki: civilian-units § Training; capital-and-connectivity § Capital).
+## Complete walks `crown_seat`, not the painted layers, so framing the far chart
+## is `region_index` alone (docs/testing.md § Speed rules).
 func test_a_hire_musters_at_the_seat_while_another_chart_is_shown() -> void:
 	var play: PlaySession = _screen.play
 	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
@@ -2875,7 +2880,7 @@ func test_a_hire_musters_at_the_seat_while_another_chart_is_shown() -> void:
 	MapPlayInput.select_province(play, seat, _capital_point())
 	MapPlayInput.on_panel_action(play, "train_explorer")
 	var before: int = (play.civilian_layer.regions.value(FactionCatalog.OLD_WORLD, []) as Array).size()
-	_screen._cycle_region()
+	play.region_index = FactionCatalog.NEW_WORLD
 	MapPlayRecruits.complete(play)
 	var stored: Array = play.civilian_layer.regions.value(FactionCatalog.OLD_WORLD, [])
 	assert_eq(stored.size(), before + 1, "the hire musters on the seat's chart")
@@ -2887,14 +2892,16 @@ func test_a_hire_musters_at_the_seat_while_another_chart_is_shown() -> void:
 	)
 	assert_eq(
 		(play.civilian_layer.regions.value(FactionCatalog.NEW_WORLD, []) as Array).size(), 0,
-		"nothing musters on the chart on screen"
+		"nothing musters on the framed chart"
 	)
-	_screen._cycle_region()
+	play.region_index = FactionCatalog.OLD_WORLD
 
 
 ## The capital's own orders answer from the other chart by naming the capital:
 ## the yard and the drill never claim a colony's ground, and a colony wearing the
-## seat's own number hires nobody (wiki: world-model-identity).
+## seat's own number hires nobody (wiki: world-model-identity). Frame the far
+## chart's model without `_cycle_region` — the toast path reads `play.model` and
+## `region_index`, not the painted fog/ship layers under coverage.
 func test_the_seat_s_orders_name_the_capital_from_the_other_chart() -> void:
 	var play: PlaySession = _screen.play
 	var seat: Dictionary = MapPlayCourt.crown_seat(play)
@@ -2902,7 +2909,10 @@ func test_the_seat_s_orders_name_the_capital_from_the_other_chart() -> void:
 	var capital_name: String = String((seat["model"] as MapModel).province_name(province))
 	play.economy.economy.treasury = 60000
 	play.economy.economy.stockpile["paper"] = 20
-	_screen._cycle_region()
+	var home_model: MapModel = play.model
+	var far: MapModel = play.world.region(FactionCatalog.NEW_WORLD)
+	play.region_index = FactionCatalog.NEW_WORLD
+	play.model = far
 	var ground: int = play.model.provinces[0].id
 	MapPlayInput.select_province(
 		play, ground, play.model.province_center(ground) * MapScreen.TILE_SIZE
@@ -2926,7 +2936,8 @@ func test_the_seat_s_orders_name_the_capital_from_the_other_chart() -> void:
 		play.economy.economy.recruits.is_empty(),
 		"a province wearing the seat's number hires nobody"
 	)
-	_screen._cycle_region()
+	play.region_index = FactionCatalog.OLD_WORLD
+	play.model = home_model
 
 
 func test_training_a_rail_builder_waits_for_early_steam_engine() -> void:
