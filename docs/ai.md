@@ -27,13 +27,14 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (DR-20261121-15).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron, else raid a hostile coast (DR-20261111-17); at peace, home
-  (DR-20261110-30); the trace names a merchant's own sail `convoy` (#1258).
+  (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts**: each court's fog, read by voyages, invasions, diplomacy
   (DR-20261113-03).
-- **Colonisation** (`AiColonisationPlanner`): docks, boards, crosses, lands,
-  returns empty (DR-20261111-05/14-03); the crew is an Explorer, a Builder on
-  crown ground, or the claim's Merchant (#1127).
+- **Colonisation** (`AiColonisationPlanner`): docks, boards, crosses, lands by
+  its workshop's read (on earn, for prospectable ground, #1382), returns empty
+  (DR-20261111-05/14-03); the crew is an Explorer, a Builder on crown ground,
+  or the Merchant (#1127).
 - **Overseas invasions** (`AiInvasionPlanner`): detach hulls, dock, board,
   cross, storm the coast (DR-20261114-03); the earn lift stands down while
   pressing (DR-20261119-14).

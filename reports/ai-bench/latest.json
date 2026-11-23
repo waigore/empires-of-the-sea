@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:955f23af7aa866fa60816b93c094618cde2a4dcd38449f21b341b02a470cab84",
-  "submission_git": "refactor/ai-objectives-plan-homes@64c004e1+dirty",
+  "submission_hash": "sha256:b58219281b7f8dd8583b49c98cd7fc6b79b7dd743d35005dd035ccfa3f469a67",
+  "submission_git": "feat/earn-landing-reads-the-ground@ec7d2722",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:2def1e257dafe703998187f0a3e0390790996e4b76f09baa69400534b7eb2669",
+    "ai_surface_hash": "sha256:52fd8d3ef780ac050982c04651065b382e166fc69d597fbce7b47a26839e674c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T01:15:34Z",
+  "timestamp": "2026-11-23T02:20:53Z",
   "report_version": 1,
-  "signature": "hmac-sha256:986e622e85acc6d970895dc5d579ee46d2f2a9abdcae7b1d650c4c85ba2114c0"
+  "signature": "hmac-sha256:fb25276cfbbf03582c7e5a02b3e30069d90394e00e6112b6d119c087e21a45e5"
 }

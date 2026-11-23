@@ -170,6 +170,13 @@ const FEEDSTOCK_WEIGHT: int = 60
 ## One raise in hand and one coming: below this the raw estate leads.
 const FEEDSTOCK_FLOOR: int = 2
 
+## Riches clear straight to the treasury rather than to the store, so a mine is
+## worth the cash its next level clears beside the tons it gathers (wiki:
+## commodity-catalog § Riches and treasury; issue #1382). One point per hundred
+## ducats a level pays a turn: it leads a crop nobody is short of, and never a
+## raw the workshop wants, because a point of shortfall is worth ten.
+const RICHES_CASH: int = 4
+
 
 static func _best_estate(query: AiWorkQuery, estates: Array) -> Dictionary:
 	var best: Dictionary = {}
@@ -204,6 +211,10 @@ static func _best_estate(query: AiWorkQuery, estates: Array) -> Dictionary:
 		var makes: String = String(FEEDSTOCK.get(crop, ""))
 		if not makes.is_empty() and int(query.stockpile.get(makes, 0)) < FEEDSTOCK_FLOOR:
 			score += FEEDSTOCK_WEIGHT
+		# A mine pays cash, not tons: the riches a level clears to the treasury
+		# are the income the workshop's crops cannot bring (issue #1382).
+		if CommodityCatalog.is_riches(crop):
+			score += CommodityCatalog.base_price(crop) * gain * RICHES_CASH / 100
 		if level <= 0:
 			score += 10
 		score += gain * GAIN_WEIGHT

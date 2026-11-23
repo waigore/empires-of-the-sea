@@ -7766,6 +7766,46 @@ func test_the_feedstock_source_leads_while_the_manufacture_is_short() -> void:
 	)
 
 
+## Riches clear straight to the treasury, so a worked mine is the income the
+## workshop's crops cannot bring: a mine leads a crop nobody is short of, and a
+## raw the workshop wants still leads the mine (wiki: commodity-catalog
+## § Riches and treasury; issue #1382).
+func test_a_mine_leads_a_crop_nobody_is_short_of() -> void:
+	var model: MapModel = _hospital_model()
+	model.resource[model.index_of(3, 1)] = 4
+	model.resource[model.index_of(OUTER_TOWN.x, OUTER_TOWN.y)] = 3
+	var works := LandWorks.new()
+	for x in 5:
+		works.set_transport(model, Vector2i(x, 1), LandWorks.TRANSPORT_ROAD)
+	works.set_prospected(0, model, OUTER_TOWN)
+	var unit: CivilianState = CivilianState.create(1, 0, "builder", CAPITAL)
+	var context: Dictionary = {"capital_tile": CAPITAL}
+	var caps: Dictionary = {"grain": 2, "wool": 2, "gold": 2, "timber": 2}
+	var fed: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 20, "grain": 20}
+
+	var mine: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, fed,
+			caps, {"land_enclosure": true, "gold_mining": true}, context, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(mine["tile"]), OUTER_TOWN,
+		"the mine leads a crop nobody is short of"
+	)
+	var short: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 20, "grain": 0}
+	var farm: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, short,
+			caps, {"land_enclosure": true, "gold_mining": true}, context, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(farm["tile"]), Vector2i(3, 1),
+		"a raw the workshop is short of still leads the mine"
+	)
+
+
 ## Rival Engineer policy after it left the civilian dispatcher
 ## (wiki: civilian-work-planner § Engineer; capital-and-connectivity;
 ## civilian-units § Engineer, § Rail Builder). These cases pin the split: the
@@ -11276,6 +11316,58 @@ func test_a_colonist_lands_on_the_ground_its_workshop_feeds() -> void:
 	assert_false(
 		AiEconomyPlanner.ground_appetite(_ai_colonisation_config(), economy, 4).has("sugarCane"),
 		"a raw already in store is no reason to cross"
+	)
+
+
+## A court on **earn** sails for cash, and the New World ground that clears to
+## the treasury is a deposit no chart shows until an Explorer digs it. So its
+## Explorer's landing prefers ground worth surveying — and weighs every
+## prospectable tile the same, because the chart cannot say which deposit lies
+## under it (wiki: fog-and-exploration § Prospect-Required Resources; issue
+## #1382). A raw the workshop is short of still leads the bet.
+func test_an_earn_crowns_explorer_lands_on_ground_worth_surveying() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(
+		1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0)
+	)
+	assert_true(bool(CivilianVoyage.embark(world.region(0), unit, fleet)["ok"]))
+	assert_true(bool(FleetSortie.apply(world.region(0), fleet, 0)["ok"]))
+	fleet.moved = false
+	assert_true(bool(WarpTravel.apply_crossing(world, 0, fleet)["ok"]))
+	fleet.moved = false
+	# A hill hiding gold and a peak hiding gems, both uncharted deposits: the
+	# compass order reaches the hill first, so a landing at the peak would mean
+	# the planner had read a mineral the court has not surveyed.
+	new_world.terrain[new_world.index_of(1, 1)] = MapModel.Terrain.HILLS
+	new_world.terrain[new_world.index_of(2, 1)] = MapModel.Terrain.MOUNTAINS
+	new_world.resource[new_world.index_of(1, 1)] = 3
+	new_world.resource[new_world.index_of(2, 1)] = 11
+	var plain: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+		null, AiPhasePlanner.PHASE_PEACE, false, {}
+	)
+	assert_eq(
+		Vector2i(plain.get("tile", Vector2i(-1, -1))), Vector2i(0, 1),
+		"a court that does not sail for income keeps the published compass order"
+	)
+	var earning: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+		null, AiPhasePlanner.PHASE_PEACE, true, {}
+	)
+	assert_eq(
+		Vector2i(earning.get("tile", Vector2i(-1, -1))), Vector2i(1, 1),
+		"an earn court's Explorer lands on ground worth surveying"
+	)
+	new_world.resource[new_world.index_of(3, 1)] = 13
+	var fed: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+		null, AiPhasePlanner.PHASE_PEACE, true, {"sugarCane": 4}
+	)
+	assert_eq(
+		Vector2i(fed.get("tile", Vector2i(-1, -1))), Vector2i(3, 1),
+		"a raw the workshop wants still leads the bet on the ground"
 	)
 
 
