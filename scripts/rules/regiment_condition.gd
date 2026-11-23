@@ -205,12 +205,21 @@ static func chevrons(side: Array[ArmyState]) -> int:
 ## Quick Battle tally one way (DR-20261111-18). A winning side's colours also
 ## take the province it won as a battle honour, once (DR-20261112-02), and every
 ## survivor's history gains the field it stood in (DR-20261112-10).
+##
+## `storm_won` names the one win the outcome enum cannot: a storm that crossed a
+## wall settles as `CAPTURE` — the label an unopposed occupation also wears — but
+## it is a battle the storming court won, so its survivors take the chevron, the
+## honours and the citation a won field leaves (wiki: siege-mechanics § Storming
+## an empty walled province — "A storm is a **battle**"; combat § Chevrons won,
+## § Battle honours). An unopposed occupation passes nothing and keeps taking
+## none.
 static func attach(
 	report: Dictionary,
 	attacker_side: Array[ArmyState],
 	defender_side: Array[ArmyState],
 	atk_up: int,
-	def_up: int
+	def_up: int,
+	storm_won: bool = false
 ) -> void:
 	report["attacker_health"] = entries(attacker_side)
 	report["defender_health"] = entries(defender_side)
@@ -219,7 +228,7 @@ static func attach(
 	report["attacker_chevrons"] = atk_up
 	report["defender_chevrons"] = def_up
 	var outcome: int = int(report.get("outcome", ArmyCombat.Outcome.STALEMATE))
-	var atk_won: bool = outcome in [
+	var atk_won: bool = storm_won or outcome in [
 		ArmyCombat.Outcome.ATTACKER_VICTORY, ArmyCombat.Outcome.ATTACKER_ADVANTAGE
 	]
 	var def_won: bool = outcome == ArmyCombat.Outcome.DEFENDER_VICTORY
