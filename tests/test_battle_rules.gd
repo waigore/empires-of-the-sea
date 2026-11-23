@@ -2539,6 +2539,54 @@ func test_the_wall_read_names_the_figures_the_exchange_reads() -> void:
 	assert_eq(WallRead.line(0), "", "open ground says nothing")
 
 
+## The wall names the storm it sets, in the published ladder's own figure: a host
+## must beat the wall HP plus the standing battery to take an empty walled
+## province, and every whole 10 strength past it costs a regiment. The crown's own
+## ground reads her battery exactly; another court's studies are not hers to
+## read, so her wall prints the envelope — a royal battery to the heaviest
+## (wiki: siege-mechanics § Storming an empty walled province; DR-20261123-20).
+func test_the_wall_names_the_storm_it_sets() -> void:
+	# The page's own anchor: a Wood fort's 40 hp and a royal gun's 11 are 51, and
+	# the heaviest battery any court mounts takes the same wall to 59.
+	assert_eq(WallRead.storm_line(1), "storm needs 51–59 strength")
+	assert_eq(WallRead.storm_line(1, {}, true), "storm needs 51 strength")
+	assert_eq(
+		WallRead.storm_line(1, {"emplaced_siege_guns": true}, true),
+		"storm needs 59 strength"
+	)
+	assert_eq(WallRead.storm_line(0), "", "open ground takes no storm")
+	# Both ends are the fort table's own figures, level by level, so a rung the
+	# ladder gains is read without the words being edited.
+	for level: int in [1, 2, 3, 4, 5]:
+		assert_eq(
+			WallRead.storm_line(level, FortRules.CEILING_TECH, true),
+			"storm needs %d strength" % roundi(FortRules.storm_ceiling(level)),
+			"the heaviest battery reads the ceiling at level %d" % level
+		)
+		assert_eq(
+			WallRead.storm_line(level, {}, true),
+			"storm needs %d strength" % roundi(FortRules.storm_threshold({}, level)),
+			"the lightest battery reads the floor at level %d" % level
+		)
+		assert_true(
+			WallRead.storm_line(level).ends_with(" strength"),
+			"an unread battery reads the envelope at level %d" % level
+		)
+	var row: String = WallRead.line(1, WallRead.storm_line(1))
+	assert_true(row.contains("40 wall hp"), row)
+	assert_true(row.contains("storm needs 51–59 strength"), row)
+	assert_true(
+		WallRead.storm_tip(1).contains("%d strength past it costs one regiment" % 10),
+		"the tip prices what a storm past the wall costs"
+	)
+	assert_true(
+		WallRead.storm_tip(1).contains("not yours to read"),
+		"the tip says why another court's wall prints a range"
+	)
+	assert_false(WallRead.storm_tip(1, true).contains("not yours to read"))
+	assert_eq(WallRead.storm_tip(0), "", "open ground carries no tip")
+
+
 ## A march into another court's walled province reads the wall it will have to
 ## break; open ground keeps the plain line, so no siege is named where none
 ## stands (wiki: siege-mechanics § Wall Protection; REQ-P5-05).
@@ -2556,6 +2604,14 @@ func test_a_march_reads_the_wall_that_stands_there() -> void:
 	assert_true(
 		WallRead.march_line("Badajoz", 5).contains("200 wall hp"),
 		WallRead.march_line("Badajoz", 5)
+	)
+	# The receipt names the storm it would take, in the same words the province
+	# sheet's row prints (DR-20261123-20).
+	assert_eq(
+		WallRead.march_line("Badajoz", 1, WallRead.storm_line(1)),
+		"The army marches on Badajoz — a wood fort stands: "
+		+ "40 wall hp, 1 emplaced gun, 10% off a blow · "
+		+ "storm needs 51–59 strength."
 	)
 
 

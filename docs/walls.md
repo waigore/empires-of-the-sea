@@ -28,7 +28,10 @@ own fort order.
 
 The press names the price and prints what the wall buys under it, in words a
 phone reads without a hover. The sheet states the rule off the fort table:
-40 / 80 / 120 / 160 / 200 wall hp by level and 1–5 emplaced guns.
+40 / 80 / 120 / 160 / 200 wall hp by level and 1–5 emplaced guns. The province
+dossier's **Wall** row also names the storm the wall sets — `storm needs 51
+strength` on the crown's own ground, `51–59` on another court's, whose battery is
+not hers to read (DR-20261123-20).
 
 ## Raise
 

@@ -54,7 +54,18 @@ func _ready() -> void:
 	deeds = _add_row("Deeds")
 
 
-func show_province(model: MapModel, province_id: int, data: ProvinceState) -> void:
+## `viewer` is the crown reading the sheet and `tech` its own studies: the wall's
+## storm clause reads the crown's own battery exactly and another court's as the
+## published envelope, because a rival's studies are not hers to read (wiki:
+## siege-mechanics § Storming an empty walled province; DR-20261123-20). A grid
+## with no viewer reads no battery, so it prints the envelope.
+func show_province(
+	model: MapModel,
+	province_id: int,
+	data: ProvinceState,
+	viewer: int = -1,
+	tech: Dictionary = {}
+) -> void:
 	_data = data
 	terrain.text = _terrain_row(model, province_id)
 	var port_tile: Vector2i = data.port_tile
@@ -66,7 +77,14 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	town.text = DossierCopy.town(data)
 	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
-	_show_row(wall, WallRead.line(data.fort_level))
+	var known: bool = data.owner == viewer
+	_show_row(
+		wall,
+		WallRead.line(
+			data.fort_level, WallRead.storm_line(data.fort_level, tech, known)
+		)
+	)
+	wall.tooltip_text = WallRead.storm_tip(data.fort_level, known)
 	# The hosts are the panel's own reading (it alone may ask the session), so a
 	# fresh province clears the row until that call arrives.
 	set_hosts("")
@@ -92,6 +110,7 @@ func fill(values: Dictionary) -> void:
 	road.tooltip_text = ""
 	fort.text = String(values.get("fort", ""))
 	_show_row(wall, String(values.get("wall", "")))
+	wall.tooltip_text = String(values.get("wall_tip", ""))
 	set_hosts(String(values.get("hosts", "")))
 	set_harbour(String(values.get("harbour", "")))
 	hospital.text = String(values.get("hospital", ""))
