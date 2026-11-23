@@ -2237,6 +2237,56 @@ func test_the_province_dossier_names_the_orders_the_crowns_pass_would_give() -> 
 	assert_eq(MapPlayProvinceCounsel.line(play, null, province_id), "")
 
 
+## The seat's province sheet names the host that stands on its ground — the
+## count the rules publish for a reading crown — bound by the boot, not by the
+## sheet (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-13).
+func test_the_province_sheet_reads_the_host_standing_on_the_seat() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	assert_true(panel.play != null, "the boot seats the host reading")
+	var home: ArmyState = null
+	for raw: Variant in play.army_layer.regions.value(play.model.region_id, []):
+		var army: ArmyState = raw
+		if army == null or army.owner != play.player_faction or not army.home:
+			continue
+		home = army
+	assert_true(home != null, "the crown keeps a Home Army")
+	var seat: int = play.capital_province
+	assert_eq(home.province, seat, "the Home Army stands on the seat")
+	panel.refresh(screen.model, seat)
+	var crown: String = FactionCatalog.name_of(play.player_faction)
+	assert_eq(
+		panel.hosts_text(),
+		MapPlayProvinceHosts.line(play, screen.model, seat),
+		"the sheet prints the boot's own reading",
+	)
+	assert_true(
+		panel.hosts_text().begins_with("%s " % crown),
+		"the seat's row names the crown's own host first: %s" % panel.hosts_text(),
+	)
+	assert_true(
+		panel.hosts_text().contains("regiment"),
+		"the row counts regiments: %s" % panel.hosts_text(),
+	)
+	# A province off the chart, a chart the sheet does not show, a session with
+	# no army layer and a session that runs no fog each name what they can.
+	assert_eq(MapPlayProvinceHosts.line(play, screen.model, -1), "")
+	assert_eq(MapPlayProvinceHosts.line(null, screen.model, seat), "")
+	assert_eq(MapPlayProvinceHosts.line(play, null, seat), "")
+	var fogless: VisibilityModel = play.visibility
+	play.visibility = null
+	assert_eq(
+		MapPlayProvinceHosts.line(play, screen.model, seat),
+		ProvinceHosts.line(
+			play.army_layer.regions.value(play.model.region_id, []),
+			seat, play.model.province_data(seat).owner, play.player_faction, true,
+		),
+		"no fog reads every host, as the session with no fog model does",
+	)
+	play.visibility = fogless
+
+
 ## The realm's own reading: the crown's provinces the civilian and land passes
 ## would act in this turn, worded off data alone — one line that names the count
 ## against the realm it holds, then the first places (wiki: world-model § The

@@ -16,6 +16,15 @@ var _head: ProvinceSheetHead = null
 ## (wiki: world-model § The crown's provinces; DR-20261121-19).
 var counsel_source: Callable = Callable()
 var _counsel: CounselLine = null
+## The session the boot seats (`MapPlayProvinceHosts.seat`), read for the
+## province on show: the hosts standing on its ground — the crown's own
+## everywhere, another court's where the grid holds the province at `fogged` or
+## better (wiki: fog-and-exploration § Order-of-battle readings;
+## DR-20261123-13). The reading is this panel's own method, never a closure
+## handed in from the session: a bound callable cannot outlive the session it
+## reads (DR-20261121-14). A panel with no session — or one whose session has
+## been freed — prints no row.
+var play: PlaySession = null
 var _grid: ProvinceFactsGrid = null
 var _orders: ProvinceOrdersSection = null
 var _resources: ProvinceResources = null
@@ -229,6 +238,7 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 		return
 	_head.show_province(data)
 	_grid.show_province(model, province_id, data)
+	_grid.set_hosts(_hosts_line(model, province_id))
 	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
 		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
 		_tech_caps, _blockade
@@ -270,6 +280,21 @@ func _sync_counsel() -> void:
 ## sheet carries no reading.
 func counsel_text() -> String:
 	return "" if _counsel == null else _counsel.text
+
+
+## The Hosts row's text for the province on show, for tests and tooling
+## (REQ-P3-02). Empty when no host stands there or the boot bound no reading.
+func hosts_text() -> String:
+	return "" if _grid == null or not _grid.hosts.visible else _grid.hosts.text
+
+
+## The Hosts row's one reading, asked of the seated session with this chart and
+## province. An unseated sheet (a test's bare panel) prints no row, and a session
+## freed beneath the panel prints none either rather than reading a corpse.
+func _hosts_line(model: MapModel, province_id: int) -> String:
+	if play == null or not is_instance_valid(play):
+		return ""
+	return MapPlayProvinceHosts.line(play, model, province_id)
 
 
 ## The rail's marks: the presses the court's own crew pass would file on this
