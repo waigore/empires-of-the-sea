@@ -185,8 +185,13 @@ static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> 
 	refresh_options(play, army)
 	var place: String = play.model.province_name(army.province)
 	if bool(result.get("attacked", false)):
+		var level: int = FortRules.level_at(play.model, army.province)
+		# The storm the wall sets is another court's, so the line prints the
+		# published envelope: the crown cannot read the defender's studies
+		# (wiki: siege-mechanics § Storming an empty walled province;
+		# DR-20261123-20).
 		var wall: String = WallRead.march_line(
-			place, FortRules.level_at(play.model, army.province)
+			place, level, WallRead.storm_line(level)
 		)
 		play.hud.toast(wall if not wall.is_empty() else "The army marches on %s" % place)
 	else:
