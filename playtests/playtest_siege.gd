@@ -310,9 +310,10 @@ func _read_quick(battle: Dictionary) -> void:
 		else "open field (no line)"
 	))
 	var lanes: Dictionary = quick.get("lanes", {}) as Dictionary
-	_say("  the lanes opened %d on the wall, %d behind (%d guns)" % [
-		int(lanes.get("wall", 0)), int(lanes.get("behind", 0)),
-		int(quick.get("guns_start", 0)),
+	var guns: int = int(quick.get("guns_start", 0))
+	_say("  the lanes opened %d on the wall, %d behind (%d gun%s)" % [
+		int(lanes.get("wall", 0)), int(lanes.get("behind", 0)), guns,
+		"" if guns == 1 else "s",
 	])
 	for raw: Variant in quick.get("rounds", []) as Array:
 		var round: Dictionary = raw as Dictionary

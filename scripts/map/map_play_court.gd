@@ -229,8 +229,14 @@ static func navy_chest(play: PlaySession, faction: int) -> int:
 	)
 	var price: int = AiNavy.price(ledger, hull_types(play, faction))
 	var shortfall: int = maxi(price - ledger.treasury, 0)
+	# The storm chest rides the muster's own read (issue #1381): a court
+	# banking for the host its thinnest wall prices holds a war chest too.
+	var storm: int = MapPlayArmyMusterAi.storm_chest(
+		play, play.model, faction, regiments(play, faction)
+	)
+	# The host is regiments; the muster floor prices the chest (issue #1381).
 	var muster_due: bool = AiArmyReinforce.muster_floor(
-		config, ledger, regiments(play, faction), at_war_now
+		config, ledger, regiments(play, faction), at_war_now, storm
 	) > 0
 	var yields: bool = (
 		# A regiment is due: the hull chest is the purse the muster's row

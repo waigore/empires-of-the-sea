@@ -7004,6 +7004,35 @@ func test_the_opening_gp_muster_cannot_storm_a_wood_fort() -> void:
 	assert_false(bool(reports[0]["captured"]), "the Wood wall holds the opening host")
 	assert_eq(model.province_owner(2), 1)
 
+
+## The empty-wall storm and the auto-resolve exchange live in their own homes
+## (REQ-P3-01): ArmyStorm and ArmyExchange, not the turn-chain orchestrator.
+## Calling each directly locks the split so a later fold-back fails here.
+func test_the_exchange_and_empty_wall_storm_own_their_homes() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	var storming: Array[ArmyState] = [thin]
+	var storm: Dictionary = ArmyStorm.storm_one(
+		model, storming, 2, 1, 0, storming, {}
+	)
+	assert_false(bool(storm["captured"]), "ArmyStorm owns the empty-wall path")
+	assert_eq(int(storm["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(model.province_owner(2), 1)
+
+	_setup_army_field_rules()
+	var field: MapModel = _army_field_rules_model
+	var defender := army_field_rules_Fixture.army(1, 1, 2, _regiment_types("pikemen", 2), true)
+	var attacker := army_field_rules_Fixture.army(2, 0, 2, _regiment_types("guards", 6))
+	var armies: Array[ArmyState] = [defender, attacker]
+	var report: Dictionary = ArmyExchange.resolve(
+		field, armies, 2, 1, 0, false, {}
+	)
+	assert_true(report.has("outcome"), "ArmyExchange owns one auto-resolve exchange")
+	assert_ne(int(report["outcome"]), ArmyCombat.Outcome.CAPTURE)
+
+
 func test_a_third_faction_blocks_an_unopposed_capture() -> void:
 	_setup_army_field_rules()
 	var attacker := army_field_rules_Fixture.army(1, 0, 2, ["pikemen"])

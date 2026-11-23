@@ -19,6 +19,15 @@ extends RefCounted
 ## army, because a reserve no planner can pay out starves the regiment the court
 ## could have raised (issue #591). Pure and deterministic: the purse and the
 ## target are the only inputs (REQ-P2-03, REQ-P3-03).
+##
+## The commitment at war is also the storm host the thinnest wall ahead prices
+## (issue #1381): while the wall read rides the config the reserve is the host
+## its own target arms for, not one line regiment — the wall raises the muster
+## target, and the chest is banked to pay for that host when the march opens.
+## At peace the wall prices money alone (`storm_bank`): the chest stands when
+## the court can already fund the line it would raise today, and the bank keeps
+## it to the wall's own host while the purse fills — without the wall ever
+## moving and without the stand-down the bank's other readers publish.
 
 const GOAL_EARN: String = "earn"
 const GOAL_SPEND: String = "spend"
@@ -43,12 +52,23 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 
 ## The purse this court must hold before it may spend on anything it can defer:
 ## At war: the muster it is saving for and the hull it means to lay (`AiNavy`,
-## issue #484) once that chest is in reach — whichever is larger. At peace: its
-## cash floor, or the hull chest when rebuilding with no fighting hull left so
-## the yard is not gifted away before the next war (#484) — plus the muster
-## chest once the purse holds the cheapest line's own price, so the regiment a
-## peaceful court is one payment short of is banked, not auctioned away
-## (#603). 0 when the caller has no ledger to read.
+## issue #484) once that chest is in reach — whichever is larger. The muster's
+## own read is the storm host the thinnest wall ahead prices (issue #1381): the
+## wall reading rides the config, so the chest is banked to pay the host the
+## war must field — not one line regiment under a wall it cannot cross. At
+## peace: its cash floor, or the hull chest when rebuilding with no fighting
+## hull left so the yard is not gifted away before the next war (#484) — plus
+## the muster chest once the purse holds the cheapest line's own price, so the
+## regiment a peaceful court is one payment short of is banked, not auctioned
+## away (#603). 0 when the caller has no ledger to read.
+##
+## `storm_bank` is the storm chest the wall prices at peace (issue #1381): the
+## host its thinnest wall wants, read once by the map layer (`MapPlayArmyMusterAi`
+## notes it on the shared config). It rides only while the purse can already
+## fund the line it would raise today — the wall prices money alone at peace,
+## and a bank no poorer court can reach would freeze its economy — and it keeps
+## the peace-time chest sized to the storm host, not one line regiment, so a
+## court that banks for conquest funds the march before it declares.
 ##
 ## `conquest_gap` is the win-bar reading (issue #995): a court that is short of
 ## the Old World bar with an army still under target banks for the regiment
@@ -67,12 +87,19 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 static func reserve(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
 	hull_chest: int = 0, own_warships: int = -1, muster_stall: int = 0,
-	conquest_gap: bool = false
+	conquest_gap: bool = false, storm_bank: int = 0
 ) -> int:
 	if config == null or economy == null:
 		return 0
 	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)
-	var muster: int = AiArmyReinforce.muster_floor(config, economy, regiments, true)
+	# The storm host is priced off the war-time read when the wall raises the
+	# muster target (the war chest pays the host the war fields); at peace the
+	# wall prices money alone — the bank hands the storm host in (issue
+	# #1381). The host is regiments; `muster_floor` prices the chest.
+	var bank: int = storm_bank if not at_war else storm_want(config, regiments)
+	var muster: int = AiArmyReinforce.muster_floor(
+		config, economy, regiments, true, bank
+	)
 	if muster_stall >= maxi(config.parameter("ledger.escalate_turns"), 1):
 		# The re-route: the reserve the court cannot reach stands down so the
 		# court's own income planners lead again (issue #603). The bar reads
@@ -89,13 +116,28 @@ static func reserve(
 		# peace-time save phase (DR-20261113-22) — and a court in reach banks
 		# the last of the chest instead of auctioning it away the turn peace
 		# opens (issue #603). A court short of the bar keeps the whole chest
-		# (issue #995): the gap is the trigger, not the war.
+		# (issue #995): the gap is the trigger, not the war. The storm bank
+		# rides the same reach test (issue #1381): the wall prices money
+		# alone, so the chest stands only while the line is already funded.
 		if economy.treasury < AiArmyReinforce.cheapest_line_price(economy):
 			muster = 0
 	var held: int = hull_held(
 		config, economy, at_war, regiments, hull_chest, own_warships, conquest_gap
 	)
 	return maxi(floor, maxi(muster, held))
+
+
+## Regiments the thinnest wall ahead prices at war, off the reading the map
+## layer notes on the shared config (`MapPlayArmyMusterAi.storm_extra`): the
+## host the wall wants less the host the court already fields, floored at zero
+## (issue #1381). Zero with no reading — open ground, or no wall in front.
+## The money chest the host needs is `AiArmyReinforce.muster_floor`'s own:
+## the host regiments × the cheapest line, so the goal and the muster read
+## one purse (`MapPlayArmyMusterAi.storm_chest` prices the same rule).
+static func storm_want(config: AiConfig, regiments: int) -> int:
+	if config == null:
+		return 0
+	return maxi(int(config.storm_read.get("want", 0.0)) - maxi(regiments, 0), 0)
 
 
 ## The yard's chest as this court holds it this turn. A chest the court can
@@ -126,15 +168,19 @@ static func hull_held(
 ## observer row. `hull_chest` is the yard price the court is saving for, 0 when
 ## it is not rebuilding its fleet. `muster_stall` is the deferred-aim
 ## escalation reading (issue #603; see `reserve`). `conquest_gap` is the
-## win-bar reading (issue #995; see `reserve`).
+## win-bar reading (issue #995; see `reserve`). `storm_bank` is the storm chest
+## the thinnest wall ahead prices (issue #1381; see `reserve`) — the row stamps
+## it and the want the war-time target prices it by, so the trace can name the
+## host the bank is filling for.
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
 	hull_chest: int = 0, own_warships: int = -1, muster_stall: int = 0,
-	conquest_gap: bool = false
+	conquest_gap: bool = false, storm_bank: int = 0
 ) -> Dictionary:
+	var bank: int = storm_bank if not at_war else storm_want(config, regiments)
 	var need: int = reserve(
 		config, economy, at_war, regiments, hull_chest, own_warships, muster_stall,
-		conquest_gap
+		conquest_gap, bank
 	)
 	var held: int = economy.treasury if economy != null else 0
 	return {
@@ -146,6 +192,12 @@ static func plan(
 		# The win-bar reading the bank rides on (issue #995): the trace and
 		# the treaty rungs read it beside the goal it moved.
 		"conquest_gap": conquest_gap,
+		# The storm host the bank prices (issue #1381): the chest the bank
+		# fills for — the want regiments the thinnest wall ahead prices, at
+		# the line's own price — and the want the war-time target prices it
+		# by. Zero with no wall in front of the court.
+		"storm_want": storm_want(config, regiments),
+		"storm_bank": maxi(bank, 0) if bank > 0 else 0,
 		# The chest the bank is holding the purse for (issue #995): the
 		# canonical reserve with the escalation valve stood down. `reserve`
 		# above is the money goal's own — the #603 valve may re-route it to
@@ -158,30 +210,40 @@ static func plan(
 		"bank_chest": maxi(
 			reserve(
 				config, economy, at_war, regiments, hull_chest, own_warships, 0,
-				conquest_gap
+				conquest_gap, bank
 			),
 			0
 		) if conquest_gap else need,
 	}
 
 
-## Goal name only, for callers that do not keep the readings.
+## Goal name only, for callers that do not keep the readings. `storm_bank` is
+## the storm chest the thinnest wall ahead prices at peace (issue #1381).
 static func goal_for(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0, own_warships: int = -1, conquest_gap: bool = false
+	hull_chest: int = 0, own_warships: int = -1, conquest_gap: bool = false,
+	storm_bank: int = 0
 ) -> String:
 	return String(
-		plan(config, economy, at_war, regiments, hull_chest, own_warships, 0, conquest_gap)["goal"]
+		plan(
+			config, economy, at_war, regiments, hull_chest, own_warships, 0,
+			conquest_gap, storm_bank
+		)["goal"]
 	)
 
 
-## True while the court's money comes before anything it can defer.
+## True while the court's money comes before anything it can defer. `storm_bank`
+## is the storm chest the thinnest wall ahead prices at peace (issue #1381).
 static func wants_income(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0, own_warships: int = -1, conquest_gap: bool = false
+	hull_chest: int = 0, own_warships: int = -1, conquest_gap: bool = false,
+	storm_bank: int = 0
 ) -> bool:
 	return (
-		goal_for(config, economy, at_war, regiments, hull_chest, own_warships, conquest_gap)
+		goal_for(
+			config, economy, at_war, regiments, hull_chest, own_warships,
+			conquest_gap, storm_bank
+		)
 		== GOAL_EARN
 	)
 

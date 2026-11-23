@@ -139,7 +139,8 @@ static func _note_larder(
 
 
 ## The court is saving for a line the pool cannot carry: a muster due, or the
-## win-bar bank's own latch.
+## win-bar bank's own latch. The storm chest rides the muster's read (issue
+## #1381): a court banking for the host its thinnest wall prices provisions it.
 static func _wants_army(
 	play: PlaySession, faction: int, economy: PlayerEconomy, court: Dictionary
 ) -> bool:
@@ -147,7 +148,11 @@ static func _wants_army(
 		return true
 	return AiArmyReinforce.muster_floor(
 		court["config"], economy, MapPlayCourt.regiments(play, faction),
-		bool(court["at_war"])
+		bool(court["at_war"]),
+		MapPlayArmyMusterAi.storm_chest(
+			play, play.model, faction,
+			MapPlayCourt.regiments(play, faction)
+		)
 	) > 0
 
 
