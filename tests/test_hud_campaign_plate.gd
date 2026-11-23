@@ -1679,7 +1679,7 @@ func test_platform_label_names_the_os() -> void:
 
 func test_platform_reports_a_headless_display_in_the_suite() -> void:
 	# gd-tools always boots a headless Godot, so no drawable frame exists here.
-	assert_false(PlaytestPlatform.has_display(), "the suite has no drawable frame")
+	assert_false(PlatformHost.has_display(), "the suite has no drawable frame")
 
 
 func test_toggle_creates_the_session_and_report() -> void:
