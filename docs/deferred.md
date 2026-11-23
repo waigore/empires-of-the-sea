@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1373 (REQ-P2-02).
+Audited: wiki / DRs / code through #1379 (REQ-P2-02).
 Default pick: largest gap here, then REQ/wiki.
 
 ## Already live
@@ -21,6 +21,7 @@ Default pick: largest gap here, then REQ/wiki.
 | Raid hulls/rival prizes/naval plate | `NavalRaid`, `MapPlayRaids`, `NavalPlate` |
 | Road L2/gathering/path transport | `TechUnlocks`/`Extraction` |
 | Advanced chart/Passage/rival OOB | `AdvancedSeas`; `OobReadings`; `CourtCharts` |
+| Sea-zone names | `MapNaming` (DR-13-07) |
 | Yarn + consent | `DialogueYarn`, `ConsentCopy` |
 | War footing/money/victory/need | `AiPhasePlanner`; `AiIncome`; `AiDiplomacyDesire` |
 | Phoney front; college chest; pact lead | `holds_front`; `bank_chest`; `pact_break_leads` |
@@ -56,7 +57,7 @@ None; see `docs/rubric.md` / wiki.
 - Soft priority weight — seed (DR-13-15). Phase resource-need reweight —
   none; money-goal live (DR-16-09). War-desire need live (above).
 - Alt victory, difficulty extras, ruleset loaders/borrowing, warehousing,
-  loans, sea-zone names — out of scope.
+  loans — out of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
 - Cross-station folds / passenger transfers — out of scope. Further tongues
@@ -66,7 +67,7 @@ None; see `docs/rubric.md` / wiki.
 ## Wiki drift
 
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
-crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`).
-`DR-20261112-09` fog closed by DR-13-03. Soft weight seed (DR-13-15).
-`phase-planner-architecture` “domain dispatch stays seed” — stale;
-`SLOT_MARKET`/`SLOT_NAVAL` live. #1362–#1373 counsel/fort/auto — not backlog.
+crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft
+weight seed (DR-13-15). `phase-planner-architecture` “domain dispatch stays
+seed” — stale; `SLOT_MARKET`/`SLOT_NAVAL` live. #1362–#1379 counsel/fort/
+marks — not backlog.
