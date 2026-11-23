@@ -8192,6 +8192,66 @@ func test_a_coastal_province_without_a_port_gets_one() -> void:
 	assert_true(MapGeo.is_coastal_tile(model, tile.x, tile.y), "a port only rises on the coast")
 
 
+## An overseas region has no capital tile to root its network, so the port is the
+## first work its Engineer does: an estate abroad extracts nothing until a port
+## seeds the roads that reach it (wiki: extraction-and-improvements § Overseas
+## delivery; issue #1422). The home region keeps its published order — its
+## capital tile roots it, so a road to a resource still leads.
+func test_the_port_roots_an_overseas_region_before_any_road() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var home: int = FactionCatalog.region_of(0)
+	model.region_id = (
+		WorldMap.NEW_WORLD if home == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+	)
+	var order: Dictionary = _engineer_order(model, LandWorks.new())
+	assert_eq(String(order.get("action", "")), "build_port", "the port is the root")
+	var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
+	assert_true(MapGeo.is_coastal_tile(model, tile.x, tile.y), "a port only rises on the coast")
+	var works := LandWorks.new()
+	works.add_port(model, tile)
+	var next: Dictionary = _engineer_order(model, works)
+	assert_eq(String(next.get("action", "")), "build_road", "the road grows from the port")
+	model.region_id = home
+	assert_eq(
+		String(_engineer_order(model, LandWorks.new()).get("action", "")), "build_road",
+		"the home capital roots the region, so the port does not lead there"
+	)
+
+
+## The crew the next voyage carries waits at the harbour: a held Engineer takes no
+## work at home and marches to the port that boards it (wiki: civilian-units
+## § Overseas deployment; issue #1422).
+func test_a_voyage_engineer_waits_at_the_harbour() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var port: Vector2i = CivilianFixture.COAST_TILE
+	var here: CivilianState = CivilianState.create(1, 0, "engineer", port)
+	var away: CivilianState = CivilianState.create(
+		2, 0, "engineer", CivilianFixture.RIVAL_GRAIN_TILE
+	)
+	var context: Dictionary = _context()
+	context["muster_port"] = port
+	context["muster_unit"] = 1
+	var held: Dictionary = Engineer.best_candidate(_work_query(
+		AiConfig.build(0, 1500), model, here, [here] as Array, LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, context, {}
+	))
+	assert_true(held.is_empty(), "the harbour holds the voyage's Engineer")
+	context["muster_unit"] = 2
+	assert_false(
+		Engineer.best_candidate(_work_query(
+			AiConfig.build(0, 1500), model, here, [here] as Array, LandWorks.new(),
+			CivilianFixture.stockpile(), {}, {}, context, {}
+		)).is_empty(),
+		"another crew's voyage does not hold this one"
+	)
+	assert_eq(String(Engineer.best_move(model, away, context).get("kind", "")), "move",
+		"the crew walks to its harbour")
+	assert_true(
+		Engineer.best_move(model, here, context).is_empty(),
+		"a crew already at the harbour waits there"
+	)
+
+
 func test_an_invaded_court_prices_its_fort_with_wartime_urgency() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var works := LandWorks.new()
@@ -12127,6 +12187,96 @@ func test_a_builder_boards_when_the_crown_owns_overseas_land() -> void:
 	)
 	assert_eq(String(order.get("kind", "")), "embark")
 	assert_eq(int(order.get("unit", -1)), 1)
+
+## The ground abroad has no port to root its network, so the voyage after the
+## Builder carries the Engineer that raises one (wiki:
+## extraction-and-improvements § Overseas delivery; issue #1422). The Builder is
+## still the first crew: a port the ground does not need yet waits until the
+## crown's own land is worked.
+func test_the_engineer_sails_for_the_port_the_ground_abroad_lacks() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			tiles.append(Vector2i(x, y))
+	new_world.provinces = [ProvinceState.create(
+		0, "Colony", tiles, Vector2(1.5, 0.5), 8, ai_colonisation_OWNER, false
+	)]
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var engineer: CivilianState = CivilianState.create(
+		2, ai_colonisation_OWNER, "engineer", Vector2i(0, 0)
+	)
+	var builder: CivilianState = CivilianState.create(
+		3, ai_colonisation_OWNER, "builder", Vector2i(0, 0)
+	)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet],
+		[builder, engineer], {"builder": 1}, null,
+		AiPhasePlanner.PHASE_PEACE, false, {}, true
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 2, "the Engineer roots the port")
+	var builder_first: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet],
+		[builder, engineer], {}, null, AiPhasePlanner.PHASE_PEACE, false, {}, true
+	)
+	assert_eq(int(builder_first.get("unit", -1)), 3, "the Builder works the ground first")
+	var ported: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet],
+		[builder, engineer], {"builder": 1}, null,
+		AiPhasePlanner.PHASE_PEACE, false, {}, false
+	)
+	assert_ne(int(ported.get("unit", -1)), 2, "a ported ground carries no Engineer")
+
+## The muster reads the same port: a court whose ground abroad has no port holds
+## its Engineer at the harbour once the Builder stands there, so the crew the
+## planner boards is the crew waiting (issue #1422).
+func test_the_muster_holds_the_engineer_for_the_port_abroad() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			tiles.append(Vector2i(x, y))
+	new_world.provinces = [ProvinceState.create(
+		0, "Colony", tiles, Vector2(1.5, 0.5), 8, ai_colonisation_OWNER, false
+	)]
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.regions.set_region(0, [FleetState.at_sea(1, ai_colonisation_OWNER, 0)])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = []
+	play.civilian_layer.regions.set_region(0, [])
+	play.civilian_layer.regions.set_region(1, [])
+	var colony: ProvinceState = new_world.provinces[0]
+	assert_true(
+		VoyageRead.needs_port(new_world, LandWorks.new(), ai_colonisation_OWNER),
+		"the colonial province can carry a port and holds none"
+	)
+	play.civilian_layer.regions.set_region(1, [
+		CivilianState.create(7, ai_colonisation_OWNER, "builder", Vector2i(0, 0)),
+	])
+	assert_eq(
+		CivilianMuster.voyage_kind(play, ai_colonisation_OWNER, 0), "engineer",
+		"the Builder is ashore and the ground has no port: the Engineer sails"
+	)
+	var works := LandWorks.new()
+	works.add_port(new_world, colony.tiles[0])
+	play.civilian_layer.works_regions.set_region(1, works)
+	assert_eq(
+		CivilianMuster.voyage_kind(play, ai_colonisation_OWNER, 0), "builder",
+		"the port roots the ground: the published crew order answers again"
+	)
 
 func test_a_docked_passenger_lands_without_sailing_first() -> void:
 	var world: WorldMap = _ai_colonisation_world()
@@ -17986,6 +18136,51 @@ func test_the_adapter_reads_the_merchant_ashore_as_progress() -> void:
 	play.civilian_layer.free()
 
 
+## The report's row for one aim id, or {} when the aim was not priced this turn.
+func _objective_row(report: Dictionary, aim_id: String) -> Dictionary:
+	for row: Dictionary in report.get("objectives", []):
+		if String(row.get("id", "")) == aim_id:
+			return row
+	return {}
+
+
+## The expedition stays priced past the first landing (issue #1422): a court that
+## already owns New World land keeps its voyage aim while the crew the next voyage
+## would carry waits at home, so the Builder and then the Engineer still sail —
+## and the aim closes again when no crew of that kind is home to send.
+func test_the_expedition_stays_priced_past_the_first_landing() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
+	new_world.provinces.append(ProvinceState.create(
+		0, "Colony", [Vector2i(0, 0)], Vector2(0, 0), 1, OBJ_OWNER, false
+	))
+	var home: int = FactionCatalog.region_of(OBJ_OWNER)
+	var builder: CivilianState = CivilianState.create(4, OBJ_OWNER, "builder", Vector2i(0, 0))
+	play.civilian_layer.units.clear()
+	play.civilian_layer.units.append(builder)
+	play.civilian_layer.regions.set_region(home, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(WorldMap.NEW_WORLD, [])
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	var colony: Dictionary = _objective_row(report, "colonise.new_world")
+	assert_false(colony.is_empty(), "the colony the crown now works is still priced")
+	var hull: bool = false
+	for child: Dictionary in colony.get("children", []):
+		if String(child["id"]) == "expedition.hull":
+			hull = true
+	assert_true(hull, "the next voyage's hull is priced")
+	# The crew is spent elsewhere: with no Builder of that kind at home the aim
+	# closes, as it did once the first landing stood alone.
+	play.civilian_layer.units.clear()
+	play.civilian_layer.regions.set_region(home, play.civilian_layer.units)
+	report = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	assert_true(
+		_objective_row(report, "colonise.new_world").is_empty(),
+		"no crew to send, no expedition"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 ## The adapter prices the Tribe the court is drawing in: a charted shore and a
 ## purse that covers the next envoy step put the chain in the ledger
 ## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
@@ -18231,7 +18426,10 @@ func test_planner_a_stalled_war_chest_re_routes_the_reserve() -> void:
 
 
 ## The voyage musters behind the ledger's claim (issue #491 T2): a funded hull
-## opens the harbour gate, a deferred one leaves the Explorer ashore.
+## opens the harbour gate. A claim that has given up on the hull — the escalation
+## names a stall the aim never funds again — still musters the squadron the court
+## has idle, because an idle hull the court owns is one the rules let it send
+## (issue #1422); with no idle squadron the gate stays shut.
 func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 	var play: PlaySession = _objective_session(_court())
 	MapPlayObjectivesAi.run(play)
@@ -18242,15 +18440,23 @@ func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 	)
 	assert_true(open_port.x >= 0, "a funded hull opens the muster")
 
-	# The same ledger with the hull starved: the gate stays shut.
+	# The same ledger with the hull starved: the court's own idle squadron still
+	# sails, so the muster opens on it.
 	play.ai.note_objectives(OBJ_OWNER, {
 		"phase": AiPhasePlanner.PHASE_PEACE, "ranked": 1, "funded": 0, "lines": [],
 		"objectives": [{"id": "expedition.hull", "status": AiObjective.STATUS_DEFERRED}],
 	}, play.turn)
+	var idle: Vector2i = CivilianMuster.muster_port(
+		play, OBJ_OWNER, play.model.region_id, play.model
+	)
+	assert_true(idle.x >= 0, "an idle squadron the court owns is a hull it can send")
+
+	# No squadron to send: the gate shuts, funded or not.
+	play.ship_layer.regions.set_region(play.model.region_id, [])
 	var shut: Vector2i = CivilianMuster.muster_port(
 		play, OBJ_OWNER, play.model.region_id, play.model
 	)
-	assert_eq(shut, CivilianState.NO_TILE, "a deferred hull keeps the Explorer ashore")
+	assert_eq(shut, CivilianState.NO_TILE, "no hull, no voyage")
 	play.ship_layer.free()
 	play.civilian_layer.free()
 

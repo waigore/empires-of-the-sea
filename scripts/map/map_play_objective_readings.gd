@@ -239,8 +239,9 @@ static func _court(
 	)
 	return {
 		"posture": posture,
-		"colony_target": home == WorldMap.OLD_WORLD and not VoyageRead.owns_land(
-			new_world, faction
+		"colony_target": home == WorldMap.OLD_WORLD and (
+			not VoyageRead.owns_land(new_world, faction)
+			or _crew_to_send(play, faction, home)
 		),
 		"harbour": home >= 0 and AiColonisationPlanner.harbour(
 			play.world.region(home), faction
@@ -271,3 +272,23 @@ static func _works_for(play: PlaySession, region: int) -> LandWorks:
 	if play.civilian_layer == null:
 		return null
 	return play.civilian_layer.works_regions.value(region, null)
+
+
+## True while the crown's voyage still has a crew to carry: the kind its next
+## voyage would board — Explorer, then Merchant, then Builder, then the Engineer
+## a portless ground abroad calls for — is not abroad yet, and a crew of that
+## kind waits at home to sail. The aim follows the published chain to its end
+## instead of closing at the first landing: a colony nobody works and no port
+## roots pays nothing home (wiki: civilian-units § Overseas deployment;
+## extraction-and-improvements § Overseas delivery; issue #1422).
+static func _crew_to_send(play: PlaySession, faction: int, home: int) -> bool:
+	if play.world == null or play.civilian_layer == null or home < 0:
+		return false
+	var kind: String = CivilianMuster.voyage_kind(play, faction, home)
+	if int(CivilianMuster.abroad_counts(play, WorldMap.NEW_WORLD, faction).get(
+		kind, 0
+	)) > 0:
+		return false
+	return VoyageRead.idle_colonist(
+		CivilianMuster.roster(play, home), faction, kind
+	) != null

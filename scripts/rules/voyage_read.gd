@@ -131,14 +131,44 @@ static func holds_ground_in(world: WorldMap, region: int, owner: int) -> bool:
 	return holds_ground(world.region(region), owner)
 
 
-## The colonist kind the court's next voyage carries, from the two readings that
+## True when the court holds ground in this region that could carry a port and
+## no port stands on any of it: overseas extraction has no capital tile to seed
+## its network, so an estate there pays only once a port roots it (wiki:
+## extraction-and-improvements § Overseas delivery; issue #1422). A province
+## with no coastal tile can never carry a port, so it never asks for one.
+static func needs_port(model: MapModel, works: LandWorks, owner: int) -> bool:
+	if model == null or works == null or owner < 0:
+		return false
+	for province: ProvinceState in model.provinces:
+		if model.province_owner(province.id) != owner:
+			continue
+		if works.province_has_port(model, province.id):
+			continue
+		for tile: Vector2i in province.tiles:
+			if MapGeo.is_coastal_tile(model, tile.x, tile.y):
+				return true
+	return false
+
+
+## The colonist kind the court's next voyage carries, from the readings that
 ## decide it: a Builder once the crown holds ground in the region, else an
 ## Explorer while none of this court's Explorers is abroad, else a Merchant —
 ## the claim whose deeds found the colony (wiki: civilian-units § Overseas
-## deployment; map-play colonisation #497, #602, #1127). One home, so the crew
-## the muster holds at the harbour is the crew the planner boards.
-static func voyage_kind(holds_ground: bool, abroad: Dictionary) -> String:
+## deployment; map-play colonisation #497, #602, #1127). An **Engineer** follows
+## the Builder once the ground abroad has no port: no capital tile seeds
+## connectivity overseas, so the Builder's estate and every road from it gather
+## nothing until a port roots the network (wiki: extraction-and-improvements
+## § Overseas delivery; issue #1422). One home, so the crew the muster holds at
+## the harbour is the crew the planner boards.
+static func voyage_kind(
+	holds_ground: bool, abroad: Dictionary, needs_port: bool = false
+) -> String:
 	if holds_ground:
+		# The port the ground abroad still lacks is the root its estates pay
+		# through, so the Engineer sails once the Builder stands there
+		# (issue #1422).
+		if needs_port and int(abroad.get("builder", 0)) > 0:
+			return "engineer"
 		return "builder"
 	if int(abroad.get("explorer", 0)) > 0:
 		return "merchant"

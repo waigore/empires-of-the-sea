@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:4ee47d94d031a83e813fa72d5fe3b86d7563dd58063a126f439880df5f5ef9cb",
-  "submission_git": "fix/1384-bank-holds-declaration@936cec4f",
+  "submission_hash": "sha256:da1fb60f3885d5dbf4c30cfd79c906f4e738bd0a48192d925073fb7150d8f6dd",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261123T161659096958Z@1aca04c5",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:c9554bc1f64e3dbe74a3f52d9e7a8d99ab5e3ac892644e3595ec8fad9b2b8cee",
+    "ai_surface_hash": "sha256:6de14e97145b708beb317de70bb88c6016a0318c4bc4f5a37b81ca6438d048f8",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T15:56:28Z",
+  "timestamp": "2026-11-23T17:11:00Z",
   "report_version": 1,
-  "signature": "hmac-sha256:05948da56f15570ff2b2202dfe428fc5eda92cf2ac1108a3c7a0440ae3780876"
+  "signature": "hmac-sha256:bc0cae96dd20457772cdcd359f306db674b44caa508839153a3f6b796f6d89cf"
 }
