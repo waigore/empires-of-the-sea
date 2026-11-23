@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:2f27e01d3d1b6583df3302c40a12b5ba802ee2c2dc0c7c25f6c65aa191ba310e",
-  "submission_git": "pr/1381-storm-host@9b65f1b2",
+  "submission_hash": "sha256:35da448959b7330ad0778014a9e1033e6494cd6df2c8b3930ae4fbdeeba7f37b",
+  "submission_git": "fix/issue-1375-navy-rebuild@19c43d41",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:9aaea5902990263b347e95ac879b6b92e274b6f8343d25d572ae4b080b226517",
+    "ai_surface_hash": "sha256:dae4b141bd828a245c81e161483003f5c71e06127b9c273122a14dd178b8120c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T08:03:31Z",
+  "timestamp": "2026-11-23T09:02:33Z",
   "report_version": 1,
-  "signature": "hmac-sha256:4bdf91cc66ab3f0207c0693d7af85e58809aed41dbe6a8d2a6b06d79cbaa5a4d"
+  "signature": "hmac-sha256:f7bcfa421eaf29ece483603df751cefdd481633055bb627870b647373d61e9c6"
 }
