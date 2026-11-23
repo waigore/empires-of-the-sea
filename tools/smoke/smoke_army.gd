@@ -37,7 +37,7 @@ static func step(run) -> void:
 	screen.army_layer.select(home_army)
 	await run.tree.process_frame
 	run.check(
-		screen.hud._army_label.text
+		screen.hud.stats.army_label.text
 		== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
 		"troop chip counts every region"
 	)
