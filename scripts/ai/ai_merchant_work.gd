@@ -110,18 +110,21 @@ static func buyable_tiles(
 ## (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
 static func cheapest_offer(
 	model: MapModel, faction: int, seller: int, treasury: int,
-	view: VisibilityModel = null
+	view: VisibilityModel = null, works: LandWorks = null
 ) -> int:
-	var price: int = priced_offer(model, faction, seller, view)
+	var price: int = priced_offer(model, faction, seller, view, works)
 	return price if price <= treasury else 0
 
 
 ## The same coarse read without the treasury bar: the deed's published price
 ## whenever charted land offers one, so the envoy chain may open before the
 ## court can pay — the chain takes turns to walk and the purse refills while it
-## does (issue #724; wiki: civilian-units § Merchant).
+## does (issue #724; wiki: civilian-units § Merchant). A deposit is priced only
+## once the court's own survey has landed; without `works` the court has no
+## survey to read, so a mineral tile offers nothing (issue #1383).
 static func priced_offer(
-	model: MapModel, faction: int, seller: int, view: VisibilityModel = null
+	model: MapModel, faction: int, seller: int, view: VisibilityModel = null,
+	works: LandWorks = null
 ) -> int:
 	if model == null:
 		return 0
@@ -140,6 +143,8 @@ static func priced_offer(
 			continue
 		if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
 			continue
+		if not deed_known(model, faction, tile, works):
+			continue
 		var price: int = LandPurchase.cost(model, tile)
 		if price <= 0:
 			continue
@@ -157,7 +162,8 @@ static func priced_offer(
 ## #840; wiki: civilian-units § Merchant; diplomacy § GP AI policy for war vs.
 ## relations).
 static func deed_seller(
-	world: WorldMap, faction: int, charts: CourtCharts, diplomacy: DiplomacyState
+	world: WorldMap, faction: int, charts: CourtCharts, diplomacy: DiplomacyState,
+	works: LandWorks = null
 ) -> int:
 	if world == null or diplomacy == null or faction < 0:
 		return -1
@@ -169,7 +175,8 @@ static func deed_seller(
 			continue
 		var view: VisibilityModel = charts.model_for(faction, index) if charts != null else null
 		var deed: Dictionary = openable_deed(
-			model, faction, {"diplomacy": diplomacy, "visibility": view}
+			model, faction,
+			{"diplomacy": diplomacy, "visibility": view, "land_works": works}
 		)
 		if deed.is_empty():
 			continue
@@ -226,6 +233,7 @@ static func openable_deed(
 	if diplomacy == null:
 		return best
 	var view: VisibilityModel = context.get("visibility", null)
+	var works: LandWorks = context.get("land_works", null)
 	for province: ProvinceState in model.provinces:
 		var seller: int = province.owner
 		var kind: int = FactionCatalog.type_of(seller)
@@ -249,12 +257,30 @@ static func openable_deed(
 			continue
 		if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
 			continue
+		if not deed_known(model, faction, tile, works):
+			continue
 		var price: int = LandPurchase.cost(model, tile)
 		if price <= 0:
 			continue
 		if best.is_empty() or price < int(best["price"]):
 			best = {"seller": seller, "price": price}
 	return best
+
+
+## True when this court may read a deed's own price on `tile`: a crop shows on
+## the chart, but a deposit stays hidden until the court's own survey lands
+## (wiki: fog-and-exploration § Prospect-Required Resources; issue #1383). A
+## caller that publishes no works reads no survey, so a mineral tile offers
+## nothing — no unprospected deposit is ever named or priced.
+static func deed_known(
+	model: MapModel, faction: int, tile: Vector2i, works: LandWorks
+) -> bool:
+	if model == null or tile.x < 0:
+		return false
+	var resource: int = model.resource_at(tile.x, tile.y)
+	if not ImprovementCatalog.needs_prospecting(resource):
+		return true
+	return works != null and works.is_prospected(faction, model, tile)
 
 
 static func _buyable_tile(
