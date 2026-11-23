@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:d40e4bdc0bb077d896cbbaffccf8a88d4a29922582b02adcfe8ca7b4474ba031",
-  "submission_git": "feat/riches-landing-appetite@87ade98b",
+  "submission_hash": "sha256:5f249f7160ec817ee9110bfd02d3844346b6836cebadf3ef7cf594a08df035bf",
+  "submission_git": "fix/riches-under-workshop@4bfc3610",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1236.1724880382774,
+      "value": 1177.229933110368,
       "direction": "max"
     },
     {
@@ -45,35 +45,35 @@
     },
     {
       "name": "forces",
-      "value": 6.0,
+      "value": 9.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 64.49900793650794,
+      "value": 79.15389194139193,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:3a7f3295699ce16e013b27b74ea97217736d88b76e620c1c710051a932eb9b45",
+    "ai_surface_hash": "sha256:5297c818121eeb478ee34885a291353e76488cd7326bba09edab7e27398c82e6",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
       "provinces_new": 0,
-      "regiments": 5,
+      "regiments": 8,
       "ships": 1,
-      "workers": 5,
-      "extraction_per_turn": 40.915789473684214,
-      "income_per_turn": 369.34090909090907,
-      "funded_pct": 64.49900793650794
+      "workers": 2,
+      "extraction_per_turn": 41.03804347826087,
+      "income_per_turn": 295.15384615384613,
+      "funded_pct": 79.15389194139193
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 64.49900793650794
+    "funded_pct": 79.15389194139193
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T15:55:16Z",
+  "timestamp": "2026-11-23T16:00:37Z",
   "report_version": 1,
-  "signature": "hmac-sha256:ff669c70ec3f28619b8684dee023c0d165684127964370c954f72a7576a3ae7c"
+  "signature": "hmac-sha256:22bbfeb30260f038d6ca245185515ff3636f555cd7eaac42635e5bc398f18ee4"
 }
