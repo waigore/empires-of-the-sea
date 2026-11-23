@@ -2365,6 +2365,117 @@ func test_the_province_sheet_reads_the_squadrons_in_the_seat_harbour() -> void:
 	panel.refresh(screen.model, seat)
 
 
+## The seat's province sheet prices its own ground: what the crown's estates in
+## the province clear at today's sell and how many still have room to raise —
+## the realm's Economy reading on the sheet the crown raises from, off the
+## estates ledger's own rows and the market's own price (wiki:
+## extraction-and-improvements § The crown reads its own estates and towns in the
+## realm; DR-20261123-25).
+func test_the_province_sheet_prices_its_harvest() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	var seat: int = play.capital_province
+	panel.refresh(screen.model, seat)
+	assert_eq(
+		panel._resources.harvest_text(),
+		MapPlayProvinceHarvest.line(play, screen.model, seat),
+		"the sheet prints the boot's own reading",
+	)
+	assert_true(
+		panel._resources.harvest_text().begins_with("Harvest · "),
+		"the line names itself: %s" % panel._resources.harvest_text(),
+	)
+	# One read: the province's own rows are the estates ledger's own group for
+	# that province, so the dossier and the realm can never price two harvests
+	# (REQ-P2-03).
+	var blockade: Blockades = MapPlayBlockades.crown(play)
+	var estate: Dictionary = ImprovementLedger.province_estates(
+		screen.model, play.land_works, play.civilian_layer.units, play.stockpile(),
+		play.player_faction, seat, play.capital_tile, play.tech_caps(), blockade
+	)
+	var snapshot: Dictionary = ImprovementLedger.snapshot(
+		screen.model, play.land_works, play.civilian_layer.units, play.stockpile(),
+		play.player_faction, play.capital_tile, play.tech_caps(), blockade
+	)
+	var group: Dictionary = {}
+	for raw: Variant in snapshot["groups"]:
+		if int((raw as Dictionary).get("id", -1)) == seat:
+			group = raw
+	assert_true(not group.is_empty(), "the seat holds an estate the ledger groups")
+	assert_true(
+		int(estate["output"]) > 0,
+		"the seat gathers something to price: %s" % panel._resources.harvest_text(),
+	)
+	assert_true(
+		panel._resources.harvest_text().contains("ducats at today's sell"),
+		"the line prices the harvest: %s" % panel._resources.harvest_text(),
+	)
+	assert_eq(int(estate["estates"]), int(group["count"]), "the same row count")
+	var grouped: int = 0
+	for raw: Variant in group["rows"]:
+		grouped += int((raw as Dictionary)["output"])
+	assert_eq(int(estate["output"]), grouped, "the same gathered units")
+	# The figure is the market's own: Σ output × today's sell, no second sum.
+	var market: WorldMarket = MapPlayEconomyLarder.market(play)
+	var priced: int = 0
+	for raw: Variant in estate["rows"]:
+		var row: Dictionary = raw
+		var output: int = int(row["output"])
+		if output > 0:
+			priced += output * market.sell_price(
+				String(row["commodity"]), play.player_faction
+			)
+	var reading: Dictionary = MapPlayProvinceHarvest.read(play, screen.model, seat)
+	assert_eq(int(reading["value"]), priced, "the harvest at today's sell")
+	assert_eq(
+		panel._resources.harvest_text(), DossierCopy.harvest(reading),
+		"the line is the reading's own words",
+	)
+	# The guards: no session, no chart, no province and no crew layer name nothing.
+	assert_eq(MapPlayProvinceHarvest.line(null, screen.model, seat), "")
+	assert_eq(MapPlayProvinceHarvest.line(play, null, seat), "")
+	assert_eq(MapPlayProvinceHarvest.line(play, screen.model, -1), "")
+	var crews: CivilianLayer = play.civilian_layer
+	play.civilian_layer = null
+	assert_eq(MapPlayProvinceHarvest.line(play, screen.model, seat), "")
+	play.civilian_layer = crews
+	# Another court's ground is not the crown's harvest: no estate of hers, no
+	# line, however worked the land looks.
+	for province: ProvinceState in screen.model.provinces:
+		if province != null and province.owner != play.player_faction:
+			assert_eq(
+				MapPlayProvinceHarvest.line(play, screen.model, province.id), "",
+				"a rival's province prices nothing: %s" % province.name,
+			)
+			break
+
+
+## The harvest line's own words, one home for every case a crown meets: gathered
+## units, the value at today's sell, the ground still to raise, and nothing at
+## all for a province it owns no estate in (DR-20261123-25).
+func test_the_harvest_line_words_every_case() -> void:
+	assert_eq(DossierCopy.harvest({}), "", "an empty reading prints nothing")
+	assert_eq(DossierCopy.harvest({"estates": 0}), "", "no estate of ours, no line")
+	assert_eq(
+		DossierCopy.harvest({"estates": 3, "output": 12, "value": 640, "headroom": 2}),
+		"Harvest · 12 units gathered · 640 ducats at today's sell · 2 to raise",
+	)
+	assert_eq(
+		DossierCopy.harvest({"estates": 1, "output": 0, "value": 0, "headroom": 1}),
+		"Harvest · nothing gathered yet · 1 to raise",
+	)
+	assert_eq(
+		DossierCopy.harvest({"estates": 2, "output": 3, "value": 0, "headroom": 0}),
+		"Harvest · 3 units gathered · 0 ducats at today's sell · no estate to raise",
+	)
+	assert_eq(
+		DossierCopy.harvest({"estates": 4, "output": 8, "value": 1250, "headroom": 0}),
+		"Harvest · 8 units gathered · 1,250 ducats at today's sell · no estate to raise",
+		"the purse groups its thousands",
+	)
+
+
 ## The realm's own reading: the crown's provinces the civilian and land passes
 ## would act in this turn, worded off data alone — one line that names the count
 ## against the realm it holds, then the first places (wiki: world-model § The
