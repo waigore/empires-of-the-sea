@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:f7138b22bfb2f5dc57203d69720f10e8e77c349ff757b2ec381e476db4bfe385",
-  "submission_git": "feat/riches-landing-appetite@f437b1ae+dirty",
+  "submission_hash": "sha256:d40e4bdc0bb077d896cbbaffccf8a88d4a29922582b02adcfe8ca7b4474ba031",
+  "submission_git": "feat/riches-landing-appetite@87ade98b",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0092628ca8b34ee3c271fab27db285d087df2b4866cf023386029410c68d4d3e",
+    "ai_surface_hash": "sha256:3a7f3295699ce16e013b27b74ea97217736d88b76e620c1c710051a932eb9b45",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T14:27:19Z",
+  "timestamp": "2026-11-23T15:55:16Z",
   "report_version": 1,
-  "signature": "hmac-sha256:05b5f91b2986bb1927ab7156e2a2c31f087cd5c251b5acb26f8f4685b2b0002c"
+  "signature": "hmac-sha256:ff669c70ec3f28619b8684dee023c0d165684127964370c954f72a7576a3ae7c"
 }
