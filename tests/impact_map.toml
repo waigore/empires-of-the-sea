@@ -529,16 +529,6 @@ domain = "ai_economy"
 match = "scripts/map/map_play_economy_larder.gd*"
 domain = "ai_economy"
 
-# The production tab's own plan (DR-20261121-07): the runs the published economy
-# pass would book for the crown's workshop, read through the chest rows the pass
-# itself claims (`MapPlayEconomyCourt.chest_rows`). Its suite is the economy
-# rules', where the pick is proved off plan data alone, so it names its own
-# domain instead of pulling the AI economy fan-out. Named before the broad
-# `scripts/map/**` rule below, which would otherwise shadow this one.
-[[rules]]
-match = "scripts/map/map_play_production_pick*.gd*"
-domain = "production_pick"
-
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
 domain = "blockade"
@@ -2582,34 +2572,6 @@ domain = "army"
 [[rules]]
 match = "playtests/playtest_siege.gd*"
 domain = "army"
-
-# Court holdings / roster drives: these six only read the court trio's new
-# homes. Keep them on the court domain the trio already runs, so a rebind never
-# pulls misc's generated_world boot (neither misc suite loads a playtest drive)
-# past the tier-1 5 min budget.
-[[rules]]
-match = "playtests/playtest_fleet_pick.gd*"
-domain = "ai_economy"
-
-[[rules]]
-match = "playtests/playtest_join_empire.gd*"
-domain = "ai_economy"
-
-[[rules]]
-match = "playtests/playtest_new_world_war.gd*"
-domain = "ai_economy"
-
-[[rules]]
-match = "playtests/playtest_overseas_invasion.gd*"
-domain = "ai_economy"
-
-[[rules]]
-match = "playtests/playtest_seat_lost_mid_invasion.gd*"
-domain = "ai_economy"
-
-[[rules]]
-match = "playtests/playtest_standard_campaign.gd*"
-domain = "ai_economy"
 
 [[rules]]
 match = "playtests/**"
@@ -5007,6 +4969,15 @@ domain = "menu"
 [[rules]]
 match = "tests/test_agent_debug_bridge.gd*"
 domain = "fold_map_screen"
+
+# The production tab's own plan (DR-20261121-07): the runs the published economy
+# pass would book for the crown's workshop, read through the chest rows the pass
+# itself claims (`MapPlayEconomyCourt.chest_rows`). Its suite is the economy
+# rules', where the pick is proved off plan data alone, so it names its own
+# domain instead of pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_production_pick*.gd*"
+domain = "production_pick"
 
 [domains.production_pick]
 suites = [
