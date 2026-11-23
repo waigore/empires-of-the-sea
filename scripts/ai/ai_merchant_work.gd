@@ -277,7 +277,11 @@ static func _buyable_tile(
 
 ## A deed is worth the base weight plus how short the court is of that commodity,
 ## so a grain estate is bought before a fourth timber one (wiki:
-## civilian-units § Merchant; § Work Order Summary).
+## civilian-units § Merchant; § Work Order Summary). A deed that clears straight
+## to the treasury is worth the cash its ground pays — the same reading a mine's
+## next level takes (`AiBuilderWork.RICHES_CASH`; issues #1382, #1383) — so a rich
+## tile outranks a crop deed of the same published price, while a raw the workshop
+## is short of still leads it, because a point of need is worth five.
 static func _score(query: AiWorkQuery, tile: Vector2i) -> int:
 	var commodity: String = Extraction.commodity_for_resource(
 		query.model.resource_at(tile.x, tile.y)
@@ -286,4 +290,6 @@ static func _score(query: AiWorkQuery, tile: Vector2i) -> int:
 	score += AiBuilderWork.need(
 		commodity, query.stockpile, query.config.parameter("civilian.need_target")
 	) * 5
+	if CommodityCatalog.is_riches(commodity):
+		score += CommodityCatalog.base_price(commodity) * AiBuilderWork.RICHES_CASH / 100
 	return score

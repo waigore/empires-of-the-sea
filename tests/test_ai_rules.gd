@@ -9916,6 +9916,104 @@ func test_a_boycott_leaves_the_rival_merchant_no_deed_to_walk_to() -> void:
 	)
 
 
+# --- the Merchant's deed ground is the Explorer's to read (issue #1383) -------
+
+
+## A rival Explorer reads the Minor's unsurveyed hills when its court could sign
+## the deed that ground is sold by, and leaves them alone with no embassy: the
+## deposit is never named, only the ground is dug (issue #1383; wiki:
+## civilian-units § Merchant; fog-and-exploration § Prospect-Required Resources).
+func test_a_rival_explorer_digs_the_ground_its_merchant_could_buy() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var iron: Vector2i = Vector2i(2, 1)
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", iron)
+	var work: Dictionary = AiExplorerWork.best_candidate(_work_query(
+		AiConfig.build(0, 1500), model, unit, [unit], LandWorks.new(),
+		Fixture.stockpile(), {}, {}, _deed_context(Fixture.merchant_court()), {}
+	))
+	assert_eq(String(work.get("action", "")), "prospect", "the embassy opens the Minor's ground")
+	assert_eq(Vector2i(work.get("tile", CivilianState.NO_TILE)), iron)
+	assert_true(
+		AiExplorerWork.best_candidate(_work_query(
+			AiConfig.build(0, 1500), model, unit, [unit], LandWorks.new(),
+			Fixture.stockpile(), {}, {},
+			_deed_context(Fixture.merchant_court_unembarked()), {}
+		)).is_empty(),
+		"a court with no embassy reads no foreign ground"
+	)
+
+
+## And it walks there: the deed ground joins the crown's own tiles on the survey
+## walk, so the rich tile is charted before the Merchant can sign it (issue
+## #1383).
+func test_a_rival_explorer_walks_to_the_ground_its_deed_covers() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(1, 1))
+	var march: Dictionary = AiExplorerWork.best_move(
+		model, unit, LandWorks.new(), _deed_context(Fixture.merchant_court())
+	)
+	assert_eq(String(march.get("kind", "")), "move", "the Minor's hills are a survey step away")
+	assert_eq(Vector2i(march.get("tile", CivilianState.NO_TILE)), Vector2i(2, 1))
+	assert_true(
+		AiExplorerWork.best_move(
+			model, unit, LandWorks.new(), _deed_context(Fixture.merchant_court_unembarked())
+		).is_empty(),
+		"with no deed to sign the crown's own land is all it reads"
+	)
+
+
+## War and the absence of a court close the ground, exactly as they close the
+## deed (issue #1383; wiki: civilian-units § Merchant).
+func test_war_shuts_the_miners_ground_to_the_survey() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var iron: Vector2i = Vector2i(2, 1)
+	var court: DiplomacyState = Fixture.merchant_court()
+	assert_true(
+		AiExplorerWork.deed_ground(model, 0, iron, {"diplomacy": court}),
+		"the standing embassy opens the ground"
+	)
+	var world := WorldMap.new()
+	world.add_region(model)
+	assert_true(bool(DiplomacyRules.declare_war(court, 0, MINOR, true, world).get("ok", false)))
+	assert_false(
+		AiExplorerWork.deed_ground(model, 0, iron, {"diplomacy": court}),
+		"a war closes the deed, so it closes the survey"
+	)
+	assert_false(
+		AiExplorerWork.deed_ground(model, 0, iron, {}),
+		"no court published, no foreign ground read"
+	)
+	assert_false(
+		AiExplorerWork.deed_ground(model, 0, Vector2i(0, 0), {"diplomacy": court}),
+		"a crown's own ground is not a deed"
+	)
+
+
+## A deed that clears to the treasury outranks a crop deed of the same published
+## price: spices (50) and grain (50) both cost 750, and the rich tile scores the
+## cash it pays beside the want of it (issue #1383, #1382).
+func test_a_riches_deed_outranks_a_crop_deed_of_the_same_price() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var spice_tile: Vector2i = Vector2i(2, 2)
+	model.resource[model.index_of(spice_tile.x, spice_tile.y)] = 17
+	assert_eq(LandPurchase.cost(model, GRAIN), LandPurchase.cost(model, spice_tile))
+	var context: Dictionary = _deed_context(Fixture.merchant_court())
+	var grain: Dictionary = AiMerchantWork.best_candidate(_work_query(
+		AiConfig.build(0, 1500), model, _merchant(GRAIN), [_merchant(GRAIN)],
+		LandWorks.new(), Fixture.stockpile(), {}, {}, context, {}
+	))
+	var spice: Dictionary = AiMerchantWork.best_candidate(_work_query(
+		AiConfig.build(0, 1500), model, _merchant(spice_tile), [_merchant(spice_tile)],
+		LandWorks.new(), Fixture.stockpile(), {}, {}, context, {}
+	))
+	assert_eq(String(grain.get("action", "")), "purchase_land", "the crop deed is on offer")
+	assert_eq(String(spice.get("action", "")), "purchase_land", "the rich deed is on offer")
+	assert_true(
+		int(spice.get("score", 0)) > int(grain.get("score", 0)),
+		"the same price, and the rich tile wins"
+	)
+
+
 # --- fixtures ----------------------------------------------------------------
 
 func _merchant(tile: Vector2i, owner: int = 0) -> CivilianState:
@@ -9958,6 +10056,13 @@ func _market_context(
 		"tech_unlocked": {"merchant_companies": true},
 		"visibility": Fixture.visibility(model),
 	}
+
+
+## The reading the deed gate takes (issue #1383): a purse, a court and no chart,
+## so the published every-tile-charted fixture reading stands and only the bond
+## decides.
+func _deed_context(court: DiplomacyState, treasury: int = 5000) -> Dictionary:
+	return {"treasury": treasury, "diplomacy": court, "at_war": false}
 
 
 ## The deed door's own reading: the court is neutral here, so the staff targets
