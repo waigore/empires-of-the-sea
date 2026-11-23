@@ -10785,6 +10785,24 @@ func test_a_siege_downgrade_is_not_restored() -> void:
 	assert_eq(model.provinces[0].fort_level, 5)
 
 
+## Mine Engineering is not a step: the wiki says its Stone "is already the start
+## wall" (siege-mechanics § Fort Levels), so a capital a siege has taken down is
+## not owed Stone again when that study finishes. Only the Modern → Bastion →
+## Star ladder lifts a wall.
+func test_mine_engineering_does_not_rebuild_a_razed_capital() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
+	var world: WorldMap = _fort_capital_world(model)
+	FortCapital.seed(model)
+	assert_eq(model.provinces[0].fort_level, 2, "the campaign opens at Stone")
+	model.provinces[0].fort_level = 1  # a siege takes the fort down a level
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["mine_engineering"]}),
+		0, "Mine Engineering is the start wall, not a raise owed later"
+	)
+	assert_eq(model.provinces[0].fort_level, 1, "the razed seat keeps the wall it has left")
+	assert_eq(FortCapital.unlock_level("mine_engineering"), 0)
+
+
 ## A capital already above the unlock's level is left where it stands.
 func test_a_wall_above_the_unlock_is_left_alone() -> void:
 	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
@@ -10817,9 +10835,13 @@ func test_the_turn_close_lifts_each_courts_own_capital() -> void:
 		other_power: {"resolved": {"research": {"researched": ["mine_engineering"]}}},
 		minor: {"resolved": {"research": {"researched": ["star_forts"]}}},
 	}}
+	# A siege has taken the rival's seat down a level: Mine Engineering is the
+	# start wall, not a step, so the close must leave the wall it found
+	# (wiki: siege-mechanics § Fort Levels).
+	model.provinces[1].fort_level = 1
 	MapPlayTurnFinish._fort_upgrades(play, book)
 	assert_eq(model.provinces[0].fort_level, 5, "the crown's capital reached Star")
-	assert_eq(model.provinces[1].fort_level, 2, "the rival's capital reached Stone")
+	assert_eq(model.provinces[1].fort_level, 1, "Mine Engineering rebuilds no razed seat")
 	assert_eq(model.provinces[2].fort_level, 2, "the Minor keeps its Stone start wall")
 
 
