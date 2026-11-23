@@ -16,10 +16,11 @@ DR-20261110-27.
   Star 5); a siege downgrade is not restored.
 - **Unopposed capture** is open ground only. An empty walled province is
   **stormed**: beat wall HP + the battery (`FortRules.storm_threshold`, the
-  **defender's** Royal → Heavy → Siege line); every whole 10 strength past it
-  costs a regiment, weakest first. The AI gates and muster cannot read another
-  court's ledger, so they price the top of the line (`storm_ceiling`, 59 at
-  Wood); a host they admit is never repelled.
+  **defender's** Royal → Heavy → Siege line); each whole 10 past it
+  costs a regiment, weakest first. Attackers storm in the chain's order: a
+  repelled storm names the wall and leaves it for the next. The
+  AI gates price the top of the line (`storm_ceiling`, 59 at Wood), since they
+  cannot read a ledger.
 - **Battle mode:** 0 field, `≥ 1` siege. **Scaling formula:** wall HP = 40 ×
   level, guns = level, damage reduction = 10% × level. The opening Great Power
   muster (21 strength) cannot storm a Wood fort.
