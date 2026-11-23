@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:4ee47d94d031a83e813fa72d5fe3b86d7563dd58063a126f439880df5f5ef9cb",
-  "submission_git": "fix/1384-bank-holds-declaration@936cec4f",
+  "submission_hash": "sha256:c4dbcf650bf7346d6888a5d9ab2c129b11e630ea3b5ba9ee0592b12d4e8b0bbe",
+  "submission_git": "refactor/map-play-court-holdings-roster@d4fbad4b",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:c9554bc1f64e3dbe74a3f52d9e7a8d99ab5e3ac892644e3595ec8fad9b2b8cee",
+    "ai_surface_hash": "sha256:eeed278f77d0be98f12f8c28d8cee08c9581a53a63a627bd4e9f813c33a2125c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T15:56:28Z",
+  "timestamp": "2026-11-23T16:08:58Z",
   "report_version": 1,
-  "signature": "hmac-sha256:05948da56f15570ff2b2202dfe428fc5eda92cf2ac1108a3c7a0440ae3780876"
+  "signature": "hmac-sha256:2ef1c28a113647df16858daa0ffbb5acb291dabcd8efadb29841b6c7ee85b8ed"
 }
