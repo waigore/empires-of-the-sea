@@ -11717,12 +11717,95 @@ func test_a_colonist_lands_on_the_ground_its_workshop_feeds() -> void:
 	)
 
 
+## The treasury rides beside the workshop in the landing pass (#1382): on a
+## mineral-bearing terrain the tile carries `economy.riches_route_weight` once
+## the court's chart has crossed the Passage, so a colonist lands where
+## prospecting can pay. No mineral is ever named — the weight rides the terrain,
+## not a deposit (wiki: ai-architecture § Colonisation voyages;
+## DR-20261123-09).
+func test_the_landing_pass_reads_the_treasury_beside_the_workshop() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(
+		1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0)
+	)
+	assert_true(bool(CivilianVoyage.embark(world.region(0), unit, fleet)["ok"]))
+	assert_true(bool(FleetSortie.apply(world.region(0), fleet, 0)["ok"]))
+	fleet.moved = false
+	assert_true(bool(WarpTravel.apply_crossing(world, 0, fleet)["ok"]))
+	fleet.moved = false
+	# The court has charted the New World shore it stands before: a charted sea
+	# zone is the gate the riches weight rides.
+	var charts: CourtCharts = CourtCharts.new()
+	charts.setup(world, MapModel.NO_ID, {})
+	charts.reveal_sea_zone(ai_colonisation_OWNER, 1, 0)
+	# Peaks at (1, 1): a terrain no crop grows on and the chart shows no
+	# deposit — the ground itself is what the court can read.
+	new_world.terrain[new_world.index_of(1, 1)] = MapModel.Terrain.MOUNTAINS
+	new_world.resource[new_world.index_of(3, 1)] = 13
+	# No appetite at all: the published compass order keeps the near tile.
+	assert_eq(
+		Vector2i(AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {}
+		).get("tile", Vector2i(-1, -1))), Vector2i(0, 1),
+		"no appetite, no riches weight: the published walk stands"
+	)
+	# The workshop's appetite alone (sugar cane short, no riches key): the
+	# plain crop tile wins, the peak weighs nothing.
+	var workshop: Dictionary = {"sugarCane": 4}
+	assert_eq(
+		Vector2i(AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+			null, AiPhasePlanner.PHASE_PEACE, false, workshop
+		).get("tile", Vector2i(-1, -1))), Vector2i(3, 1),
+		"the workshop's own appetite is unchanged"
+	)
+	# Beside it the riches key: the peak now outranks the plain.
+	var with_riches: Dictionary = {"sugarCane": 4, "riches": 100}
+	assert_eq(
+		Vector2i(AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+			null, AiPhasePlanner.PHASE_PEACE, false, with_riches
+		).get("tile", Vector2i(-1, -1))), Vector2i(1, 1),
+		"the mineral-bearing ground is worth the landing"
+	)
+	# The appetite's own read: the riches key rides only on a charted New
+	# World, and it never names a mineral.
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_false(
+		AiEconomyPlanner.ground_appetite(_ai_colonisation_config(), economy, 0).has("riches"),
+		"no chart handed in, no riches weight"
+	)
+	var uncharted: CourtCharts = CourtCharts.new()
+	uncharted.setup(world, MapModel.NO_ID, {})
+	assert_false(
+		AiEconomyPlanner.ground_appetite(_ai_colonisation_config(), economy, 0, uncharted)
+			.has("riches"),
+		"a chart that has never crossed the Passage weighs no riches"
+	)
+	charts.reveal_sea_zone(ai_colonisation_OWNER, 1, 0)
+	var weighed: Dictionary = AiEconomyPlanner.ground_appetite(
+		_ai_colonisation_config(), economy, 0, charts
+	)
+	assert_eq(
+		int(weighed.get("riches", 0)),
+		_ai_colonisation_config().parameter("economy.riches_route_weight"),
+		"the charted shore carries the configured riches weight"
+	)
+	assert_false(
+		weighed.has("gold") or weighed.has("silver") or weighed.has("gems")
+			or weighed.has("diamonds"),
+		"no mineral is ever named: the weight is the terrain's, not a deposit's"
+	)
+
+
 ## A court on **earn** sails for cash, and the New World ground that clears to
 ## the treasury is a deposit no chart shows until an Explorer digs it. So its
 ## Explorer's landing prefers ground worth surveying — and weighs every
 ## prospectable tile the same, because the chart cannot say which deposit lies
 ## under it (wiki: fog-and-exploration § Prospect-Required Resources; issue
-## #1382). A raw the workshop is short of still leads the bet.
+## #1382 / #1386). A raw the workshop is short of still leads the bet.
 func test_an_earn_crowns_explorer_lands_on_ground_worth_surveying() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	var new_world: MapModel = world.region(1)

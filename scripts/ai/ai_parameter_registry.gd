@@ -211,6 +211,21 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 10000,
 		"default": 500,
 	},
+	{
+		"key": "economy.riches_route_weight",
+		"category": "economy",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 1000,
+		# The base weight one New World mineral-bearing coast carries in the
+		# colonisation planner's landing pass once the court charts the New
+		# World (issue #1382). Sits beside the workshop's own appetite: the
+		# chart never names a mineral, so the tile is weighed on its terrain,
+		# not on a deposit — one weight covers every mineral-bearing terrain
+		# (peaks, hills, desert), and a tile that also grows a wanted crop wins
+		# by the bigger read. 0 keeps DR-20261119-05's published walk.
+		"default": 100,
+	},
 ]
 
 static var _by_key: Dictionary = {}

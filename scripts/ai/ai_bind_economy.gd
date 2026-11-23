@@ -46,6 +46,10 @@ static func recruitment_orders(
 		)
 	)
 	var out: Array[Dictionary] = []
+	# A missing mainline script returns null; keep an empty plan so a baseline
+	# court never crashes the turn mid-bench (ai-bench harness).
+	if raw == null:
+		return out
 	out.assign(raw)
 	return out
 
