@@ -12,27 +12,27 @@ DR-20261110-27.
   (`FortRules.site_tile`); materials at assign, turns per level.
 - **Start walls** (issue #1314): every Old World Great Power or Minor province
   opens at Wood, its capital at Stone; New World and colonies stay 0. A Great
-  Power's fort tech lifts its own capital one step once (Modern 3, Bastion 4,
+  Power's fort tech lifts its own capital one step (Modern 3, Bastion 4,
   Star 5); a siege downgrade is not restored.
 - **Unopposed capture** is open ground only. An empty walled province is
   **stormed**: beat wall HP + the battery (`FortRules.storm_threshold`, the
   **defender's** Royal → Heavy → Siege line); each whole 10 past it
   costs a regiment, weakest first. Stormers follow the chain; a repelled storm
-  names the wall and leaves it for the next. AI gates price the top of the line
-  (`storm_ceiling`).
+  names the wall and leaves it for the next. A storm pays the attack price
+  (`ArmyAttackCost`, DR-20261123-22); a walk-in pays nothing. AI gates price the
+  top of the line (`storm_ceiling`).
 - **Battle mode:** 0 field, `≥ 1` siege. **Scaling formula:** wall HP = 40 ×
   level, guns = level, damage reduction = 10% × level. The opening Great Power
   muster (21 strength) cannot storm a Wood fort.
-- **Auto-resolve:** wall HP soaks attack; the defender's share is scaled by
-  1 − damage reduction and adds `guns × strength` of its emplaced type.
+- **Auto-resolve:** wall HP soaks attack; the defender's share scales by
+  1 − damage reduction and adds `guns × strength`.
 - **Quick Battle** (`SiegeLanes`): infantry man the wall, horse and guns wait
   behind; RNG ≥ 2 hits the wall, only artillery reaches behind. Gates: three,
   each after `ceil(wall HP / 3)` casualties; a breach opens the behind lane.
-  Grounds: `SiegeGround`.
 - **The wall reads itself** (`WallRead`, DR-20261120-06, DR-20261123-20): the
   sheet's **Wall** row, the observatory and a march name its soak, spare share
   and storm — `storm needs 51 strength` on the crown's own ground, `51–59` on
-  another court's, whose battery is unread.
+  another court's.
 
 ## Costs and numbers
 

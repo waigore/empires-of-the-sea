@@ -67,6 +67,15 @@ static func storm_one(
 	storming: Array[ArmyState],
 	context: Dictionary
 ) -> Dictionary:
+	## The storm is a **battle context**, so the attacker pays the land's price for
+	## it like any other: a Great Power's attack costs `ArmyAttackCost`'s base
+	## whatever it meets, and a march that only walks into an empty open province
+	## pays nothing because no battle is fought at all (wiki: tech-tree-military
+	## § Economy modifiers — `kLandBattleAttackTreasuryCostBase`, "per Great Power
+	## attacker per battle context"; combat § Resolution). The same charge the
+	## exchange takes is taken here, before the wall is read, so a repelled storm
+	## costs its attacker exactly what a repelled field fight does.
+	var fee: Dictionary = ArmyAttackCost.charge(context, attacker)
 	## The battery is the province's, so its line is the **holder's** (that is,
 	## the province owner's) studies (wiki: siege-mechanics § Emplaced
 	## Artillery — "the defender's unlocked emplaced-quality tech line"). The
@@ -94,6 +103,7 @@ static func storm_one(
 		model, province, attacker, holder, ArmyCombat.Outcome.CAPTURE,
 		lost, [] as Array[String], {}, {"fort": level}
 	)
+	ArmyAttackCost.stamp(fee, report)
 	report["captured"] = taken
 	report["storm"] = {
 		"fort": level,

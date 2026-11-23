@@ -6982,6 +6982,69 @@ func test_a_repelled_storm_leaves_the_wall_for_the_next_attacker() -> void:
 	assert_eq(horse.count(), 2, "the repulsed host loses nobody")
 
 
+## A storm is a battle context like any other: the attacker pays the land's
+## published price for it, once, whether the wall throws it back or it crosses
+## (wiki: tech-tree-military § Economy modifiers —
+## `kLandBattleAttackTreasuryCostBase`, "per Great Power attacker per battle
+## context"; combat § Resolution). An unopposed walk-in pays nothing because no
+## battle is fought at all (see
+## `test_an_unopposed_capture_costs_no_battle_treasury`).
+func test_a_storm_pays_the_lands_attack_price() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+
+	# A thin host under the 51 ladder: the wall throws it back, and the attack
+	# it made is still paid for.
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	thin.moved = true
+	var repelled: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [thin], {"pay_attack": pay}
+	)
+	assert_eq(int(repelled[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(charged, [[0, 100]], "a repelled storm pays its attacker's price")
+	assert_eq(int(repelled[0]["attack_cost"]), 100)
+	assert_eq(int(repelled[0]["attack_paid"]), 100)
+
+	# The study that cuts the field's price cuts the storm's the same way.
+	charged.clear()
+	_setup_army_field_rules()
+	model = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var host := army_field_rules_Fixture.army(
+		2, 2, 2, _regiment_types("halberdiers", 10)
+	)
+	host.moved = true
+	var crossed: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [host], {"pay_attack": pay, "tech": {2: {"industrial_machinery": true}}}
+	)
+	assert_eq(int(crossed[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(charged, [[2, 75]], "the storm pays what the price techs leave")
+	assert_eq(int(crossed[0]["attack_cost"]), 75)
+	assert_eq(int(crossed[0]["attack_paid"]), 75)
+
+	# Two hosts that fall on one wall are two battle contexts: each pays.
+	charged.clear()
+	_setup_army_field_rules()
+	model = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var horse := army_field_rules_Fixture.army(1, 0, 2, ["cuirassiers", "cuirassiers"])
+	horse.moved = true
+	var great := army_field_rules_Fixture.army(
+		2, 2, 2, _regiment_types("halberdiers", 10)
+	)
+	great.moved = true
+	var chain: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [horse, great], {"pay_attack": pay}
+	)
+	assert_eq(chain.size(), 2)
+	assert_eq(charged, [[0, 100], [2, 100]], "one charge per storming court")
+
+
 ## The storm that takes the wall is the province's holder, and an attacker
 ## still on the field meets it from the walls it just took (wiki: combat
 ## § Multi-Attacker Chain — "the next attacker in the chain fights that side
