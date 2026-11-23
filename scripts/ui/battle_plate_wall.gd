@@ -6,11 +6,30 @@ extends RefCounted
 
 const GATES: int = 3
 
+## The curtain's share of the plate height: a base a levy wall already stands
+## above the field, and a step per level of the ladder. The whole five-level line
+## is drawn (Wood 1 … Star 5), because the plate prints the level it is hiding
+## behind: a Bastion or a Star wall drawn at Modern's height reads as a Modern
+## fort beside a wall block that names the higher level (wiki: siege-mechanics
+## § Fort Levels — one ladder of five, DR-20261122-16).
+const HEIGHT_BASE: float = 0.10
+const HEIGHT_STEP: float = 0.030
+
 
 ## Height of a fort's wall at this plate height: a curtain a garrison can stand
 ## on, growing with the era.
 static func wall_height(height: float, fort: int) -> float:
-	return height * (0.10 + 0.030 * float(clampi(fort, 0, 3)))
+	return height * (
+		HEIGHT_BASE + HEIGHT_STEP * float(FortRules.clamp_level(fort))
+	)
+
+
+## The painted wall a level stands behind. Three paintings ship — wood, stone
+## and modern — so the ladder's last two eras stand taller on the Modern
+## painting and never index past the shelf.
+static func wall_art(fort: int) -> String:
+	var index: int = mini(maxi(fort, 1), BattlePlateAssets.WALLS.size() - 1)
+	return BattlePlateAssets.WALLS[index]
 
 
 ## Where the garrison stands when a wall shields it: the parapet walk, so the
@@ -20,16 +39,16 @@ static func parapet_y(height: float, fort: int) -> float:
 
 
 ## Three painted wall segments, one gatehouse each, with rubble where a gate has
-## been beaten down (wiki: siege-mechanics § Gates).
+## been beaten down (wiki: siege-mechanics § Gates). The painting is the level's
+## era where one exists: three ship (wood, stone, modern), and the ladder's last
+## two eras stand on the Modern painting, taller by `wall_height`.
 static func draw(
 	canvas: CanvasItem, width: float, height: float, fort: int, broken: int,
 	color: Color, time: float
 ) -> void:
 	if fort <= 0:
 		return
-	var tex: Texture2D = BattlePlateAssets.texture(
-		BattlePlateAssets.WALLS[clampi(fort, 1, 3)]
-	)
+	var tex: Texture2D = BattlePlateAssets.texture(wall_art(fort))
 	if tex == null:
 		return
 	var ground: float = height * BattlePlateAssets.GROUND
@@ -67,9 +86,7 @@ static func draw_crest(
 ) -> void:
 	if fort <= 0:
 		return
-	var tex: Texture2D = BattlePlateAssets.texture(
-		BattlePlateAssets.WALLS[clampi(fort, 1, 3)]
-	)
+	var tex: Texture2D = BattlePlateAssets.texture(wall_art(fort))
 	if tex == null:
 		return
 	var ground: float = height * BattlePlateAssets.GROUND

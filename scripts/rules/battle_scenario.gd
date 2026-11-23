@@ -10,7 +10,7 @@ extends RefCounted
 ##
 ## Spec keys (all optional unless noted):
 ##   attacker / defender : Array[String] of regiment type ids (required)
-##   fort                : 0–3 (default 0)
+##   fort                : 0–5 (default 0; none … Star per FortRules.LEVELS)
 ##   terrain             : open | hill | woods | town | marsh (default open)
 ##   attacker_plan       : aggressive | balanced | defensive (default balanced)
 ##   defender_plan       : aggressive | balanced | defensive (default defensive)

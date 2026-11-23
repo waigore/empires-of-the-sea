@@ -9,9 +9,7 @@ extends RefCounted
 ## The footing, order of battle and larder are read once in `plan_turn`, so the
 ## projection the market stages against and the phase that closes the ledger
 ## read the same numbers. Research and trade live in `MapPlayEconomyCourtBook`;
-## the yield, the food demand and the reservation rows in `MapPlayEconomyLarder`;
-## and the harvest and labour readings the hire paces itself by in
-## `MapPlayEconomyHarvestReadings` (REQ-P3-01).
+## the yield, the food demand and the reservation rows in `MapPlayEconomyLarder`.
 
 var play: PlaySession
 var faction: int
@@ -119,7 +117,7 @@ static func _base(
 ## and the market staging the phase has always staged before it closes.
 func plan_turn() -> void:
 	cargo = MapPlayCargoAi.run(play, faction, economy, overseas)
-	_note_larder()
+	MapPlayEconomyLarder.note(self)
 	rehearse()
 	# The college's book is the pass's own: the research planner writes the
 	# research state (its slots, the revealed set, a refund), so a sheet that
@@ -170,7 +168,7 @@ func rehearse() -> void:
 	# manufacture's reach instead: the plan never promises a run whose inputs
 	# would eat the regiment's cloth or the hull's lumber, and the court's own
 	# works keep the manufactures they pay for.
-	var chest: Dictionary = chest_rows(
+	var chest: Dictionary = MapPlayEconomyLarder.chest_rows(
 		play, faction, kind, config, economy, at_war, regiments, warships,
 		hull_chest, int(pressure["extra_regiments"])
 	)
@@ -220,68 +218,6 @@ func rehearse() -> void:
 	hire_margin = MapPlayEconomyCourtBook.hire_margin(self)
 
 
-## Notes the harvest slack the muster's gate plans with. The economy pass notes
-## it every turn, before the crews' plans read it; a sheet that only names the
-## plan leaves the note to the pass (DR-20261121-09).
-func _note_larder() -> void:
-	var slack: int = MapPlayEconomyHarvestReadings.harvest_slack(self)
-	if slack == -2:
-		return
-	play.ai.note_food_slack(faction, slack)
-
-
-## The workers this court's pass recruits this phase — the `recruitment_orders` call
-## `apply_turn` books, read here once so the pass and the WORKERS tab's counsel
-## cannot hire two different pools (REQ-P2-03; DR-20261122-01). A reading:
-## nothing here enlists a worker or spends a ducat.
-##
-## `harvest` is the larder's harvest slack the hire paces itself by: the pass
-## hands the figure it noted at plan time, so its own hire is unchanged, and a
-## sheet naming the plan before the close hands
-## `MapPlayEconomyHarvestReadings.harvest_slack(court)` — the figure the next
-## plan turn will note, because the note is taken before the phase resolves.
-func recruit_orders(harvest: int) -> Array[Dictionary]:
-	return AiBindEconomy.recruitment_orders(
-		kind, config, economy, floor,
-		MapPlayEconomyHarvestReadings.fed_slack(self),
-		MapPlayEconomyHarvestReadings.muster_hands(self), conquest_bank, harvest
-	)
-
-
-## The raw the muster's and the hull's own material rows claim, merged: the
-## stock manufacture plans around so a run never promises inputs the regiment
-## or the yard must keep (issue #484, #878). One home, read by the pass and by
-## the sheet that names the plan, so the two cannot claim different chests
-## (REQ-P2-03; DR-20261121-07).
-static func chest_rows(
-	play: PlaySession,
-	faction: int,
-	kind: String,
-	config: Variant,
-	economy: PlayerEconomy,
-	at_war: bool,
-	regiments: int,
-	warships: int,
-	hull_chest: int,
-	extra_regiments: int
-) -> Dictionary:
-	var muster: Dictionary = AiBindEconomy.muster_reserve(
-		kind, config, economy, regiments, at_war, extra_regiments
-	)
-	var navy: Dictionary = (
-		AiNavy.due_row(
-			at_war, warships, MapPlayCourt.hostile_warships(play, faction),
-			economy, MapPlayCourt.hull_types(play, faction)
-		)
-		if hull_chest > 0 else {}
-	)
-	return {
-		"muster_row": muster,
-		"navy_row": navy,
-		"held": MapPlayEconomyLarder.merge_rows(muster, navy),
-	}
-
-
 ## Resolves the shared market and books this court's next production and
 ## recruits, then applies the crews' plans. Returns the court's report row.
 func apply_turn() -> Dictionary:
@@ -316,8 +252,8 @@ func book_orders() -> Dictionary:
 	# The workers the pass buys this phase — the muster's hand, the yard's crew and
 	# the larder's slack all read inside `recruit_orders`, the one home the
 	# WORKERS tab's counsel reads too (REQ-P2-03; DR-20261122-01).
-	var recruits: Array[Dictionary] = recruit_orders(
-		MapPlayEconomyHarvestReadings.harvest_reading(self)
+	var recruits: Array[Dictionary] = MapPlayEconomyLarder.recruit_orders(
+		self, MapPlayEconomyLarder.harvest_reading(self)
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))
@@ -340,6 +276,6 @@ func book_orders() -> Dictionary:
 			"workers": economy.workers.total(),
 			"peasants": economy.workers.count(WorkerPool.Tier.PEASANT),
 			"available": economy.available_peasants(),
-			"harvest": int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2,
+			"harvest": MapPlayEconomyLarder.noted_slack(play, faction),
 		},
 	}

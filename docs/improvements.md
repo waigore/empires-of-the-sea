@@ -48,7 +48,7 @@ level-4 Great Power towns, four grain farms.
   line under it prices the walk (DR-20261118-12).
 - **The court's own raise** (DR-20261121-10): a gold line above the press names
   the estates the Builder pass would raise, in row order, three named; no idle
-  Builder names that gate. Each leads with `▸` (DR-20261122-04).
+  Builder names that gate. Each leads with `▸` (DR-20261122-04, DR-20261123-08).
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
   a cut-off estate carries **Build road**.
 

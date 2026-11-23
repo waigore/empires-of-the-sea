@@ -19,10 +19,12 @@ func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -1963,6 +1965,14 @@ func test_the_workers_tab_names_the_workers_the_court_would_recruit() -> void:
 				WorkerPool.tier_name(tier)]),
 			"the tier the plan buys wears the mark: " + str(tier)
 		)
+	# The mark's meaning stands beside it: the tab keeps no footer, and a phone
+	# would drop one anyway (DR-20261123-08).
+	assert_eq(
+		body.legend_text(), LedgerWorkers.MARK_LEGEND,
+		"the tab says what its mark means"
+	)
+	assert_eq(body.legend_shown(), not tiers.is_empty(), "and stands with the marks")
+	assert_eq(economy.workers.total(), before, "the legend enlists nobody")
 
 
 ## A crown whose seat runs no planner reads no hire: the tab prints nothing
@@ -1975,6 +1985,7 @@ func test_the_workers_tab_prints_no_hire_without_a_planner() -> void:
 	var body: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
 	assert_eq(body.counsel_text(), "", "no planner, no line")
 	assert_true(MapPlayRecruitPick.pick(play).is_empty(), "and no pick behind it")
+	assert_false(body.legend_shown(), "and no mark to explain")
 	play.ai_mode = AiControl.FULL
 
 
