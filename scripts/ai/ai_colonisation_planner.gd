@@ -307,24 +307,26 @@ static func _zone_borders_province(model: MapModel, zone: int, province: int) ->
 ## or a mineral the chart never shows unprospected) weighs nothing, so the
 ## compass order decides it (DR-20261119-05).
 ##
-## The treasury is read beside the workshop (issue #1382): on mineral-bearing
-## terrain the tile carries a riches weight once the court charts the New World
-## — `economy.riches_route_weight`. No mineral is named, priced or planned on:
-## the weight rides the terrain, not a deposit, so the fog rule holds
-## (DR-20261111-26) and the appetite's own mineral exclusion stands. A tile that
-## also grows a wanted crop wins by the bigger read, so a riches tie-break never
-## starves a recipe the workshop feeds.
+## The treasury is read beside the workshop (issue #1382): on prospectable
+## ground (swamp, hills, mountain, desert) the tile also takes the appetite's
+## `riches` weight — `economy.riches_route_weight`, set once the court charts
+## the New World — the bigger read winning. No mineral is named, priced or
+## planned on: the weight rides the terrain, not a deposit, so the fog rule
+## holds (DR-20261111-26) and the appetite's own mineral exclusion stands. A
+## tile that also grows a wanted crop wins by the bigger read, so a riches
+## tie-break never starves a recipe the workshop feeds.
 static func _ground_weight(model: MapModel, tile: Vector2i, appetite: Dictionary) -> int:
+	if appetite.is_empty():
+		return 0
 	var weight: int = 0
-	if not appetite.is_empty():
-		var resource: int = model.resource_at(tile.x, tile.y)
-		if resource >= 0:
-			var commodity: String = ImprovementCatalog.commodity(resource)
-			if not commodity.is_empty():
-				weight = maxi(int(appetite.get(commodity, 0)), 0)
-	if weight > 0 or not MineralSurvey.prospectable(model, tile):
-		return weight
-	return maxi(int(appetite.get(RICHES_KEY, 0)), 0)
+	var resource: int = model.resource_at(tile.x, tile.y)
+	if resource >= 0:
+		var commodity: String = ImprovementCatalog.commodity(resource)
+		if not commodity.is_empty():
+			weight = maxi(int(appetite.get(commodity, 0)), 0)
+	if MineralSurvey.prospectable(model, tile):
+		weight = maxi(weight, int(appetite.get(RICHES_KEY, 0)))
+	return weight
 
 
 static func _carried_id(fleet: FleetState) -> int:
