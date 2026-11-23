@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:b320796cdd1a7dff4f412bb6f4db6fdd93301420a23b9b4a554dbbb3e0ecfc4c",
-  "submission_git": "refactor/map-play-court-holdings-roster@1a8fe6dd",
+  "submission_hash": "sha256:86403ffa4c2aec1a4563162c825b7f9398c358f7078bfac6378e0614a9727912",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261123T161659096958Z@97ba181a",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:6f80c9ab7c5a3c5c15c16dba68a851b6777a4e134fd0ac3e846baf81cc82e3c8",
+    "ai_surface_hash": "sha256:ea416ec85fd313705c87f51daa76a8110f1d1d0369a572b5add68bae95e29cdc",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T17:04:23Z",
+  "timestamp": "2026-11-23T17:21:46Z",
   "report_version": 1,
-  "signature": "hmac-sha256:9ebadb2c62022c196ea6ff6332b89049c87566175017737ba88b350f81406b64"
+  "signature": "hmac-sha256:def58d1060ede22ac53418d1b993c648740d39286a6940d8cd770913d9578360"
 }

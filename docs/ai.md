@@ -11,34 +11,34 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (DR-20261113-19/22, DR-20261114-06/11).
 - **Power** (`AiPower`): provinces×10 + regiments + ships×5; bands +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda;
-  goals `round(desire/25)`. Envy +20; deeds resist; weariness, erosion and
+  goals `round(desire/25)`. Envy +20; deeds resist; weariness, erosion,
   truces lower it (DR-20261113-25/14-01/18-27).
-- **Diplomacy planner** (`AiDiplomacyPlanner`): one order from that tally.
+- **Diplomacy planner** (`AiDiplomacyPlanner`): one order from the tally.
   Declarations need relation ≤ ceiling and desire ≥ 51; below
   `50 + peace_bias` peace is offered, each refusal doubling the wait
   (DR-20261115-01). A buyable Tribe lifts its envoy chain, not war
   (DR-20261114-02).
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
-  boycott, subsidy, aid; friendly acts cost desire and standing
+  boycott, subsidy, aid; friendly acts cost desire, standing
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
-  One order per rival (`AiTurn`).
+  One order a rival (`AiTurn`).
 - **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
-  Home regiment; armies save or storm, or walk a stranded host home
+  Home regiment; armies save, storm, or walk a stranded host home
   (DR-20261121-15, DR-20261123-09).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron, else raid a hostile coast (DR-20261111-17); at peace, home
   (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
-- **Court charts**: each court's fog, read by voyages, invasions, diplomacy
+- **Court charts**: each court's fog for voyages, invasions, diplomacy
   (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`): docks, boards, crosses, lands by
-  its workshop's read (on earn, for prospectable ground, #1382), returns empty
+  its workshop's read (earn: prospectable ground, #1382), returns empty
   (DR-20261111-05/14-03); the crew is an Explorer, a Builder on crown ground,
-  or the Merchant (#1127).
+  the Merchant, then the Engineer a portless shore wants (#1127, #1422).
 - **Overseas invasions** (`AiInvasionPlanner`): detach hulls, dock, board,
   cross, storm the coast (DR-20261114-03); the earn lift stands down while
   pressing (DR-20261119-14).
-- **Economy** (`AiEconomyPlanner`): recipes by stock deficit; the highest
+- **Economy** (`AiEconomyPlanner`): recipes by stock deficit; the top
   affordable tier keeps a peasant and cash floor.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots
   above the money-goal reserve (DR-20261111-27); when `none`, one Low study
@@ -54,13 +54,13 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   outruns (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the era; Tribes stay
   1; rivals re-equip, pay to attack.
-- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line a turn under
+- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): one line a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`, the
   workshop's pair (DR-20261123-10) and pattern inputs (DR-20261113-08); the
   wornest trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
-  Consumption → Production; trade. Court: `MapPlayEconomyCourt`. Ledger
-  reads: `MapPlayEconomyLarder`.
+  Consumption → Production; trade. Court: `MapPlayEconomyCourt`; ledger:
+  `MapPlayEconomyLarder`.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch
   takes peace but its border front (`AiBorderFronts`), no peer war
   (DR-20261113-15/11/19-16); at war no new voyage or chain

@@ -55,9 +55,10 @@ const WANTED_SHIFT: int = 1001
 ## One order for this court in this region, or an empty dictionary.
 ## `abroad` counts this court's civilians already in the target region, by type,
 ## so a court sends one Explorer to chart it and, once it holds land there, one
-## Builder to work it. `charts` is the court's own fog: it lands only on coast it
-## has seen and walks only water it charts, with one blind step into the unknown
-## to extend the chart (DR-20261110-21). A null chart is the fixture reading —
+## Builder to work it — then one Engineer while that ground has no port to root
+## its network (`needs_port`, issue #1422). `charts` is the court's own fog: it
+## lands only on coast it has seen and walks only water it charts, with one blind
+## step into the unknown to extend the chart (DR-20261110-21). A null chart is the fixture reading —
 ## every tile charted — and production always hands the court's charts in
 ## (MapPlayColonisationAi). `posture` is the court's war footing: a court
 ## fighting a Great Power opens no new voyage, while an expedition already afloat
@@ -75,7 +76,8 @@ static func plan(
 	charts: CourtCharts = null,
 	posture: String = AiPhasePlanner.PHASE_UNKNOWN,
 	wants_income: bool = false,
-	appetite: Dictionary = {}
+	appetite: Dictionary = {},
+	needs_port: bool = false
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -104,7 +106,7 @@ static func plan(
 		return {}
 	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE) and not wants_income:
 		return {}
-	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad)
+	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad, needs_port)
 	if unit == null:
 		return {}
 	fleet = VoyageRead.free_squadron(fleets, owner)
@@ -135,23 +137,25 @@ static func _target_region(world: WorldMap, home: int, owner: int) -> int:
 
 
 ## First idle civilian the court should send, or null. A crown that holds ground
-## overseas sends its Builder to work it; a crown whose Explorer is already
-## ashore sends the Merchant, whose deeds found the colony; otherwise it charts
-## with an Explorer (wiki: civilian-units § Overseas deployment; #497, #602,
-## #1127). One colonist of each kind at a time, so the expedition is not
-## duplicated, and the kind is `VoyageRead.voyage_kind` — the same reading the
+## overseas sends its Builder to work it; a crown whose ground abroad has no port
+## sends the Engineer that roots its network once the Builder stands there; a
+## crown whose Explorer is already ashore sends the Merchant, whose deeds found
+## the colony; otherwise it charts with an Explorer (wiki: civilian-units
+## § Overseas deployment; extraction-and-improvements § Overseas delivery; #497,
+## #602, #1127, #1422). One colonist of each kind at a time, so the expedition is
+## not duplicated, and the kind is `VoyageRead.voyage_kind` — the same reading the
 ## muster holds the crew behind at the harbour.
 static func _voyage_unit(
-	civilians: Array, owner: int, world: WorldMap, target: int, abroad: Dictionary
+	civilians: Array, owner: int, world: WorldMap, target: int, abroad: Dictionary,
+	needs_port: bool = false
 ) -> CivilianState:
-	var kind: String = VoyageRead.voyage_kind(
-		VoyageRead.holds_ground_in(world, target, owner), abroad
-	)
+	var holds: bool = VoyageRead.holds_ground_in(world, target, owner)
+	var kind: String = VoyageRead.voyage_kind(holds, abroad, needs_port)
 	var unit: CivilianState = _idle_of(civilians, owner, kind, abroad)
-	if unit != null or kind != "builder":
+	if unit != null or not holds:
 		return unit
-	# No Builder free to work the crown's ground: the Explorer charts instead,
-	# as published.
+	# No crew of the kind the ground asks for is free: the published read stands
+	# (the Explorer charts), and the port waits for the next Engineer.
 	return _idle_of(civilians, owner, VoyageRead.voyage_kind(false, abroad), abroad)
 
 

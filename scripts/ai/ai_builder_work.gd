@@ -34,6 +34,10 @@ const UNLOCK_VALUE: int = 20
 static func best_candidate(
 	query: AiWorkQuery, town_raw: Dictionary, estates: Array = []
 ) -> Dictionary:
+	# The crew the next voyage carries waits at the harbour instead of raising
+	# the home estates (wiki: civilian-units § Overseas deployment; issue #1422).
+	if CivilianMuster.held_for_voyage(query.unit, query.context):
+		return {}
 	var rows: Array[Dictionary] = _rows(estates)
 	if rows.is_empty():
 		rows = estate_rows(
@@ -66,6 +70,20 @@ static func estate_rows(
 		context.get("capital_tile", CivilianState.NO_TILE), tech_caps
 	)
 	return _rows(snapshot.get("estates", []))
+
+
+## One legal march to the harbour the next voyage boards at. A Builder the
+## voyage waits for answers the muster (`CivilianMuster.held_for_voyage`), so it
+## walks to the port instead of raising work (wiki: civilian-units § Overseas
+## deployment; issue #1422).
+static func best_move(
+	model: MapModel, unit: CivilianState, context: Dictionary = {}
+) -> Dictionary:
+	if not CivilianMuster.held_for_voyage(unit, context):
+		return {}
+	return CivilianMuster.muster_move(
+		model, unit, context, context.get("visibility", null)
+	)
 
 
 ## Yield the next improvement level would actually add each turn: the current
