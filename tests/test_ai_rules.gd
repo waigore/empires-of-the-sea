@@ -7106,6 +7106,27 @@ func test_the_storm_bank_prices_the_purse_not_the_target() -> void:
 
 ## A baseline court with no reading keeps every published chest (issue #1381):
 ## no storm read, no storm bank, and the #995 conquest chest stands alone.
+## The read the run keeps is the thinnest wall across every region the court
+## fights in (issue #1381): a colony region's wall-less ground must not
+## overwrite the Old World read the money goal banks against, and a thinner
+## wall found later replaces a thicker one.
+func test_the_wall_reading_keeps_the_thinnest_wall_across_regions() -> void:
+	var config := AiConfig.build(0, 1500)
+	# First region reads a Wood wall (want 12 at the 6-strength line).
+	var wood: Dictionary = {"want": 12.0, "extra": 3.0}
+	MapPlayArmyMusterAi._note_read(config, wood)
+	assert_eq(float(config.storm_read["want"]), 12.0, "the first read stands")
+	# A colony region with no wall must not erase it.
+	MapPlayArmyMusterAi._note_read(config, {})
+	assert_eq(float(config.storm_read["want"]), 12.0, "a wall-less region erases nothing")
+	# A thinner wall in another region replaces the thicker one.
+	MapPlayArmyMusterAi._note_read(config, {"want": 8.0, "extra": 1.0})
+	assert_eq(float(config.storm_read["want"]), 8.0, "the thinner wall wins")
+	# The same wall read again is kept, not duplicated.
+	MapPlayArmyMusterAi._note_read(config, {"want": 8.0, "extra": 1.0})
+	assert_eq(float(config.storm_read["want"]), 8.0, "an equal read keeps")
+
+
 func test_a_court_with_no_wall_reading_banks_no_storm() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(300)
