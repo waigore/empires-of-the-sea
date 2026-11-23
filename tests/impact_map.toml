@@ -2433,6 +2433,20 @@ suites = [
 suites = [
   "test_ledgers.gd",
 ]
+
+# The map hook that carries the harvest line to the estate block (DR-20261123-25):
+# the ledgers suite mounts the screen, opens the seat's dossier and reads the line
+# off the boot's own bind, so the hook rides that one suite instead of the muster
+# fan-out the dossier already belongs to.
+[domains.province_harvest_sheet]
+suites = [
+  "test_ledgers.gd",
+]
+
+[[rules]]
+match = "scripts/map/map_play_province_harvest.gd*"
+domain = "province_harvest_sheet"
+
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
 domain = "province_sheet"

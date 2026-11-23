@@ -251,7 +251,10 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
 		model, _works, _faction, province_id, _visibility
 	).size()
-	_resources.render(rows, unsurveyed, _road_plans(model, rows))
+	_resources.render(
+		rows, unsurveyed, _road_plans(model, rows),
+		MapPlayProvinceHarvest.line(play, model, province_id)
+	)
 	_rail.render(RailWorks.province_plans(
 		model, _works, _units, _faction, province_id, _tech_unlocked
 	))

@@ -24,11 +24,11 @@ level-4 Great Power towns, four grain farms.
 - **Terrain caps:** scrub timber 1, hardwood follows tech.
 - **Path transport:** the best road/rail/port bottleneck; beside-network tiles
   take it.
-- **Init town roads:** every owned Old World town to its crown; New World towns
+- **Init town roads:** every owned Old World town to its crown; the New World's
   wait.
 - **Town rule:** estates 4-adjacent to a town extract; capital provinces cap at
   town development; a non-capital port town caps tiles reaching the crown; a
-  crown-road estate ignores the cap.
+  crown-road estate ignores it.
 - **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy);
   level 2 or 4 adds manufactures ([economy.md](economy.md)).
 - **Cross-map assign.** Builder may target another owned tile; materials paid
@@ -39,18 +39,19 @@ level-4 Great Power towns, four grain farms.
   Grain and meat pay double (DR-20261116-10).
 - **Lenses.** Survey (lens seal): a column per resource, emblem and
   `built/linked/held` badge, the Explorer's mark; roads solid when linked,
-  dashed cut (#698). Crown road (`R`): gold / amber / crimson for crown,
-  town-only or cut.
+  dashed cut (#698). Crown road (`R`): gold / amber / crimson for crown, town,
+  cut.
 - **Estates ledger**: totals, filters, blockers, Build / Cancel / Map, caps,
   a free Builder; cut estates name the gap.
 - **One press** (DR-20261116-06): `Raise all ready (n)` files every `READY`
-  estate the view prints, stopping at the first refusal with one receipt; the
-  line under it prices the walk (DR-20261118-12).
+  estate the view prints, stopping at the first refusal; its line
+  prices the walk (DR-20261118-12).
 - **The court's own raise** (DR-20261121-10): a gold line above the press names
-  the estates the Builder pass would raise, in row order, three named; no idle
+  the estates the Builder pass would raise, three named; no idle
   Builder names that gate. Each leads with `▸` (DR-20261122-04, DR-20261123-08).
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
-  a cut-off estate carries **Build road**.
+  a cut-off estate carries **Build road**; the block prices the harvest at
+  today's sell (DR-20261123-25).
 
 ## Deferred (REQ-P2-02)
 
