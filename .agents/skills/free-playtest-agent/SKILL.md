@@ -37,6 +37,7 @@ Hill-climb **player-visible expression** of an implemented area: rules fidelity,
 | [`docs/testing.md`](../../../docs/testing.md) | Coverage / smoke budgets |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
 | Hermes GameForge **playtesting** skill | `forge_playtest` policies / reports |
+| [`playtest-capture`](../playtest-capture/SKILL.md) | Desktop screenshots/video with comments; report for filing |
 | [`references/playbook.md`](references/playbook.md) | Area pick, harness, GameForge |
 | [`references/wiki-diary.md`](references/wiki-diary.md) | Diary + learnings format |
 | [`references/pr-body.md`](references/pr-body.md) | PR body + rubric |
@@ -85,6 +86,10 @@ Critically compare **observed** expression to **wiki expected**, and note GameFo
 **Hermes:** use `forge_playtest` per the playtesting skill. Read `report.md`; use vision on `moments.jpg` when present.
 
 **Fallback:** live `tools/run.sh` and/or headless scripted play that still falsifies claims.
+
+On desktop live play, turn on [`playtest-capture`](../playtest-capture/SKILL.md)
+(**F9**) and save each finding with a typed comment; the report carries the
+seed, turn, crown and build, so the PR and diary can cite it.
 
 Log each issue: wiki cite (if rules) → expected → observed → severity → likely locus. Do not invent house rules; do not treat “feature absent” as a free-playtest defect.
 

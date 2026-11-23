@@ -447,6 +447,10 @@ domain = "hostility"
 match = "scripts/rules/naval_combat.gd*"
 domain = "hostility"
 
+[[rules]]
+match = "scripts/rules/naval_exchange.gd*"
+domain = "hostility"
+
 # The turn's battles across every region (one pass, node-free): the fleet and
 # naval suites prove it, so it rides with the same domain instead of the rules
 # catch-all.
@@ -2228,6 +2232,14 @@ suites = [
   "test_a_map_screen.gd",
 ]
 
+# Playtest capture mode (issue #1393): the metadata/report helpers, the overlay
+# and the controller. Its own suite keeps the capture state machine off the
+# heavy chart boot.
+[domains.playtest_capture]
+suites = [
+  "test_playtest_capture.gd",
+]
+
 [domains.fold_diplomacy_screen]
 suites = [
   "test_diplomacy_screen.gd",
@@ -2475,6 +2487,29 @@ domain = "map_mount"
 [[rules]]
 match = "playtests/playtest_station_prices.gd*"
 domain = "hostility"
+
+# Army turn / muster call sites: keep them on army (battle + orders) so a
+# drive that only swaps ArmyLayer for ArmyTurnPass / ArmyMusterOps never
+# pulls misc's generated_world boot past the tier-1 5 min budget.
+[[rules]]
+match = "playtests/playtest_combat_chain.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_command.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_field_train.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_routed_host.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_siege.gd*"
+domain = "army"
 
 [[rules]]
 match = "playtests/**"
@@ -3157,8 +3192,11 @@ domain = "advanced"
 match = "scripts/map/map_play_advanced*.gd*"
 domain = "advanced"
 
+# `.gd*` keeps companion `.uid` files on the army domain. A bare `.gd` glob
+# lets a new army module's uid fall through to scripts/map/** and pull the
+# full map suite past the tier-1 5 min budget.
 [[rules]]
-match = "scripts/map/army_*.gd"
+match = "scripts/map/army_*.gd*"
 domain = "army"
 
 # `map_play_armies.gd` is plural — `army*` does not match `armies` under fnmatch.
@@ -3742,6 +3780,10 @@ domain = "civilian"
 # 5 min budget.
 [[rules]]
 match = "scripts/rules/naval_combat.gd*"
+domain = "naval_feeding"
+
+[[rules]]
+match = "scripts/rules/naval_exchange.gd*"
 domain = "naval_feeding"
 
 [[rules]]
@@ -4596,6 +4638,12 @@ domain = "menu"
 [[rules]]
 match = "scripts/input_actions.gd"
 domain = "crown_road"
+
+# Playtest capture mode (issue #1393): its own suite, before the broad debug
+# rule below, so a capture change never pays the whole chart boot.
+[[rules]]
+match = "scripts/debug/playtest_capture*.gd*"
+domain = "playtest_capture"
 
 # Agent Debug Bridge (issue #699): the pure projector and the thin loopback
 # WebSocket node. Query-only debug tooling, so a change here runs its own suite

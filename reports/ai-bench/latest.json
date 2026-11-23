@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:b58219281b7f8dd8583b49c98cd7fc6b79b7dd743d35005dd035ccfa3f469a67",
-  "submission_git": "feat/earn-landing-reads-the-ground@ec7d2722",
+  "submission_hash": "sha256:db712d0ff121eb0a975952ee1290743fd50db162c3a38a8cbd7831a22883e562",
+  "submission_git": "fix/storm-read-two-regions@c6294b77",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1210.2802665679378,
+      "value": 1236.1724880382774,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 10.0,
+      "value": 7.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 10.0,
+      "value": 6.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 62.65853174603175,
+      "value": 64.49900793650794,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:52fd8d3ef780ac050982c04651065b382e166fc69d597fbce7b47a26839e674c",
+    "ai_surface_hash": "sha256:aafb0cb75c45ea0c4d6d532bee3e66c0d4c88c1cfe9820937969a27124aaa9bc",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
-      "provinces_new": 3,
-      "regiments": 10,
-      "ships": 0,
-      "workers": 0,
-      "extraction_per_turn": 44.270270270270274,
-      "income_per_turn": 171.73972602739727,
-      "funded_pct": 62.65853174603175
+      "provinces_new": 0,
+      "regiments": 5,
+      "ships": 1,
+      "workers": 5,
+      "extraction_per_turn": 40.915789473684214,
+      "income_per_turn": 369.34090909090907,
+      "funded_pct": 64.49900793650794
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 62.65853174603175
+    "funded_pct": 64.49900793650794
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T02:20:53Z",
+  "timestamp": "2026-11-23T09:50:02Z",
   "report_version": 1,
-  "signature": "hmac-sha256:fb25276cfbbf03582c7e5a02b3e30069d90394e00e6112b6d119c087e21a45e5"
+  "signature": "hmac-sha256:3e1913872172c68731d73da28f41da27a6403508dc28c4fb6c1fa2cb30fb85db"
 }

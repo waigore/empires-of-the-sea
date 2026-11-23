@@ -31,6 +31,7 @@ Hill-climb **P2 rules fidelity**. Re-runs sustain the climb; each run still stop
 | [`AGENTS.md`](../../../AGENTS.md) | Stack; `tools/run.sh`; Talk to the user (PR + wiki) |
 | [`docs/testing.md`](../../../docs/testing.md) | Coverage / smoke budgets |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
+| [`playtest-capture`](../playtest-capture/SKILL.md) | Desktop screenshots/video with comments; report for filing |
 | [`references/playbook.md`](references/playbook.md) | Playtest tactics |
 | [`references/pr-body.md`](references/pr-body.md) | Defect report + rubric |
 
@@ -69,6 +70,10 @@ Map the domain to code. If there is **no real implementation** (missing, stub-on
 Critically compare **observed behavior** to **wiki expected** for that domain.
 
 **Prefer live play** when feasible (`tools/run.sh`) so player-facing outcomes are visible. **Headless is acceptable** when it achieves the same aim.
+
+On desktop live play, turn on [`playtest-capture`](../playtest-capture/SKILL.md)
+(**F9**) and save each defect's frame with a typed comment; the report carries
+the seed, turn, crown and build.
 
 Record each defect as: wiki cite → expected → observed → likely locus. Keep going until the domain is reasonably exercised or defects form a clear cluster.
 

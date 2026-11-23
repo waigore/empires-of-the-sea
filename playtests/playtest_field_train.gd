@@ -147,7 +147,7 @@ func _ward_pass() -> void:
 	_say("before the unfed tick: with train %s; without %s" % [
 		_health(_army), _health(_plain),
 	])
-	_play.army_layer.begin_turn(_play.world)
+	ArmyTurnPass.begin_turn(_play.army_layer, _play.world)
 	_say("after the unfed tick: with train %s; without %s" % [
 		_health(_army), _health(_plain),
 	])
@@ -242,7 +242,7 @@ func _blocked_pass() -> void:
 		if home == null or home.count() < 3:
 			_say("no standard can be spared for the march")
 			return
-		var made: Dictionary = _play.army_layer.split(home, home.regiments.slice(0, 2))
+		var made: Dictionary = ArmyMusterOps.split(_play.army_layer, home, home.regiments.slice(0, 2))
 		if not bool(made.get("ok", false)):
 			_say("the detachment was refused")
 			return
@@ -372,8 +372,8 @@ func _field_armies() -> bool:
 			home.count() if home != null else 0
 		))
 		return false
-	var first: Dictionary = _play.army_layer.split(home, home.regiments.slice(0, 4))
-	var second: Dictionary = _play.army_layer.split(home, home.regiments.slice(0, 3))
+	var first: Dictionary = ArmyMusterOps.split(_play.army_layer, home, home.regiments.slice(0, 4))
+	var second: Dictionary = ArmyMusterOps.split(_play.army_layer, home, home.regiments.slice(0, 3))
 	if not bool(first.get("ok", false)) or not bool(second.get("ok", false)):
 		_say("the detachments were refused")
 		return false

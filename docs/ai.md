@@ -24,7 +24,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   One order per rival (`AiTurn`).
 - **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
   Home regiment; armies save or storm, or walk a stranded host home
-  (DR-20261121-15).
+  (DR-20261121-15, DR-20261123-09).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron, else raid a hostile coast (DR-20261111-17); at peace, home
   (DR-20261110-30).
@@ -54,10 +54,10 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   outruns (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the era; Tribes stay
   1; rivals re-equip, pay to attack.
-- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line regiment a
-  turn under `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest
-  trains (DR-20261112-08).
+- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line a turn under
+  `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`, the
+  workshop's pair (DR-20261123-10) and pattern inputs (DR-20261113-08); the
+  wornest trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade. Court: `MapPlayEconomyCourt`. Ledger
   reads: `MapPlayEconomyLarder`.

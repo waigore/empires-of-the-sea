@@ -167,7 +167,15 @@ static func _mouths(play: PlaySession, faction: int) -> Dictionary:
 ## One court's observable state. `economy` is that court's ledger whichever
 ## side (human path in a live game, AiState ledger in the observer).
 static func row(play: PlaySession, faction: int) -> Dictionary:
-	var config: AiConfig = AiProfile.for_court(faction, play.map_seed, play.ensure_ai().profiles)
+	# The court's one shared run config (issue #1356): the panel's reserve and
+	# the storm read the pass plans with — a fresh build would read the wall
+	# as empty for a court at war (issue #1381).
+	var config: Variant = play.ensure_ai().court_config(
+		AiControl.court_kind(play, faction), faction, play.map_seed,
+		play.ensure_ai().profiles
+	)
+	if not (config is AiConfig):
+		config = AiProfile.for_court(faction, play.map_seed, play.ensure_ai().profiles)
 	var agenda: String = play.ai.agenda_for(config) if play.ai != null else config.agenda
 	var economy: PlayerEconomy = _economy(play, faction)
 	# The footing the court plans with this turn (DR-20261113-15): a war, an
@@ -189,7 +197,13 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		MapPlayCourt.warships(play, faction),
 		0,
 		AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE
-		and int(pressure["need"]) > 0
+		and int(pressure["need"]) > 0,
+		# The storm chest the thinnest wall ahead prices (issue #1381): the
+		# panel's reserve names the host the bank fills for.
+		MapPlayArmyMusterAi.storm_chest(
+			play, play.model, faction,
+			play.army_layer.regiment_count_all(faction)
+		)
 	)
 	var strength: float = float(
 		MapPlayCourt.public_strength(play).get(faction, 0.0)

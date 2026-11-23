@@ -6194,7 +6194,7 @@ func test_the_army_layer_rests_each_region_by_its_own_hospital() -> void:
 	var layer := ArmyLayer.new()
 	layer.regions.set_region(model.region_id, [army] as Array[ArmyState])
 
-	layer.begin_turn(world)
+	ArmyTurnPass.begin_turn(layer, world)
 
 	assert_eq(int(army.condition_of(regiment)["hp"]), 99, "the region's hospital applies")
 	layer.free()
@@ -6892,6 +6892,102 @@ func test_a_storm_prices_the_defenders_battery_not_the_stormers() -> void:
 	assert_eq(model.province_owner(4), 0)
 
 
+## A repelled storm leaves the wall and its battery standing for the next
+## attacker: the chain runs until no attacker remains (wiki: combat
+## § Multi-Attacker Chain — "resolve sequentially … repeat until no attacker
+## remains"). A thin horse host that won the initiative and was thrown back
+## must not void the great host that marched in behind it.
+func test_a_repelled_storm_leaves_the_wall_for_the_next_attacker() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	# Two cuirassiers lead on initiative (cavalry share 1.0) and are thrown
+	# back: 36 strength under the Wood wall's 51.
+	var horse := army_field_rules_Fixture.army(1, 0, 2, ["cuirassiers", "cuirassiers"])
+	horse.moved = true
+	# Ten halberdiers (70) cross the same wall behind them.
+	var great := army_field_rules_Fixture.army(
+		2, 2, 2, _regiment_types("halberdiers", 10)
+	)
+	great.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [horse, great])
+
+	assert_eq(reports.size(), 2, "both marches are answered")
+	assert_eq(int(reports[0]["attacker"]), 0, "the horse host wins the initiative")
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_almost_eq(
+		float((reports[0]["storm"] as Dictionary)["threshold"]), 51.0, 0.001,
+		"the repulse is read against the wall's own ladder"
+	)
+	assert_eq(int(reports[1]["attacker"]), 2)
+	assert_eq(int(reports[1]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_true(bool(reports[1]["captured"]))
+	assert_eq(model.province_owner(2), 2, "the host behind the repulse takes the wall")
+	assert_eq(horse.count(), 2, "the repulsed host loses nobody")
+
+
+## The storm that takes the wall is the province's holder, and an attacker
+## still on the field meets it from the walls it just took (wiki: combat
+## § Multi-Attacker Chain — "the next attacker in the chain fights that side
+## from the walls it just took").
+func test_a_storm_that_takes_the_wall_meets_the_next_attacker_from_it() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	# Three cuirassiers (54) cross the 51 wall, and issue an engagement won.
+	var taker := army_field_rules_Fixture.army(
+		1, 0, 2, ["cuirassiers", "cuirassiers", "cuirassiers"]
+	)
+	taker.moved = true
+	var late := army_field_rules_Fixture.army(2, 2, 2, ["pikemen"])
+	late.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [taker, late])
+
+	assert_eq(reports.size(), 2, "the storm, then the fight for what it took")
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(model.province_owner(2), 0)
+	assert_eq(int(reports[1]["attacker"]), 2, "the late host fights the stormer")
+	assert_eq(int(reports[1]["defender"]), 0, "from the walls the storm just took")
+	assert_false(bool(reports[1]["captured"]), "the stormer holds its ground")
+	assert_eq(model.province_owner(2), 0)
+
+
+## The despatch a storm reads (wiki: siege-mechanics § Storming an empty walled
+## province; § Wall Protection — "the crown reads the wall it will meet";
+## REQ-P5-05): a repulse names the wall that threw the host back, and a storm
+## that crossed a bare wall prints no zero dead.
+func test_a_storm_despatches_the_wall_and_names_no_zero_dead() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	thin.moved = true
+	var repelled: Array[Dictionary] = ArmyCombat.resolve_turn(model, [thin])
+	assert_eq(
+		BattleReport.describe_land(repelled[0], "Badajoz", FACTIONS),
+		"England holds Badajoz — the storm breaks on a wood fort: 40 wall hp, "
+		+ "1 emplaced gun",
+		"the repulse names the wall that stopped it"
+	)
+
+	# Three cuirassiers (54) clear the 51 ladder and lose nobody: no "0
+	# regiments" tail. A fresh chart, so the repulsed host is not still there.
+	_setup_army_field_rules()
+	var open_model: MapModel = _army_field_rules_model
+	open_model.province_data(2).fort_level = 1
+	var bare := army_field_rules_Fixture.army(
+		2, 2, 2, ["cuirassiers", "cuirassiers", "cuirassiers"]
+	)
+	bare.moved = true
+	var taken: Array[Dictionary] = ArmyCombat.resolve_turn(open_model, [bare])
+	assert_true(bool(taken[0]["captured"]))
+	assert_eq(
+		BattleReport.describe_land(taken[0], "Badajoz", FACTIONS),
+		"France storms the walls of Badajoz",
+		"a storm that spends no regiment names no dead"
+	)
+
+
 ## The calibration anchor (issue #1314): the opening Great Power muster —
 ## 2 levies, pikes, arquebusiers, squires, 21 strength — fails to take a Wood
 ## fort held by nobody. Deterministic: the same match-up always holds.
@@ -6907,6 +7003,35 @@ func test_the_opening_gp_muster_cannot_storm_a_wood_fort() -> void:
 	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
 	assert_false(bool(reports[0]["captured"]), "the Wood wall holds the opening host")
 	assert_eq(model.province_owner(2), 1)
+
+
+## The empty-wall storm and the auto-resolve exchange live in their own homes
+## (REQ-P3-01): ArmyStorm and ArmyExchange, not the turn-chain orchestrator.
+## Calling each directly locks the split so a later fold-back fails here.
+func test_the_exchange_and_empty_wall_storm_own_their_homes() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	var storming: Array[ArmyState] = [thin]
+	var storm: Dictionary = ArmyStorm.storm_one(
+		model, storming, 2, 1, 0, storming, {}
+	)
+	assert_false(bool(storm["captured"]), "ArmyStorm owns the empty-wall path")
+	assert_eq(int(storm["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(model.province_owner(2), 1)
+
+	_setup_army_field_rules()
+	var field: MapModel = _army_field_rules_model
+	var defender := army_field_rules_Fixture.army(1, 1, 2, _regiment_types("pikemen", 2), true)
+	var attacker := army_field_rules_Fixture.army(2, 0, 2, _regiment_types("guards", 6))
+	var armies: Array[ArmyState] = [defender, attacker]
+	var report: Dictionary = ArmyExchange.resolve(
+		field, armies, 2, 1, 0, false, {}
+	)
+	assert_true(report.has("outcome"), "ArmyExchange owns one auto-resolve exchange")
+	assert_ne(int(report["outcome"]), ArmyCombat.Outcome.CAPTURE)
+
 
 func test_a_third_faction_blocks_an_unopposed_capture() -> void:
 	_setup_army_field_rules()

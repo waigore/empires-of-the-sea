@@ -10,7 +10,8 @@ extends RefCounted
 ## before the clash (wiki: siege-mechanics; DR-20261110-22). Human land battles
 ## route through QuickBattle; every report names the line and the reserve.
 ## This module orchestrates the turn chain only: side accounting lives in
-## [ArmyForce], and both resolvers settle through [BattleSettlement].
+## [ArmyForce], one exchange in [ArmyExchange], empty-wall storms in
+## [ArmyStorm], and both resolvers settle through [BattleSettlement].
 
 enum Outcome {
 	ATTACKER_VICTORY,
@@ -65,17 +66,22 @@ static func resolve_turn(
 			## fort level ≥ 1 is never an unopposed flip, even with zero
 			## defending regiments — the march resolves as a storm against the
 			## wall and its emplaced battery. Only open ground keeps the
-			## unopposed rule.
+			## unopposed rule. Every attacker storms in the chain's order, so a
+			## thin host that marched first cannot void another court's march.
 			if FortRules.level_at(model, province) >= 1:
-				reports.append(
-					_storm_empty(model, armies, province, defender, attackers, context)
+				reports.append_array(
+					ArmyStorm.resolve_walled(
+						model, armies, province, defender, attackers, context
+					)
 				)
 				continue
 			var capturer: int = _lowest(attackers)
 			BattleSettlement.flip(model, province, capturer)
 			reports.append(_capture_report(model, province, capturer, defender))
 			continue
-		reports.append_array(_resolve_chain(model, armies, province, defender, attackers, context))
+		reports.append_array(
+			resolve_chain(model, armies, province, defender, attackers, context)
+		)
 		ArmyRoster.prune(armies)
 	return reports
 
@@ -88,7 +94,7 @@ static func resolve_turn(
 ## § Multi-Attacker Chain — "the previous battle's winner (without healing or
 ## regenerating regiments) and the next attacker"; § Province Flip — the
 ## province flips "to the attacker faction that was last in the chain").
-static func _resolve_chain(
+static func resolve_chain(
 	model: MapModel,
 	armies: Array[ArmyState],
 	province: int,
@@ -109,7 +115,7 @@ static func _resolve_chain(
 		if ArmyForce.side_regiments(attacking) == 0:
 			continue
 		var further: bool = index < attackers.size() - 1
-		var report: Dictionary = _exchange(
+		var report: Dictionary = ArmyExchange.resolve(
 			model, armies, province, holder, attacker, further, context
 		)
 		reports.append(report)
@@ -119,119 +125,6 @@ static func _resolve_chain(
 			holder = attacker
 		ArmyRoster.prune(armies)
 	return reports
-
-
-## One attacker-versus-defender exchange with ratio-band casualties.
-static func _exchange(
-	model: MapModel,
-	armies: Array[ArmyState],
-	province: int,
-	defender: int,
-	attacker: int,
-	further: bool,
-	context: Dictionary
-) -> Dictionary:
-	var fee: Dictionary = ArmyAttackCost.charge(context, attacker)
-	if QuickBattle.enabled(context, attacker, defender):
-		return ArmyAttackCost.stamp(fee, QuickBattle.resolve_exchange(
-			model, armies, province, defender, attacker, further, context
-		))
-	var defending: Array[ArmyState] = ArmyForce.armies_of(armies, province, defender)
-	var attacking: Array[ArmyState] = ArmyForce.armies_of(armies, province, attacker)
-	## The primary army read before any casualties commands the side, and wins
-	## its medal (wiki: military-armies § Battle grouping).
-	var def_lead: ArmyState = ArmyCommand.primary(defending)
-	var atk_lead: ArmyState = ArmyCommand.primary(attacking)
-	var def_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals_of(def_lead, context, true), true, model, province, defender
-	)
-	var atk_mods: Dictionary = ArmyModifiers.modifiers(
-		context, ArmyCommand.medals_of(atk_lead, context, false), false, model, province, attacker
-	)
-	var def_limit: int = int(def_mods["limit"])
-	var atk_limit: int = int(atk_mods["limit"])
-	var initial_defenders: int = mini(ArmyForce.side_regiments(defending), def_limit)
-	var atk_deployed: int = mini(ArmyForce.side_regiments(attacking), atk_limit)
-	## The line and the reserve as the exchange deals them, read before a blow
-	## lands: a side that kept a reserve is named as such on the plate and in
-	## the despatch whatever its line loses (wiki: combat § The line and the
-	## reserve).
-	var lines_open: Dictionary = ArmyModifiers.line_fields(
-		attacking, atk_limit, defending, def_limit
-	)
-	## The line each side dealt when the exchange opened, read before a blow
-	## lands: casualties are drawn from it, and the battle wear is spent over
-	## these men alone, so a reserve never steps up into the slice after
-	## casualties and takes wear it never earned (wiki: combat § The line and the
-	## reserve; quick-battle § Wings and collapse).
-	var atk_line: Array[String] = ArmyForce.line_ids(attacking, atk_limit)
-	var def_line: Array[String] = ArmyForce.line_ids(defending, def_limit)
-	## The besieging train's opening fire: silenced guns fall before the clash
-	## (wiki: siege-mechanics § Emplaced Artillery; DR-20261110-22).
-	var siege: Dictionary = AutoSiege.resolve(
-		model, province, int(def_mods["fort"]), defender, attacking, atk_limit, context
-	)
-	## A silenced gun stops answering: only the standing pieces add their weight.
-	var emplaced: float = float(def_mods["emplaced"])
-	if not siege.is_empty():
-		emplaced *= float(int(siege["guns_left"])) / float(maxi(int(siege["guns_start"]), 1))
-	var def_strength: float = ArmyModifiers.strength(
-		defending, def_limit, float(def_mods["multiplier"])
-	) + emplaced
-	var atk_strength: float = FortRules.wall_soak(
-		ArmyModifiers.strength(attacking, atk_limit, float(atk_mods["multiplier"])),
-		int(atk_mods["fort"]))
-	var ratio: float = atk_strength / def_strength if def_strength > 0.0 else 0.0
-	var band: Dictionary = ArmyBands.for_ratio(
-		ratio, ArmyModifiers.morale(context, attacker),
-		ArmyModifiers.morale(context, defender)
-	)
-	var attacker_lost: Array[String] = ArmyForce.apply_losses(
-		armies, attacking, ceili(float(atk_deployed) * float(band["attacker"])), atk_limit
-	)
-	var defender_lost: Array[String] = ArmyForce.apply_losses(
-		armies, defending, ceili(float(initial_defenders) * float(band["defender"])
-		* float(def_mods["loss_scale"])), def_limit
-	)
-	RegimentCondition.wear(
-		attacking,
-		RegimentCondition.WOUND_SHARE
-		* float(attacker_lost.size()) / float(maxi(atk_deployed, 1)),
-		atk_limit, atk_line
-	)
-	RegimentCondition.wear(
-		defending,
-		RegimentCondition.WOUND_SHARE
-		* float(defender_lost.size()) / float(maxi(initial_defenders, 1))
-		* HospitalRules.triage_scale_at(model, province),
-		def_limit, def_line
-	)
-	var atk_left: int = ArmyForce.side_regiments(ArmyForce.armies_of(armies, province, attacker))
-	var def_left: int = ArmyForce.side_regiments(ArmyForce.armies_of(armies, province, defender))
-	var outcome: int = Outcome.STALEMATE
-	if def_left == 0 and atk_left > 0 and not bool(band.get("blunted", false)):
-		outcome = Outcome.ATTACKER_VICTORY
-	elif def_left == 0 and atk_left == 0:
-		outcome = Outcome.MUTUAL_ANNIHILATION
-	elif atk_left == 0:
-		outcome = Outcome.DEFENDER_VICTORY
-	# The hungrier attacker's gutted garrison keeps its owner (wiki: combat).
-	var blunted: bool = outcome == Outcome.STALEMATE and def_left == 0 and atk_left > 0
-	var report: Dictionary = BattleSettlement.report_skeleton(
-		model, province, attacker, defender, outcome,
-		attacker_lost, defender_lost, atk_mods, def_mods
-	)
-	report["attack_cost"] = int(fee["due"])
-	report["attack_paid"] = int(fee["paid"])
-	report.merge(lines_open)
-	if not siege.is_empty(): report["siege"] = siege
-	if outcome == Outcome.STALEMATE:
-		report["blunted"] = blunted
-	BattleSettlement.settle(
-		model, armies, report, attacking, defending, atk_lead, def_lead, context,
-		further, initial_defenders
-	)
-	return report
 
 
 ## Attacking factions in initiative order; exact ties use one deterministic
@@ -272,72 +165,6 @@ static func outcome_label(outcome: int) -> String:
 		Outcome.ATTACKER_ADVANTAGE:
 			return "attacker holds the field"
 	return "stalemate"
-
-
-## One hostile court takes an **empty walled** province (issue #1314): the wall
-## and the battery stand where no regiment does. The march is a storm, not an
-## unopposed flip — only a host whose strength crosses
-## [method FortRules.storm_threshold] (wall HP plus the standing battery)
-## takes the ground. One report names who stormed what; multi-attacker
-## initiative keeps the lowest id on a tie, as the open-ground flip does.
-##
-## Losses follow the published ladder (wiki: siege-mechanics § Wall Protection,
-## deterministic by design — no new roll): each whole
-## [constant FortRules.STORM_STEP] of strength past the threshold costs one
-## regiment, weakest first — the same weakest-first draw every battle reads. The
-## battery itself is never captured: a taken province keeps whatever walls and
-## guns survive, and the storm that takes it does not silence the battery (a
-## standing wall is taken, not shot to pieces).
-static func _storm_empty(
-	model: MapModel,
-	armies: Array[ArmyState],
-	province: int,
-	defender: int,
-	attackers: Array[int],
-	context: Dictionary
-) -> Dictionary:
-	var capturer: int = _lowest(attackers)
-	var storming: Array[ArmyState] = ArmyForce.armies_of(armies, province, capturer)
-	## The battery is the province's, so its line is the **defender's** studies
-	## (wiki: siege-mechanics § Storming an empty walled province; § Emplaced
-	## Artillery — "the defender's unlocked emplaced-quality tech line"). The
-	## storming court's own guns never price the wall it is not manning.
-	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(
-		defender, {}
-	) as Dictionary
-	var level: int = FortRules.level_at(model, province)
-	var host_strength: float = 0.0
-	for army: ArmyState in storming:
-		host_strength += army.strength()
-	var threshold: float = FortRules.storm_threshold(tech, level)
-	var lost: Array[String] = []
-	var taken: bool = host_strength > threshold
-	if taken:
-		## The ladder's price is drawn **weakest first**, the casualty rule every
-		## battle reads (wiki: siege-mechanics § Storming an empty walled province
-		## — "the same weakest-first casualty draw every battle reads"; combat
-		## § Casualties). The draw is [method ArmyForce.apply_losses]' own, so a
-		## storm can never spend its veterans where the field spends its levies.
-		lost = ArmyForce.apply_losses(
-			armies, storming, FortRules.storm_losses(host_strength, tech, level)
-		)
-	var report: Dictionary = BattleSettlement.report_skeleton(
-		model, province, capturer, defender, Outcome.CAPTURE,
-		lost, [] as Array[String], {}, {"fort": level}
-	)
-	report["captured"] = taken
-	report["storm"] = {
-		"fort": level,
-		"strength": host_strength,
-		"threshold": threshold,
-		"taken": taken,
-	}
-	if not taken:
-		## The wall stands: no flip, no capture — the report names the repulse.
-		report["outcome"] = Outcome.DEFENDER_VICTORY
-		return report
-	BattleSettlement.flip(model, province, capturer)
-	return report
 
 
 static func _capture_report(

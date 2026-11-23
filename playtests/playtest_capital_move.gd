@@ -234,7 +234,11 @@ func _seat_name() -> String:
 	return _play.model.province_name(_play.capital_province)
 
 
-## The crown's in-port squadrons and where they lie.
+## The crown's squadrons and where they lie. A squadron in port names its
+## province; a sea-going one names the zone it holds (wiki: ships-and-naval
+## § Home Fleet — "ships at sea or in port at non-capital owned provinces" are
+## sea-going). The station is the reading: a sorted-out home squadron has left
+## the harbour, so it must never print as "in port".
 func _home_squadron() -> String:
 	var parts: PackedStringArray = []
 	if _play.ship_layer == null:
@@ -244,10 +248,13 @@ func _home_squadron() -> String:
 		var fleet: FleetState = raw as FleetState
 		if fleet == null or fleet.owner != _play.player_faction:
 			continue
-		parts.append("%s %d hulls in port" % [
-			_play.model.province_name(fleet.province) if fleet.is_in_port()
-			else _play.model.sea_zone_name(fleet.sea_zone),
-			fleet.ship_count(),
+		if fleet.is_in_port():
+			parts.append("%s %d hulls in port" % [
+				_play.model.province_name(fleet.province), fleet.ship_count(),
+			])
+			continue
+		parts.append("%s %d hulls at sea" % [
+			_play.model.sea_zone_name(fleet.sea_zone), fleet.ship_count(),
 		])
 	return ", ".join(parts) if not parts.is_empty() else "no squadron"
 

@@ -162,6 +162,20 @@ static func context(play: PlaySession, only: Array = []) -> Dictionary:
 		if not conquest_gaps[faction]:
 			continue
 		frontier[faction] = AiFrontier.crowns(play.world, faction)
+	# The storm chest each court's thinnest wall prices (issue #1381): the
+	# purse the money goal banks for the storm host — at peace as at war — so
+	# the war the court plans is funded before it declares. A frozen baseline
+	# keeps its published chest: its own planners carry no storm read.
+	var storm_banks: Dictionary = {}
+	for faction: int in FactionCatalog.great_power_ids():
+		if not AiControl.plans(play, faction) \
+				or AiControl.court_kind(play, faction) == AiControl.KIND_BASELINE:
+			storm_banks[faction] = 0
+			continue
+		storm_banks[faction] = MapPlayArmyMusterAi.storm_chest(
+			play, play.model, faction,
+			int(regiments.get(faction, 0))
+		)
 	var context: Dictionary = {
 		"regiments": regiments,
 		"ships": ships,
@@ -169,6 +183,7 @@ static func context(play: PlaySession, only: Array = []) -> Dictionary:
 		"hull_chests": hull_chests,
 		"victory_press": press,
 		"conquest_gaps": conquest_gaps,
+		"storm_banks": storm_banks,
 		"frontier": frontier,
 		"strengths": MapPlayCourt.public_strength(play),
 		"planning": planning,

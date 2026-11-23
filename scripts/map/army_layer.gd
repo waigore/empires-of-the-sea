@@ -2,7 +2,9 @@ class_name ArmyLayer
 extends Node2D
 ## Owns land army markers and applies army orders; rules come from ArmyMovement
 ## and ArmyCombat, this layer only animates and reports them. Marker nodes live
-## in ArmyMarkers, opening musters in ArmyMuster (REQ-P3-01; wiki: military-armies).
+## in ArmyMarkers, opening musters in ArmyMuster; ArmyTurnPass resolves the
+## turn's battles; ArmyMusterOps owns split, dismiss, combine and recruit
+## (REQ-P3-01; wiki: military-armies).
 
 signal army_selected(army: ArmyState)
 signal army_moved(army: ArmyState, result: Dictionary)
@@ -105,6 +107,11 @@ func remove_marker(army: ArmyState) -> void:
 		place_all()
 
 
+## Re-reads one army's strength onto its marker after muster surgery.
+func refresh_marker(army: ArmyState) -> void:
+	_markers.refresh(army)
+
+
 func set_zoom(value: float) -> void:
 	_markers.set_zoom(value)
 
@@ -163,95 +170,8 @@ func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary
 	return result
 
 
-## Detaches regiment instances into a new field army (wiki: military-armies).
-func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
-	var result: Dictionary = ArmyRoster.split(armies, army, regiment_ids, next_army)
-	if not bool(result.get("ok", false)):
-		return result
-	next_army += 1
-	## The detach is part of the crown's muster: it reaches the chart's own
-	## roster before any reading or save copies it (wiki: campaign-persistence).
-	ArmyTransport.publish(self)
-	prune_markers()
-	var created: ArmyState = result["army"] as ArmyState
-	add_marker(created)
-	place_all()
-	return result
-
-
-## Dismisses a batch of regiments from an own army (wiki: military-armies
-## § Dismissing regiments; DR-20261109-01). Each returns one peasant; an emptied
-## field army retires at once and its standard leaves the chart, while the Home
-## Army keeps its standard.
-func dismiss(
-	army: ArmyState, regiment_ids: Array[String], economy: PlayerEconomy
-) -> Dictionary:
-	var result: Dictionary = ArmyDismiss.dismiss(economy, army, regiment_ids)
-	if not bool(result.get("ok", false)):
-		return result
-	if bool(result.get("retired", false)):
-		armies.erase(army)
-		ArmyTransport.publish(self)
-		prune_markers()
-		return result
-	_markers.refresh(army)
-	place_all()
-	return result
-
-
-## Combines the selected army with friendly armies in its province. The Home
-## Army wins the merge target when it is in the group (wiki: military-armies).
-func combine(army: ArmyState) -> Dictionary:
-	if army == null:
-		return {"ok": false, "reason": "There is no army to combine."}
-	var selected: Array[ArmyState] = [army]
-	for other: ArmyState in armies:
-		if other != army and other.province == army.province and other.owner == army.owner:
-			selected.append(other)
-	var before: Array[ArmyState] = selected.duplicate()
-	var result: Dictionary = ArmyRoster.combine(armies, selected)
-	if not bool(result.get("ok", false)):
-		return result
-	ArmyTransport.publish(self)
-	for old: ArmyState in before:
-		if armies.has(old):
-			continue
-		remove_marker(old)
-	place_all()
-	return result
-
-
 func armies_in(province_id: int, owner: int) -> Array[ArmyState]:
 	return ArmyForce.armies_of(armies, province_id, owner)
-
-
-## Musters one regiment into the faction's Home Army, keeping the marker in step.
-## `roster` names the chart's army list the seat's Home Army lives on: the
-## Build/work pass hands over the seat's own chart, so a crown watching a colony
-## when the turn closes still musters at its capital (wiki:
-## capital-and-connectivity § Capital; world-model-identity). Empty reads the
-## chart on screen.
-func recruit(owner: int, type_id: String, economy: PlayerEconomy, roster: Array = []) -> Dictionary:
-	var seat: Array = armies if roster.is_empty() else roster
-	var home: ArmyState = ArmyTraining.home_army(seat, owner)
-	if home == null:
-		return {
-			"ok": false,
-			"reason": "The Home Army musters at your capital.",
-			"type": "",
-			"regiment": "",
-		}
-	var unit_id: String = "unit_%d" % next_regiment
-	var result: Dictionary = ArmyTraining.recruit(economy, home, type_id, unit_id)
-	if not bool(result.get("ok", false)):
-		return result
-	next_regiment += 1
-	# A standard on another chart has no marker here; only the chart's own
-	# roster repaints (map-topology § two regions).
-	if armies.has(home):
-		_markers.refresh(home)
-		place_all()
-	return result
 
 
 ## Grows a Great Power's general pool to its tech-gated cap (wiki:
@@ -267,62 +187,6 @@ func command_text(army: ArmyState) -> String:
 	if army == null or FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 		return ""
 	return generals.line(army.owner)
-
-
-func begin_turn(world: WorldMap = null) -> void:
-	for region_id: int in regions.region_ids():
-		var stored: Array[ArmyState] = []
-		stored.assign(regions.value(region_id, []))
-		# Each region rests by its own hospitals: an army in the New World
-		# never reads the home chart's buildings (DR-20261111-12).
-		var region_model: MapModel = world.region(region_id) if world != null else model
-		ArmyMovement.begin_turn(stored, region_model)
-
-
-## Resolves land battles in every region: a battle must not wait for the player
-## to open that map (wiki: map-topology § two regions); `context["hostile"]` is
-## the court's war query so peace never spills blood.
-##
-## The pass may mint a garrison (wiki: combat § Garrison recovery), so the
-## crown's own id cursors travel with it: one army id and one regiment id per
-## instance, never a number a standard or a man already wears in the other chart
-## (wiki: military-armies § Split and combine).
-func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Dictionary]:
-	var by_region: Dictionary = {}
-	for index in world.region_count():
-		var region_armies: Array[ArmyState] = []
-		if model != null and index == model.region_id:
-			region_armies = armies
-		else:
-			region_armies.assign(regions.value(index, []))
-		by_region[index] = region_armies
-	var pass_context: Dictionary = context.duplicate()
-	var ids: Dictionary = {"army": next_army, "regiment": next_regiment}
-	pass_context["ids"] = ids
-	var all: Array[Dictionary] = ArmyBattles.resolve_region_turn(
-		world, by_region, generals, pass_context
-	)
-	next_army = maxi(next_army, int(ids.get("army", next_army)))
-	next_regiment = maxi(next_regiment, int(ids.get("regiment", next_regiment)))
-	for index in world.region_count():
-		var region_armies: Array[ArmyState] = []
-		region_armies.assign(by_region.get(index, []))
-		# Whatever the pass minted, a cursor never falls behind a live instance:
-		# the next split and the next muster hand out a number no standard or
-		# man wears (a save written before the cursors travelled keeps its ids).
-		for army: ArmyState in region_armies:
-			if army == null:
-				continue
-			next_army = maxi(next_army, army.id + 1)
-			for regiment_id: String in army.regiments:
-				var number: int = ArmyCommand.unit_number(regiment_id)
-				if number >= 0:
-					next_regiment = maxi(next_regiment, number + 1)
-		regions.set_region(index, region_armies)
-		if model != null and index == model.region_id:
-			armies = region_armies
-			prune_markers()
-	return all
 
 
 ## Drops the standard of an army that left the field and raises one for an army

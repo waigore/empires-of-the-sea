@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1379 (REQ-P2-02).
+Audited: wiki / DRs / code through #1399 (REQ-P2-02).
 Default pick: largest gap here, then REQ/wiki.
 
 ## Already live
@@ -69,5 +69,5 @@ None; see `docs/rubric.md` / wiki.
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft
 weight seed (DR-13-15). `phase-planner-architecture` “domain dispatch stays
-seed” — stale; `SLOT_MARKET`/`SLOT_NAVAL` live. #1362–#1379 counsel/fort/
-marks — not backlog.
+seed” — stale; `SLOT_MARKET`/`SLOT_NAVAL` live. #1388–#1399 deed/siege/
+capture — not backlog.
