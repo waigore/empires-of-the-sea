@@ -900,6 +900,97 @@ func test_blockade_targets_are_the_hostile_coasts_beside_the_zone() -> void:
 	var docked := FleetState.in_port(2, 0, 1)
 	assert_eq(FleetMissions.blockade_targets(_fleet_missions_model, docked, _war), [])
 
+## A coast that runs along two waters while its harbour faces only one: the case
+## the blockade's water gate turns on (wiki: ships-and-naval § Missions and
+## Movement — "the blockading fleet must be in a sea zone adjacent to that
+## province's port").
+func _port_gate_model() -> MapModel:
+	var model := MapModel.new()
+	model.setup(6, 5)
+	var riva_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0),
+		Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 2),
+	]
+	for tile: Vector2i in riva_tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 0
+	# The port's water (east) and a second water along the same coast (south).
+	for tile: Vector2i in [Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2)]:
+		model.sea_zone[model.index_of(tile.x, tile.y)] = 0
+	for tile: Vector2i in [Vector2i(1, 2), Vector2i(2, 3)]:
+		model.sea_zone[model.index_of(tile.x, tile.y)] = 1
+	var riva := ProvinceState.create(0, "Riva", riva_tiles, Vector2(1.0, 1.0), 6, 1)
+	riva.port_tile = Vector2i(2, 0)
+	model.provinces = [riva]
+	model.sea_zones = [
+		SeaZoneState.create(
+			0, "East Water",
+			[Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2)], Vector2(3.0, 1.0), 3
+		),
+		SeaZoneState.create(
+			1, "South Water", [Vector2i(1, 2), Vector2i(2, 3)], Vector2(1.5, 2.5), 2
+		),
+	]
+	return model
+
+func test_a_blockade_stands_in_the_water_its_port_faces() -> void:
+	var model: MapModel = _port_gate_model()
+	assert_eq(NavalMovement.province_sea_zones(model, 0), [0, 1], "the coast runs on both")
+	assert_eq(
+		NavalMovement.port_sea_zones(model, 0), [0],
+		"the harbour faces the east water alone"
+	)
+	var away := FleetState.at_sea(1, 0, 1)
+	var refused: Dictionary = FleetMissions.can_assign(
+		model, away, FleetState.Mission.BLOCKADE, 0, _war
+	)
+	assert_false(bool(refused["ok"]), "the far water holds no blockade of that port")
+	assert_true(String(refused["reason"]).contains("port"))
+	assert_eq(FleetMissions.blockade_targets(model, away, _war), [])
+	away.mission = FleetState.Mission.BLOCKADE
+	away.blockade_province = 0
+	assert_false(
+		FleetMissions.is_blockading(model, away, _war),
+		"a blockade off the port's water does not stand"
+	)
+	var beside := FleetState.at_sea(2, 0, 0)
+	assert_eq(FleetMissions.blockade_targets(model, beside, _war), [0])
+	var assigned: Dictionary = FleetMissions.assign(
+		model, beside, FleetState.Mission.BLOCKADE, 0, _war
+	)
+	assert_true(bool(assigned["ok"]), String(assigned.get("reason", "")))
+	assert_true(FleetMissions.is_blockading(model, beside, _war))
+	assert_eq(NavalMovement.port_sea_zones(null, 0), [])
+	assert_eq(NavalMovement.port_sea_zones(model, 99), [])
+
+func test_a_portless_coast_keeps_its_whole_water() -> void:
+	var model: MapModel = _port_gate_model()
+	model.province_data(0).port_tile = Vector2i(-1, -1)
+	assert_eq(
+		NavalMovement.port_sea_zones(model, 0), [0, 1],
+		"a map with no harbour reads the coast"
+	)
+	var away := FleetState.at_sea(1, 0, 1)
+	assert_true(bool(FleetMissions.can_assign(
+		model, away, FleetState.Mission.BLOCKADE, 0, _war
+	)["ok"]), "no port to face, so both waters blockade")
+
+func test_a_blockade_out_of_the_ports_water_seals_nothing() -> void:
+	var model: MapModel = _port_gate_model()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var away := FleetState.at_sea(1, 0, 1)
+	away.mission = FleetState.Mission.BLOCKADE
+	away.blockade_province = 0
+	var far: Blockades = Blockades.read(world, {0: [away]}, 1, 0, 0, _war)
+	assert_false(far.seals(0, 0), "that water never reaches the harbour")
+	assert_false(far.any())
+	var beside := FleetState.at_sea(2, 0, 0)
+	beside.mission = FleetState.Mission.BLOCKADE
+	beside.blockade_province = 0
+	var near: Blockades = Blockades.read(world, {0: [beside]}, 1, 0, 0, _war)
+	assert_true(near.seals(0, 0), "the port's own water seals the coast")
+
 func test_a_normal_move_clears_the_station() -> void:
 	_setup_fleet_missions()
 	var fleet := FleetState.at_sea(1, 0, 0)

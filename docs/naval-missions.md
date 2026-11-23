@@ -13,15 +13,17 @@ Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02.
 | Station | Where | Effect |
 |---------|-------|--------|
 | Patrol | at sea | Intercepts hostiles entering the zone |
-| Blockade | at sea beside an enemy coast | Intercepts; severs that coast's harvest |
+| Blockade | at sea beside an enemy coast's port | Intercepts; severs that coast's harvest |
 | Defend | at sea | Holds; no interception |
 | Beachhead | at sea beside a hostile coast | One-turn landing site |
 
 A station spends the move and persists until the squadron sails, docks or
 retakes one; the home fleet holds none; a target no longer hostile lapses it.
+A blockade stands only in the water its port faces (`port_sea_zones`), so the
+dossier's rows and the rival pass name that water alone.
 
-A sealed harbour severs the coast, and the capital harbour cuts every sea path
-(wiki: capital-and-connectivity § Blockade). The dossier names it (`REQ-P5-05`).
+A sealed harbour severs the coast; the capital's cuts every sea path (wiki:
+capital-and-connectivity § Blockade; `REQ-P5-05`).
 
 ## Interception
 
@@ -38,8 +40,8 @@ rolls, and only against a hostile.
 
 **The dossier prices the catch (DR-20261120-02):** a station at sea prints its
 chance — `Interception: 62% to catch 4 hulls if they stay.` — over its holders
-and every hostile there the crown has **read**; an unread rival gets no number,
-an empty water no line.
+and every hostile the crown has **read**; an unread rival and empty water get no
+line.
 
 **Privateering Companies** multiplies the interceptor's score by `1.25` before
 the clamp (movement and raids); the target's charter never helps.
@@ -77,14 +79,13 @@ raider loses none.
 
 **Raids cut both ways.** Any crown's station off a hostile coast raids a
 declared enemy by the same formulas: **prize cargo** leaves the victim's
-stockpile for the raider's, never booked as an import (DR-20261111-20). Cargo and
-hull roll on separate salts. The crown's raids reach its despatch. The dossier
-prices that group over its at-war coasts, naming the coast a patrol works and the
-hull a hit sinks (DR-20261120-01).
+stockpile for the raider's, never booked as an import, and the dossier prices
+that group over its at-war coasts, naming the coast a patrol works and the hull a
+hit sinks (DR-20261111-20, DR-20261120-01).
 
 ## Deferred (REQ-P2-02)
 
-Rival raids shipped (DR-20261111-20); gaps: [`deferred.md`](deferred.md).
+Gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 
