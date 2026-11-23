@@ -44,6 +44,11 @@ static func reading(play: PlaySession, province_id: int) -> Dictionary:
 			model, works, owner, capital, province_id, blockade
 		)
 	var host: Dictionary = _host(play, model, province, owner)
+	# The observer reads for the court that owns the province, so the wall's own
+	# battery is that court's ledger, and the storm it sets reads exactly
+	# (wiki: siege-mechanics § Storming an empty walled province;
+	# DR-20261123-20).
+	var tech: Dictionary = _tech(play, owner)
 	return {
 		"id": province_id,
 		"name": province.name,
@@ -59,7 +64,10 @@ static func reading(play: PlaySession, province_id: int) -> Dictionary:
 			if crown.has("linked") else DossierCopy.roads(rows)
 		),
 		"fort": FortRules.describe(province.fort_level),
-		"wall": WallRead.line(province.fort_level),
+		"wall": WallRead.line(
+			province.fort_level, WallRead.storm_line(province.fort_level, tech, true)
+		),
+		"wall_tip": WallRead.storm_tip(province.fort_level, true),
 		"hospital": HospitalRules.describe(
 			province.hospital_level, province.hospital_staffed
 		),
@@ -147,3 +155,14 @@ static func _tech_caps(play: PlaySession, owner: int) -> Dictionary:
 	if ledger == null:
 		return {}
 	return TechCatalog.extraction_caps(ledger.tech_unlocked)
+
+
+## The owner's own studies, read from its ledger: the emplaced battery a wall
+## mounts is read off this table, so the observer prices exactly the guns the
+## defender holds. A court with no ledger yet (a Minor or Tribe) reads none, and
+## its wall prices the base battery.
+static func _tech(play: PlaySession, owner: int) -> Dictionary:
+	var ledger: PlayerEconomy = play.ledger_for(owner)
+	if ledger == null:
+		return {}
+	return ledger.tech_unlocked

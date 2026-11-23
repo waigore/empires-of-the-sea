@@ -237,7 +237,9 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	if data == null:
 		return
 	_head.show_province(data)
-	_grid.show_province(model, province_id, data)
+	# The grid reads the wall's storm off the crown's own studies, so a rival's
+	# wall prints the published envelope (DR-20261123-20).
+	_grid.show_province(model, province_id, data, _faction, _tech_unlocked)
 	_grid.set_hosts(_hosts_line(model, province_id))
 	# The harbour reads off the same seated session; the module answers "" for a
 	# sheet the boot never seated (DR-20261123-14).

@@ -17,10 +17,9 @@ DR-20261110-27.
 - **Unopposed capture** is open ground only. An empty walled province is
   **stormed**: beat wall HP + the battery (`FortRules.storm_threshold`, the
   **defender's** Royal → Heavy → Siege line); each whole 10 past it
-  costs a regiment, weakest first. Attackers storm in the chain's order: a
-  repelled storm names the wall and leaves it for the next. The
-  AI gates price the top of the line (`storm_ceiling`, 59 at Wood), since they
-  cannot read a ledger.
+  costs a regiment, weakest first. Stormers follow the chain; a repelled storm
+  names the wall and leaves it for the next. AI gates price the top of the line
+  (`storm_ceiling`).
 - **Battle mode:** 0 field, `≥ 1` siege. **Scaling formula:** wall HP = 40 ×
   level, guns = level, damage reduction = 10% × level. The opening Great Power
   muster (21 strength) cannot storm a Wood fort.
@@ -29,10 +28,11 @@ DR-20261110-27.
 - **Quick Battle** (`SiegeLanes`): infantry man the wall, horse and guns wait
   behind; RNG ≥ 2 hits the wall, only artillery reaches behind. Gates: three,
   each after `ceil(wall HP / 3)` casualties; a breach opens the behind lane.
-  Ground (`SiegeGround`): HILL, WOODS, MARSH, TOWN.
-- **The wall reads itself** (`WallRead`, DR-20261120-06): the province sheet's
-  **Wall** row, the observatory, and a march into another court's wall all name
-  the figures below.
+  Grounds: `SiegeGround`.
+- **The wall reads itself** (`WallRead`, DR-20261120-06, DR-20261123-20): the
+  sheet's **Wall** row, the observatory and a march name its soak, spare share
+  and storm — `storm needs 51 strength` on the crown's own ground, `51–59` on
+  another court's, whose battery is unread.
 
 ## Costs and numbers
 
