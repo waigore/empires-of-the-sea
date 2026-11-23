@@ -8,6 +8,9 @@ extends GdToolsTest
 
 
 const Fixture = preload("res://tests/civilian_fixture.gd")
+## Shared chart for the merged screen cases; parked so pure college rules never
+## pay an idle MapScreen under coverage (docs/testing.md § Speed rules).
+const ScreenFixture = preload("res://tests/map_fixture.gd")
 
 var _state: ResearchState = null
 var _economy: PlayerEconomy = null
@@ -1928,8 +1931,6 @@ func _label_containing(text: String) -> Label:
 ## The one chart the sheet cases drive (the rules cases need no nodes). Mounted
 ## lazily so ~150 pure college cases never pay a MapScreen boot (docs/testing.md
 ## § Speed rules). `static` keeps the screen across gd-tools' per-case clones.
-const ScreenFixture = preload("res://tests/map_fixture.gd")
-
 var research_host: Node = null
 var research_pristine_map: Array = []
 static var _research_screen: MapScreen = null

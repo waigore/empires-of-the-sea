@@ -42,7 +42,8 @@
   (DR-20261122-05, DR-20261123-03).
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03/22-12): the
   muster block prints, in gold, the line the published muster would raise (or
-  its gate) and marks that pattern `▸`. Reads only.
+  its gate) and marks that pattern `▸`, with its legend (DR-20261123-08).
+  Reads only.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): one pooled name each.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on
   town tiles; rest 40%/55%, wear 80%/65%; wards eat 2 food a level, unfed 25%
