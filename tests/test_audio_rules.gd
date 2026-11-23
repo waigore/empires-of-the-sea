@@ -366,13 +366,14 @@ const Fixture = preload("res://tests/map_fixture.gd")
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const map_soundtrack_TEMP_PATH := "user://test_map_soundtrack.cfg"
 
-## One mount for the whole suite: under coverage a chart mount costs ~1 s and a
-## re-seat from the pristine save ~0.15 s, so the score cases share the chart
-## and reset the session instead of remounting (`Fixture.suite_reset`). Static
-## because gd-tools hands each case a fresh instance: a shell case frees the
-## chart, and the next case must find the one the suite mounted. The shell's
-## cases share one shell the same way; the first frees the chart so the two
-## never share one WorldMap instance.
+## Score cases share one chart: under coverage a mount costs ~1 s and a re-seat
+## from the pristine save ~0.15 s (`Fixture.suite_reset`). Mount lazily on the
+## first soundtrack case so the ~37 mix/director cases never pay a MapScreen
+## under coverage (docs/testing.md § Speed rules; same pattern as battle HUD /
+## research sheet). Static because gd-tools hands each case a fresh instance: a
+## shell case frees the chart, and the next soundtrack case must find the one
+## the suite mounted. The shell's cases share one shell the same way; the first
+## frees the chart so the two never share one WorldMap instance.
 static var _screen: MapScreen = null
 static var _audio: AudioDirector = null
 static var _score: MapSoundtrack = null
@@ -390,7 +391,13 @@ static var _host: Node = null
 func before_all() -> void:
 	_host = self
 	_world_snapshot = Fixture.snapshot(Fixture.world())
-	_mount_soundtrack()
+
+
+func before_each() -> void:
+	# Mix/director never mount; after the score chart exists, park so idle
+	# HUD/fog work does not run under coverage between soundtrack cases
+	# (docs/testing.md § Speed rules).
+	Fixture.park_screen(_screen)
 
 
 func after_all() -> void:
@@ -429,9 +436,9 @@ func _setup_map_soundtrack() -> void:
 	_suite_setup = "map_soundtrack"
 	if not is_instance_valid(_screen):
 		_mount_soundtrack()
-		return
-	Fixture.restore(Fixture.world(), _world_snapshot)
-	Fixture.suite_reset(_screen, _pristine, Fixture.world())
+	else:
+		Fixture.restore(Fixture.world(), _world_snapshot)
+		Fixture.suite_reset(_screen, _pristine, Fixture.world())
 	_audio.set_music_volume(AudioMix.MUSIC_DEFAULT)
 	_audio.set_sfx_volume(AudioMix.SFX_DEFAULT)
 	_audio.set_muted(false)
@@ -444,6 +451,7 @@ func _setup_map_soundtrack() -> void:
 ## The mount outlives the case; only the suite's own mix file is dropped.
 func _after_soundtrack() -> void:
 	Fixture.restore(Fixture.world(), _world_snapshot)
+	Fixture.park_screen(_screen)
 	if FileAccess.file_exists(map_soundtrack_TEMP_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(map_soundtrack_TEMP_PATH))
 

@@ -447,6 +447,10 @@ domain = "hostility"
 match = "scripts/rules/naval_combat.gd*"
 domain = "hostility"
 
+[[rules]]
+match = "scripts/rules/naval_exchange.gd*"
+domain = "hostility"
+
 # The turn's battles across every region (one pass, node-free): the fleet and
 # naval suites prove it, so it rides with the same domain instead of the rules
 # catch-all.
@@ -1241,6 +1245,18 @@ domain = "muster"
 [[rules]]
 match = "scripts/map/map_play_counsel_bind.gd*"
 domain = "muster"
+
+# The province sheet's Hosts row (DR-20261123-13): the boot's own seat, the
+# chart reading the sheet asks of it and the pure count behind both. They ride
+# the boot that calls them — the ledgers suite boots the screen and reads the
+# row — and the rules read names the campaign suite that proves the count.
+[[rules]]
+match = "scripts/map/map_play_province_hosts.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/rules/province_hosts.gd*"
+domain = "province_hosts"
 
 # A reading's own rules module, the turn that publishes it and the two map
 # hooks that carry it. First match wins, so these sit above the ai/fog/
@@ -2228,6 +2244,14 @@ suites = [
   "test_a_map_screen.gd",
 ]
 
+# Playtest capture mode (issue #1393): the metadata/report helpers, the overlay
+# and the controller. Its own suite keeps the capture state machine off the
+# heavy chart boot.
+[domains.playtest_capture]
+suites = [
+  "test_playtest_capture.gd",
+]
+
 [domains.fold_diplomacy_screen]
 suites = [
   "test_diplomacy_screen.gd",
@@ -2373,6 +2397,13 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# The hosts a province holds, counted for a reading crown (DR-20261123-13): one
+# pure read over the chart's armies and the crown's fog. The campaign suite
+# proves the count, the ledger's own rule; nothing else reads it.
+[domains.province_hosts]
+suites = [
+  "test_campaign_rules.gd",
+]
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
 domain = "province_sheet"
@@ -2475,6 +2506,29 @@ domain = "map_mount"
 [[rules]]
 match = "playtests/playtest_station_prices.gd*"
 domain = "hostility"
+
+# Army turn / muster call sites: keep them on army (battle + orders) so a
+# drive that only swaps ArmyLayer for ArmyTurnPass / ArmyMusterOps never
+# pulls misc's generated_world boot past the tier-1 5 min budget.
+[[rules]]
+match = "playtests/playtest_combat_chain.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_command.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_field_train.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_routed_host.gd*"
+domain = "army"
+
+[[rules]]
+match = "playtests/playtest_siege.gd*"
+domain = "army"
 
 [[rules]]
 match = "playtests/**"
@@ -3157,8 +3211,11 @@ domain = "advanced"
 match = "scripts/map/map_play_advanced*.gd*"
 domain = "advanced"
 
+# `.gd*` keeps companion `.uid` files on the army domain. A bare `.gd` glob
+# lets a new army module's uid fall through to scripts/map/** and pull the
+# full map suite past the tier-1 5 min budget.
 [[rules]]
-match = "scripts/map/army_*.gd"
+match = "scripts/map/army_*.gd*"
 domain = "army"
 
 # `map_play_armies.gd` is plural — `army*` does not match `armies` under fnmatch.
@@ -3742,6 +3799,10 @@ domain = "civilian"
 # 5 min budget.
 [[rules]]
 match = "scripts/rules/naval_combat.gd*"
+domain = "naval_feeding"
+
+[[rules]]
+match = "scripts/rules/naval_exchange.gd*"
 domain = "naval_feeding"
 
 [[rules]]
@@ -4596,6 +4657,12 @@ domain = "menu"
 [[rules]]
 match = "scripts/input_actions.gd"
 domain = "crown_road"
+
+# Playtest capture mode (issue #1393): its own suite, before the broad debug
+# rule below, so a capture change never pays the whole chart boot.
+[[rules]]
+match = "scripts/debug/playtest_capture*.gd*"
+domain = "playtest_capture"
 
 # Agent Debug Bridge (issue #699): the pure projector and the thin loopback
 # WebSocket node. Query-only debug tooling, so a change here runs its own suite

@@ -24,16 +24,17 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   One order per rival (`AiTurn`).
 - **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
   Home regiment; armies save or storm, or walk a stranded host home
-  (DR-20261121-15).
+  (DR-20261121-15, DR-20261123-09).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron, else raid a hostile coast (DR-20261111-17); at peace, home
-  (DR-20261110-30); the trace names a merchant's own sail `convoy` (#1258).
+  (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts**: each court's fog, read by voyages, invasions, diplomacy
   (DR-20261113-03).
-- **Colonisation** (`AiColonisationPlanner`): docks, boards, crosses, lands,
-  returns empty (DR-20261111-05/14-03); the crew is an Explorer, a Builder on
-  crown ground, or the claim's Merchant (#1127).
+- **Colonisation** (`AiColonisationPlanner`): docks, boards, crosses, lands by
+  its workshop's read (on earn, for prospectable ground, #1382), returns empty
+  (DR-20261111-05/14-03); the crew is an Explorer, a Builder on crown ground,
+  or the Merchant (#1127).
 - **Overseas invasions** (`AiInvasionPlanner`): detach hulls, dock, board,
   cross, storm the coast (DR-20261114-03); the earn lift stands down while
   pressing (DR-20261119-14).
@@ -53,10 +54,10 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   outruns (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the era; Tribes stay
   1; rivals re-equip, pay to attack.
-- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line regiment a
-  turn under `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest
-  trains (DR-20261112-08).
+- **Muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line a turn under
+  `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`, the
+  workshop's pair (DR-20261123-10) and pattern inputs (DR-20261113-08); the
+  wornest trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade. Court: `MapPlayEconomyCourt`. Ledger
   reads: `MapPlayEconomyLarder`.

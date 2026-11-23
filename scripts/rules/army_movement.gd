@@ -54,7 +54,14 @@ const SEA_HOME_NO_HARBOUR: String = (
 ## provinces beside it are open. Foreign land is listed but a march into it is
 ## refused at order time unless at war with its owner (wiki: diplomacy § War
 ## required for hostile actions).
-static func destinations(model: MapModel, army: ArmyState) -> Array[int]:
+##
+## `visibility` gates the destination province: a crown cannot order a march into
+## land it has never charted (wiki: fog-and-exploration § Order Visibility
+## Requirements). Without a chart the gate is inert, so rules fixtures — and a
+## court that keeps no grid — read the full road.
+static func destinations(
+	model: MapModel, army: ArmyState, visibility: VisibilityModel = null
+) -> Array[int]:
 	var result: Array[int] = []
 	if not _can_act(model, army):
 		return result
@@ -64,7 +71,7 @@ static func destinations(model: MapModel, army: ArmyState) -> Array[int]:
 		# § Movement and attacks; DR-20261121-15).
 		result.assign(MapGeo.province_neighbors(model, army.province))
 		result.sort()
-		return result
+		return _charted_only(result, visibility)
 	var reachable: Array[int] = land_reachable(model, army.province, army.owner)
 	for province: ProvinceState in model.provinces:
 		var province_id: int = province.id
@@ -77,7 +84,22 @@ static func destinations(model: MapModel, army: ArmyState) -> Array[int]:
 			if not result.has(neighbor):
 				result.append(neighbor)
 	result.sort()
-	return result
+	return _charted_only(result, visibility)
+
+
+## The provinces this crown has glimpsed at least once — one tile at `fogged` or
+## better (wiki: fog-and-exploration § Order Visibility Requirements). A chartless
+## reader keeps every province, so a rules fixture stays small.
+static func _charted_only(
+	provinces: Array[int], visibility: VisibilityModel
+) -> Array[int]:
+	if visibility == null:
+		return provinces
+	var kept: Array[int] = []
+	for province_id: int in provinces:
+		if visibility.is_province_known(province_id):
+			kept.append(province_id)
+	return kept
 
 
 ## Own provinces on the same landmass and connected through own territory.
@@ -105,7 +127,11 @@ static func land_reachable(
 
 
 static func can_move(
-	model: MapModel, army: ArmyState, province_id: int, at_war: bool = true
+	model: MapModel,
+	army: ArmyState,
+	province_id: int,
+	at_war: bool = true,
+	visibility: VisibilityModel = null
 ) -> Dictionary:
 	if army == null:
 		return OrderVerdict.deny("There is no army to order.")
@@ -119,6 +145,12 @@ static func can_move(
 		return OrderVerdict.deny("That is not a province.")
 	if province_id == army.province:
 		return OrderVerdict.deny("The army is already in that province.")
+	# A move order needs a destination the crown has glimpsed at least once
+	# (wiki: fog-and-exploration § Order Visibility Requirements). A crew's march
+	# hears the same words from [CivilianMovement]; a chartless caller — a rules
+	# fixture, or a court that keeps no grid — reads the full road.
+	if visibility != null and not visibility.is_province_known(province_id):
+		return OrderVerdict.deny("That province has never been charted.")
 	if model.province_owner(province_id) == army.owner:
 		if not on_own_ground(model, army):
 			# Interior lines only run through own provinces, and a host camped on
@@ -144,9 +176,13 @@ static func can_move(
 ## Validates, then moves every regiment with the army. `attacked` reports that
 ## the destination belongs to another faction.
 static func apply_move(
-	model: MapModel, army: ArmyState, province_id: int, at_war: bool = true
+	model: MapModel,
+	army: ArmyState,
+	province_id: int,
+	at_war: bool = true,
+	visibility: VisibilityModel = null
 ) -> Dictionary:
-	var check: Dictionary = can_move(model, army, province_id, at_war)
+	var check: Dictionary = can_move(model, army, province_id, at_war, visibility)
 	if not bool(check.get("ok", false)):
 		return {"ok": false, "reason": String(check.get("reason", "")), "attacked": false}
 	var attacked: bool = model.province_owner(province_id) != army.owner

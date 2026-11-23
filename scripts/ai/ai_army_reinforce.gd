@@ -12,8 +12,12 @@ extends RefCounted
 ## Pure rules: config, ledger and counts in, a type id out (REQ-P2-03,
 ## REQ-P3-03). The map adapter spends through ArmyTraining, so the AI can never
 ## buy a regiment the human rules would refuse. Line-pattern answers live on
-## [AiArmyReinforceLine]; this owner keeps the turn plan and the food/purse
-## gates that decide whether a muster fires.
+## [AiArmyReinforceLine]; host size on [AiArmyReinforceHost]; the war chest on
+## [AiArmyReinforceChest]. This owner keeps the turn plan and the food gates
+## that decide whether a muster fires. The money goal banks a storm-priced
+## chest for the host the thinnest wall ahead prices (issue #1381): the read
+## raises the target at war, prices only money at peace — without the wall
+## ever moving.
 
 ## The gates `plan` names when it raises nothing, one home for the words a
 ## trace prints and the drill yard's advice repeats (DR-20261121-03).
@@ -54,6 +58,9 @@ const REASON_PAYABLE: String = "nothing payable"
 ## — and never while it banks for the army its conquest still needs (issue
 ## #995): `conquest_gap` drops the rebuild chest behind the line, because the
 ## army holds the land the yard stands on.
+## `storm_bank` is the storm host the court's thinnest wall prices (issue
+## #1381): the regiments the wall wants, handed in as `reserve` is — the
+## goal's bank and the muster read one chest, not one line regiment.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -65,14 +72,15 @@ static func plan(
 	held_row: Dictionary = {},
 	own_warships: int = -1,
 	harvest_slack: int = -2,
-	conquest_gap: bool = false
+	conquest_gap: bool = false,
+	storm_bank: int = 0
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
 	}
 	if config == null or economy == null:
 		return result
-	var target: int = _target(config, at_war) + maxi(pressure_extra, 0)
+	var target: int = AiArmyReinforceHost.target(config, at_war) + maxi(pressure_extra, 0)
 	result["target"] = target
 	if own_regiments >= target:
 		result["reasons"].append(REASON_TARGET)
@@ -86,8 +94,12 @@ static func plan(
 	if harvest_slack >= -1 and harvest_slack < 1:
 		result["reasons"].append(REASON_HARVEST)
 		return result
-	var chest: int = AiIncome.hull_held(
-		config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
+	# The storm chest rides above the hull's (issue #1381): the host × line.
+	var chest: int = maxi(
+		AiIncome.hull_held(
+			config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
+		),
+		maxi(storm_bank, 0) * AiArmyReinforceLine.cheapest_line_price(economy)
 	)
 	# The hull's row is the fleet's once the chest is full: the muster spends
 	# only what stands above it, exactly as it spends only the purse above the
@@ -188,73 +200,29 @@ static func starving(economy: PlayerEconomy, army_food: int, ships: int) -> bool
 	return fed_slack(economy, army_food, ships) < 0
 
 
-## Peasants a court keeps in the fields so its muster stays legal: the
-## `army.min_peasants` floor the muster itself reads plus the levy's own hand
-## (`RegimentEconomy.WORKER_COST`). The reservation is answered only while the
-## court stands under its target, is at war, holds the material row of the
-## pattern it is saving for, and its purse already holds the muster's war chest
-## — behind the slot un-latch and the chest escalation, never ahead of them
-## (issue #807, evidence/issue-474 Round 9: measured −3.65 % on the destitute
-## tree where it never fired). 0 otherwise, so a court that is not arming
-## trains freely.
+## Owned by [AiArmyReinforceChest]; kept here so planners keep one call site.
 static func muster_hands(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
 	at_war: bool
 ) -> int:
-	if config == null or economy == null or not at_war:
-		return 0
-	if own_regiments >= _target(config, at_war):
-		return 0
-	var type_id: String = saving_type(config, economy)
-	if type_id.is_empty():
-		return 0
-	if not RegimentEconomy.missing_inputs(type_id, economy.stockpile).is_empty():
-		return 0
-	if economy.treasury < muster_floor(config, economy, own_regiments, at_war):
-		return 0
-	return config.parameter("army.min_peasants") + RegimentEconomy.WORKER_COST
+	return AiArmyReinforceChest.muster_hands(config, economy, own_regiments, at_war)
 
 
-## Regiments the court aims at on its published policy alone: the peace target,
-## raised by `army.war_extra` at war (wiki: ai-architecture § Land
-## reinforcement).
+## Owned by [AiArmyReinforceHost]; kept here so planners keep one call site.
 static func guard_regiments(config: AiConfig, at_war: bool) -> int:
-	if config == null:
-		return 0
-	var target: int = config.parameter("army.regiment_target")
-	if at_war:
-		target += config.parameter("army.war_extra")
-	return target
+	return AiArmyReinforceHost.guard_regiments(config, at_war)
 
 
-## Regiments the court aims at: the guard plus the host the thinnest wall ahead
-## asks for (issue #1314). Every gate that reads the target — the muster, its
-## labour floor, the chest it holds — asks for the same host.
-static func _target(config: AiConfig, at_war: bool) -> int:
-	return guard_regiments(config, at_war) + AiStormGate.extra_regiments(
-		_storm_read(config, at_war)
-	)
-
-
-## The wall reading the map layer hands in ([method
-## MapPlayArmyMusterAi.storm_extra]); a court with no world passes none, and the
-## published target stands. Peace musters the published target too — the wall is
-## a war reading.
-static func _storm_read(config: AiConfig, at_war: bool) -> Variant:
-	if config == null or not at_war:
-		return null
-	return config.storm_read
-
-
-## The army the court desires at its published target — the size it plans food
-## income for while it stands under it (issue #807). The same table
-## `_target` prices the muster with.
+## Owned by [AiArmyReinforceHost]; kept here so planners keep one call site.
 static func desired_regiments(config: AiConfig, at_war: bool) -> int:
-	if config == null:
-		return 0
-	return _target(config, at_war)
+	return AiArmyReinforceHost.desired_regiments(config, at_war)
+
+
+## Owned by [AiArmyReinforceHost]; kept here so planners keep one call site.
+static func storm_want_read(config: AiConfig, own_regiments: int) -> int:
+	return AiArmyReinforceHost.storm_want_read(config, own_regiments)
 
 
 ## The line regiment this court would raise if its stores could pay for it.
@@ -263,30 +231,18 @@ static func next_type(config: AiConfig, economy: PlayerEconomy) -> String:
 	return AiArmyReinforceLine.next_type(config, economy)
 
 
-## Commodities this court keeps back so the regiment it means to raise can be
-## mustered: the whole input row of the pattern it is saving for (wiki:
-## growth-stage-planner § Recruitment modulation, "military fabric reservation
-## holds inputs for upcoming recruits"; economy-planner § Reservations). The row
-## is held even while the purse is still short of the muster — a court that only
-## provisioned once it could pay would never stock the cloth it needs, and the
-## muster would starve with a full war chest (issue #474). Empty when the court
-## sits at its target or its fields cannot spare a hand, so a court that is not
-## arming sells freely.
+## Owned by [AiArmyReinforceChest]; kept here so planners keep one call site.
 static func muster_reserve(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
 	at_war: bool,
-	pressure_extra: int = 0
+	pressure_extra: int = 0,
+	storm_bank: int = 0
 ) -> Dictionary:
-	if config == null or economy == null:
-		return {}
-	if own_regiments >= _target(config, at_war) + maxi(pressure_extra, 0):
-		return {}
-	var type_id: String = saving_type(config, economy)
-	if type_id.is_empty():
-		return {}
-	return RegimentEconomy.training_inputs(type_id)
+	return AiArmyReinforceChest.muster_reserve(
+		config, economy, own_regiments, at_war, pressure_extra, storm_bank
+	)
 
 
 ## The line this court is saving for. Owned by [AiArmyReinforceLine].
@@ -294,49 +250,24 @@ static func saving_type(config: AiConfig, economy: PlayerEconomy) -> String:
 	return AiArmyReinforceLine.saving_type(config, economy)
 
 
-## Treasury a court must hold before any muster is legal: `army.min_treasury`
-## still in the purse after paying for the cheapest line pattern its techs open.
-## 0 when it already stands at its target, can raise nothing, or has no peasant
-## to spare. Other planners read it as the war chest they must not spend, so a
-## court saving for its next regiment never funds itself into the deadlock where
-## every muster is one ducat short (wiki: ai-architecture § Land reinforcement;
-## growth-stage-planner § Recruitment modulation).
+## Owned by [AiArmyReinforceChest]; kept here so planners keep one call site.
 static func muster_floor(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	own_regiments: int,
-	at_war: bool
+	at_war: bool,
+	storm_bank: int = 0
 ) -> int:
-	if config == null or economy == null:
-		return 0
-	if own_regiments >= _target(config, at_war):
-		return 0
-	if not AiArmyReinforceLine.labour_floor_ok(config, economy):
-		return 0
-	var floor_treasury: int = maxi(config.parameter("army.min_treasury"), 0)
-	var cheapest: int = AiArmyReinforceLine.cheapest_line(economy)
-	if cheapest < 0:
-		return floor_treasury
-	return floor_treasury + cheapest
+	return AiArmyReinforceChest.muster_floor(
+		config, economy, own_regiments, at_war, storm_bank
+	)
 
 
-## Why a court standing under its target prices no muster row ("" when the row
-## stands): the muster's own gates, in the trace's words, so a silent absence
-## cannot hide the starvation again (issue #1143). The muster's own money and
-## food gates live on `plan`; this names only the gates that price the row
-## itself — the labour floor and a court whose techs open no line pattern.
+## Owned by [AiArmyReinforceChest]; kept here so planners keep one call site.
 static func absent_reason(
 	config: AiConfig, economy: PlayerEconomy, own_regiments: int, at_war: bool
 ) -> String:
-	if config == null or economy == null:
-		return ""
-	if own_regiments >= _target(config, at_war):
-		return ""
-	if not AiArmyReinforceLine.labour_floor_ok(config, economy):
-		return "the labour floor holds: no spare hand for the levy"
-	if AiArmyReinforceLine.saving_type(config, economy).is_empty():
-		return "no line pattern its techs open"
-	return ""
+	return AiArmyReinforceChest.absent_reason(config, economy, own_regiments, at_war)
 
 
 ## Price of the cheapest line pattern this court's techs open today. Owned by

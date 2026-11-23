@@ -158,30 +158,44 @@ static func _rotation_order(
 
 
 ## The first leg of the walk home for a field army that stands on ground it does
-## not hold: the province beside it that shortens the road to the seat, over
-## ground the army may enter at peace — its own land and unclaimed wilderness.
-## Empty when the army stands on its own ground, the court reads no seat, or no
-## step shortens the road (a host walled in by foreign land).
+## not hold: the province beside it that shortens the road home, over ground the
+## army may enter at peace — its own land and unclaimed wilderness. The road ends
+## at the court's seat on this chart; a chart that holds no seat lies across the
+## water, so the road ends at the crown's own harbour there — the quay the
+## crown's own sentence names — and a crown that keeps none leaves no road at all.
+## Empty when the army stands on its own ground, the court reads no seat and no
+## other chart, or no step shortens the road (a host walled in by foreign land).
 static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
 	if model == null or army == null or ArmyMovement.on_own_ground(model, army):
 		return {}
-	var seat: int = WorldBootstrap.capital_province(model, army.owner)
-	if seat == MapModel.NO_ID:
-		return {}
-	var road: Dictionary = _distances(model, seat, army.owner, true)
+	var goal: int = WorldBootstrap.capital_province(model, army.owner)
+	# Across the sea no land march reaches the seat, so the walk ends at the quay
+	# a squadron must dock at to carry the host home (wiki: military-armies
+	# § Movement and attacks; DR-20261122-09, DR-20261123-09).
+	var overseas: bool = false
+	if goal == MapModel.NO_ID:
+		if not ArmyMovement.seat_elsewhere(model, army):
+			return {}
+		goal = ArmyMovement.nearest_harbour(model, army)
+		if goal == MapModel.NO_ID:
+			return {}
+		overseas = true
+	var road: Dictionary = _distances(model, goal, army.owner, true)
 	var best: Dictionary = {}
 	var best_distance: int = UNREACHABLE
 	for province: int in ArmyMovement.destinations(model, army):
 		var holder: int = model.province_owner(province)
 		if holder != army.owner and holder != MapModel.NO_ID:
 			continue
-		# Own land is the seat's own distance — the road's end — so the step onto
-		# it always wins, however near a wilderness step reads. A wilderness step
-		# is only named while the road is still a walk (wiki: military-armies
-		# § Movement and attacks — "own land is the seat's own distance, so it
-		# always wins"; DR-20261121-15).
-		var distance: int = 0 if holder == army.owner \
-			else int(road.get(province, UNREACHABLE))
+		# On the seat's own chart own land is the road's end — the seat's own
+		# distance — so the step onto it always wins, however near a wilderness
+		# step reads. Overseas own ground ends nothing: only the quay carries a
+		# host home, so every step is its distance to that quay (wiki:
+		# military-armies § Movement and attacks — "own land is the seat's own
+		# distance, so it always wins"; DR-20261121-15, DR-20261123-09).
+		var distance: int = int(road.get(province, UNREACHABLE))
+		if not overseas and holder == army.owner:
+			distance = 0
 		if distance >= UNREACHABLE:
 			continue
 		# Nearest first, the lower id on a tie, so the same state always walks

@@ -7,7 +7,7 @@ extends Control
 ## selection and the pan; the panel owns the goal and the reading.
 ##
 ## Panning: the chart sits in a scroll view, and a drag on the open chart (a
-## thumb on a phone, a held button on a desktop) moves it, so a 113-node graph
+## thumb on a phone, a held button on a desktop) moves it, so a 115-node graph
 ## is reachable on both (REQ-P1-05, REQ-P1-07).
 
 signal node_pressed(tech_id: String)

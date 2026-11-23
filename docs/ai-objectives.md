@@ -10,12 +10,11 @@ stay in the wiki; this page is the shipped slice and its migration steps.
 | `AiObjective` | id, domain, utility 0–100, cost, claim, status, children, requires |
 | `AiUtility` | one currency: `scale`/`ratio`/`modified`, cost and shortfall text |
 | `AiObjectiveLedger` | rank pass + allocate pass over per-turn pools |
-| `AiObjectivesPlan` | pure emitter: readings in, objectives out |
+| `AiObjectivesPlan` | pure entry; `AiObjective*Plan` holds each family's aims |
 | `AiClaims` | reservation primitive: commodity claims against the stockpile |
 | `MapPlayObjectivesAi` | per-court adapter; stamps the ledger into the turn trace |
 
-Costs name six resources plus any commodity a reservation claims; named
-resources print first.
+Costs name resources plus any commodity a reservation claims.
 
 ## Turn
 

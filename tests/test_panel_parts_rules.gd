@@ -438,6 +438,25 @@ func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	assert_eq(grid.deeds.text, "%s 1 tile" % FactionCatalog.name_of(1))
 
 
+## The province sheet names the hosts that stand on its ground — the count a
+## crown may read of any court — and leaves the row out for ground nobody holds
+## (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-13).
+func test_the_province_sheet_names_the_hosts_that_stand_on_its_ground() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_false(grid.hosts.visible, "a sheet with no session invents no host")
+	assert_eq(_province_panel_panel.hosts_text(), "")
+	grid.set_hosts("England 3 regiments · Aztec 1 regiment")
+	assert_true(grid.hosts.visible, "the row arrives with the reading")
+	assert_eq(_province_panel_panel.hosts_text(), "England 3 regiments · Aztec 1 regiment")
+	grid.set_hosts("")
+	assert_false(grid.hosts.visible, "the row leaves with the host")
+
+
 ## The province sheet names what the wall soaks and what it spares the garrison
 ## — the fort table's own figures, so a plan is made against the wall a battle
 ## would fight — and leaves the row out on open ground (wiki: siege-mechanics

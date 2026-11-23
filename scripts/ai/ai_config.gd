@@ -11,14 +11,17 @@ var leader: String = ""
 var personality: Dictionary = {}
 var agenda: String = ""
 var agenda_traits: Dictionary = {}
-## The wall the court faces at war, read by the map layer (issue #1314): the
-## smallest host that would storm the thinnest wall it does not own, already
-## net of its guard target and its standing regiments
-## ([method AiStormGate.extra]). The config is the court's one shared instance
-## for the run (issue #1356), so the reading a live pass notes is what every
-## reader in the turn — the counsel, the ledger, the observer — sees. The
-## bench's frozen mainline builds its own configs and carries no reading, and
-## a court with none musters its published target.
+## The wall the court faces, read by the map layer (issue #1314): the storm
+## host the thinnest wall it does not own wants — `want` in regiments at its
+## strongest line, `extra` the part above its guard target at war. The config
+## is the court's one shared instance for the run (issue #1356), so the
+## reading a live pass notes is what every reader in the turn — the counsel,
+## the ledger, the observer — sees. At war the read raises the muster target
+## (`AiArmyReinforceHost.target`); at peace it prices only money — the conquest
+## bank sizes the storm chest from it, so the war the court plans is funded
+## for the host the wall wants before it declares (issue #1381). The bench's
+## frozen mainline builds its own configs and carries no reading, and a court
+## with none musters its published target and banks the published chest.
 var storm_read: Dictionary = {}
 
 

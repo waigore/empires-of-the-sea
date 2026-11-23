@@ -15,37 +15,31 @@ const Naval = preload("res://tests/naval_fixture.gd")
 const Civilians = preload("res://tests/civilian_fixture.gd")
 const Fixture = preload("res://tests/map_fixture.gd")
 
-## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s. Snapshot-only cases never call
-## `_attach()`, so they skip the re-seat; sheet/drive cases re-seat lazily
-## (`Fixture.suite_reset`) instead of remounting. The hospitals sheet rides this
-## same chart — a second mount used to cost another ~0.5 s under coverage.
-var screen: MapScreen = null
-var pristine: Dictionary = {}
+## Shared world snapshot; non-underscore so before_all copies it onto each case.
 var pristine_map: Array = []
-## The crown holding a seat on both charts, captured once: the three cycle cases
+## Chart mounts lazily: under coverage a mount costs ~0.5 s and a re-seat ~0.15 s.
+## ~189 projection cases never call `_attach()`, so they never pay a MapScreen
+## (same pattern as research / audio; docs/testing.md § Speed rules). Static
+## because gd-tools clones each case. The hospitals sheet rides this same chart.
+static var _host: Node = null
+static var screen: MapScreen = null
+static var pristine: Dictionary = {}
+## The crown holding a seat on both charts, captured on the first cycle case:
 ## re-seat from it instead of swapping both charts again (~2.5 s under coverage).
-var both_charts: Dictionary = {}
-var both_charts_map: Array = []
+static var both_charts: Dictionary = {}
+static var both_charts_map: Array = []
 ## The orders a hand-built batch walk filed, read by the raise-spine cases.
 var _filed: Array = []
 
 
 func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
-	screen = Fixture.attach_screen(self)
-	pristine = Fixture.suite_capture(screen)
-	_boot_both_charts()
-	both_charts = Fixture.suite_capture(screen)
-	both_charts_map = Fixture.snapshot(Fixture.world())
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(screen, pristine, Fixture.world())
-	Fixture.park_screen(screen)
+	_host = self
 
 
 func before_each() -> void:
-	# Snapshot-only cases never call `_attach()`; park so idle HUD/fog work
-	# does not run under every pure case (docs/testing.md § Speed rules).
+	# Projection cases never mount; after the chart exists, park so idle HUD/fog
+	# work does not run under coverage between sheet cases.
 	Fixture.park_screen(screen)
 
 
@@ -58,17 +52,20 @@ func after_all() -> void:
 		screen.free()
 	screen = null
 	pristine = {}
+	both_charts = {}
+	both_charts_map = []
+	_host = null
 
 
-## A sheet/drive case starts on a pristine chart. Projection cases that never
-## read the chart never pay the re-seat (docs/testing.md § Speed rules).
+## A sheet/drive case starts on a pristine chart. First call mounts once; later
+## calls re-seat. Projection cases that never ask never pay the mount.
 func _attach() -> MapScreen:
-	if screen == null or not is_instance_valid(screen):
-		screen = Fixture.attach_screen(self)
-		pristine = Fixture.suite_capture(screen)
-		return screen
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(screen, pristine, Fixture.world())
+	if not is_instance_valid(screen):
+		screen = Fixture.attach_screen(_host)
+		pristine = Fixture.suite_capture(screen)
+	else:
+		Fixture.suite_reset(screen, pristine, Fixture.world())
 	# Realm sheets are not dock panels: a case that leaves one open would answer
 	# the next case's back press.
 	screen.hud.command_ledger.close()
@@ -79,6 +76,17 @@ func _attach() -> MapScreen:
 	# back cases in this boot must not swallow each other's press.
 	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
 	return screen
+
+
+## Builds the both-charts capture once: far-chart seat + load_region round trip.
+## Cycle cases ask; every other case skips the ~2.5 s boot under coverage.
+func _ensure_both_charts() -> void:
+	if not both_charts.is_empty() and is_instance_valid(screen):
+		return
+	_attach()
+	_boot_both_charts()
+	both_charts = Fixture.suite_capture(screen)
+	both_charts_map = Fixture.snapshot(Fixture.world())
 
 
 ## --- the province ledger -----------------------------------------------------
@@ -2229,6 +2237,56 @@ func test_the_province_dossier_names_the_orders_the_crowns_pass_would_give() -> 
 	assert_eq(MapPlayProvinceCounsel.line(play, null, province_id), "")
 
 
+## The seat's province sheet names the host that stands on its ground — the
+## count the rules publish for a reading crown — bound by the boot, not by the
+## sheet (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-13).
+func test_the_province_sheet_reads_the_host_standing_on_the_seat() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	assert_true(panel.play != null, "the boot seats the host reading")
+	var home: ArmyState = null
+	for raw: Variant in play.army_layer.regions.value(play.model.region_id, []):
+		var army: ArmyState = raw
+		if army == null or army.owner != play.player_faction or not army.home:
+			continue
+		home = army
+	assert_true(home != null, "the crown keeps a Home Army")
+	var seat: int = play.capital_province
+	assert_eq(home.province, seat, "the Home Army stands on the seat")
+	panel.refresh(screen.model, seat)
+	var crown: String = FactionCatalog.name_of(play.player_faction)
+	assert_eq(
+		panel.hosts_text(),
+		MapPlayProvinceHosts.line(play, screen.model, seat),
+		"the sheet prints the boot's own reading",
+	)
+	assert_true(
+		panel.hosts_text().begins_with("%s " % crown),
+		"the seat's row names the crown's own host first: %s" % panel.hosts_text(),
+	)
+	assert_true(
+		panel.hosts_text().contains("regiment"),
+		"the row counts regiments: %s" % panel.hosts_text(),
+	)
+	# A province off the chart, a chart the sheet does not show, a session with
+	# no army layer and a session that runs no fog each name what they can.
+	assert_eq(MapPlayProvinceHosts.line(play, screen.model, -1), "")
+	assert_eq(MapPlayProvinceHosts.line(null, screen.model, seat), "")
+	assert_eq(MapPlayProvinceHosts.line(play, null, seat), "")
+	var fogless: VisibilityModel = play.visibility
+	play.visibility = null
+	assert_eq(
+		MapPlayProvinceHosts.line(play, screen.model, seat),
+		ProvinceHosts.line(
+			play.army_layer.regions.value(play.model.region_id, []),
+			seat, play.model.province_data(seat).owner, play.player_faction, true,
+		),
+		"no fog reads every host, as the session with no fog model does",
+	)
+	play.visibility = fogless
+
+
 ## The realm's own reading: the crown's provinces the civilian and land passes
 ## would act in this turn, worded off data alone — one line that names the count
 ## against the realm it holds, then the first places (wiki: world-model § The
@@ -2823,10 +2881,11 @@ func _boot_both_charts() -> void:
 	play.army_layer.deselect()
 
 
-## Re-seats the crown on the both-charts capture `before_all` took: the far
-## chart's seat and its squadrons come back with the save, so the case does not
-## swap both charts again to rebuild them.
+## Re-seats the crown on the both-charts capture (built once on first ask): the
+## far chart's seat and its squadrons come back with the save, so the case does
+## not swap both charts again to rebuild them.
 func _seat_both_charts() -> void:
+	_ensure_both_charts()
 	Fixture.restore(Fixture.world(), both_charts_map)
 	Fixture.suite_reset(screen, both_charts, Fixture.world())
 	screen.play.ship_layer.deselect()
@@ -5883,16 +5942,22 @@ func test_the_summary_names_where_nothing_stands() -> void:
 
 ## The note quotes the fort table itself (issue #1314's ladder: 40 × level wall
 ## HP, one gun a level), so a crown never reads a ladder the combat would not
-## fight (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery).
+## fight (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery). The
+## note prints one figure per rung the table holds: a three-value note beside a
+## five-level ladder told a crown the line topped out at Modern.
 func test_the_rule_note_states_what_a_wall_buys() -> void:
 	var note: String = WallLedger.rule_note()
+	var rungs: PackedStringArray = PackedStringArray()
+	for level in range(1, FortRules.MAX_LEVEL + 1):
+		rungs.append(str(roundi(FortRules.wall_hp(level))))
 	assert_true(
-		note.contains("%d / %d / %d wall hp" % [
-			roundi(FortRules.wall_hp(1)),
-			roundi(FortRules.wall_hp(2)),
-			roundi(FortRules.wall_hp(3)),
-		]),
-		"the wall's soak is the fort table's own: " + note
+		note.contains("%s wall hp" % " / ".join(rungs)),
+		"every rung of the wall's soak is printed, top of the ladder included: " + note
+	)
+	assert_eq(FortRules.MAX_LEVEL, 5, "the ladder the note is held to")
+	assert_true(
+		note.contains(str(roundi(FortRules.wall_hp(FortRules.MAX_LEVEL)))),
+		"the Star wall's 200 hp is among the figures: " + note
 	)
 	assert_true(
 		note.contains("1–%d emplaced guns" % FortRules.guns(FortRules.MAX_LEVEL)),

@@ -670,7 +670,7 @@ func _field_army() -> ArmyState:
 			var ids: Array[String] = []
 			for regiment: String in army.regiments:
 				ids.append(regiment)
-			_screen.play.army_layer.split(army, ids.slice(0, 1))
+			ArmyMusterOps.split(_screen.play.army_layer, army, ids.slice(0, 1))
 	for army: ArmyState in _screen.play.army_layer.armies:
 		if army.owner == 0 and not army.home:
 			return army

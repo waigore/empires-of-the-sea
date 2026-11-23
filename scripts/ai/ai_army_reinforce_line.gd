@@ -6,8 +6,10 @@ extends RefCounted
 ## Owns the infantry catalog reading: which categories field a line, which
 ## patterns the court's techs and fields open, which one it is saving for, and
 ## the cheapest price it must bank. `AiArmyReinforce` owns the turn plan and the
-## food/purse gates; this owner answers every line question, so the muster and
-## the war chest never drift from one catalog (REQ-P2-03, REQ-P3-01, REQ-P3-03).
+## food gates; host size and the war chest live on [AiArmyReinforceHost] and
+## [AiArmyReinforceChest]. This owner answers every line question, so the muster
+## and the war chest never drift from one catalog (REQ-P2-03, REQ-P3-01,
+## REQ-P3-03).
 
 ## Categories that field a line: a mustered regiment is infantry, never the
 ## army's whole battery or horse (the opening roster keeps its own mix).
@@ -17,19 +19,45 @@ const LINE_CATEGORIES: Array[int] = [
 	RegimentCatalog.Category.HEAVY_INFANTRY,
 ]
 
+## The hands one build-input recipe run spends (every row is labour 2): the pair
+## the workshop needs before the levy may draft the fields bare (issue #1375).
+const RECIPE_HANDS: int = 2
 
-## True while the pool holds the `army.min_peasants` free hands the levy draws
-## from: the floor names the hands the levy may draw, the fields keep the rest
+
+## True while the pool holds the hands the levy and the workshop both need:
+## the `army.min_peasants` floor the levy draws from, the fields keep the rest
 ## (wiki: ai-architecture § Land reinforcement; the parameter's own meaning in
 ## `ai_parameter_army.gd`; issue #1355). The pool already nets the hands a build
 ## reserved, so the levy's own hand is never subtracted again here — that read
 ## the real floor as `min_peasants + 1` and held the muster all campaign.
 ## The muster, the pattern it saves for and the war chest it holds all gate on
 ## one labour reading.
+##
+## While the court is still under its worker target and its stores carry the
+## raw a build-input recipe spends, the floor holds the pair of hands one
+## labour-2 run spends above the levy's own: a pool the muster drafts to zero
+## can run no recipe, so the court it starves can neither weave the cloth the
+## muster and the yard both wait for nor hire the hands back — every build
+## input in the world is a labour-2 run (issue #1375). A court at its worker
+## target, or holding no recipe's raw, drafts as published.
 static func labour_floor_ok(config: AiConfig, economy: PlayerEconomy) -> bool:
 	if config == null or economy == null:
 		return false
-	return economy.available_peasants() >= int(config.parameter("army.min_peasants"))
+	return economy.available_peasants() >= _labour_floor(config, economy)
+
+
+## The free hands the muster leaves: the levy's own floor, plus the recipe pair
+## while the pool still has room to grow and the workshop has raw to work
+## (issue #1375).
+static func _labour_floor(config: AiConfig, economy: PlayerEconomy) -> int:
+	var levy: int = maxi(int(config.parameter("army.min_peasants")), 0)
+	if economy.workers.total() >= maxi(
+		int(config.parameter("economy.worker_target")), levy
+	):
+		return levy
+	if economy.quantity("wool") < 2 and economy.quantity("timber") < 2:
+		return levy
+	return levy + RECIPE_HANDS
 
 
 ## The line regiment this court would raise if its stores could pay for it:

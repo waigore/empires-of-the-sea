@@ -800,7 +800,7 @@ func test_a_reformed_garrison_gets_a_standard_the_court_can_tap() -> void:
 		"the rules minted it; no standard exists until the layer reconciles"
 	)
 
-	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+	ArmyTurnPass.resolve_battles(_screen.army_layer, _screen.world, {"quick_battle": false})
 
 	var marker: ArmyMarker = _screen.army_layer.marker_for(reformed)
 	assert_not_null(marker, "the combat pass draws the reformed garrison's standard")
@@ -818,7 +818,7 @@ func test_the_id_cursors_clear_every_live_instance() -> void:
 	ArmyGarrison.recover(armies, capital, MapScreen.PLAYER_FACTION, 5, {})
 	var reformed: ArmyState = armies[armies.size() - 1]
 
-	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+	ArmyTurnPass.resolve_battles(_screen.army_layer, _screen.world, {"quick_battle": false})
 
 	assert_true(
 		_screen.army_layer.next_army > reformed.id,
@@ -839,7 +839,7 @@ func test_a_standard_leaves_with_the_army_it_belongs_to() -> void:
 	assert_not_null(marker)
 
 	_screen.army_layer.armies.erase(home)
-	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+	ArmyTurnPass.resolve_battles(_screen.army_layer, _screen.world, {"quick_battle": false})
 
 	assert_null(_screen.army_layer.marker_for(home), "the fallen army's standard is retired")
 
@@ -1616,7 +1616,7 @@ func test_a_detach_reaches_the_roster_the_save_copies() -> void:
 	filed.assign(layer.armies)
 	layer.regions.set_region(region, filed)
 	var home: ArmyState = _player_home()
-	var split: Dictionary = layer.split(home, [home.regiments[0]])
+	var split: Dictionary = ArmyMusterOps.split(layer, home, [home.regiments[0]])
 	assert_true(bool(split.get("ok", false)), String(split.get("reason", "")))
 	var created: ArmyState = split["army"] as ArmyState
 	var stored: Array[ArmyState] = []
@@ -1641,8 +1641,8 @@ func test_a_retired_field_army_leaves_the_roster_the_save_copies() -> void:
 	layer.regions.set_region(region, filed)
 	var field: ArmyState = _detach_one()
 	assert_not_null(field)
-	var result: Dictionary = layer.dismiss(
-		field, field.regiments.duplicate(), _screen.play.economy.economy
+	var result: Dictionary = ArmyMusterOps.dismiss(
+		layer, field, field.regiments.duplicate(), _screen.play.economy.economy
 	)
 	assert_true(bool(result.get("retired", false)), "an emptied field army retires")
 	var stored: Array[ArmyState] = []
@@ -2499,3 +2499,73 @@ func test_the_muster_words_name_a_line_or_say_nothing() -> void:
 		MapPlayMusterPickWords.stores_line("peasant_levies", {"fabric": 2}),
 		"the court is saving for Peasant Levies — it lacks 2 Fabric"
 	)
+
+
+## A march needs a destination the crown has glimpsed at least once (wiki:
+## fog-and-exploration § Order Visibility Requirements). A host on the beach may
+## not step into a province no tile of which its chart holds — and the offer the
+## map draws is the same list, so nothing invites the march either.
+func test_a_march_into_uncharted_land_is_refused() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards"], false)
+	var chart := VisibilityModel.new()
+	chart.setup(model, FactionCatalog.PLAYER_FACTION)
+	_set_province_chart(model, chart, 1, VisibilityModel.Level.FOGGED)
+	_set_province_chart(model, chart, 6, VisibilityModel.Level.FOGGED)
+	_set_province_chart(model, chart, 3, VisibilityModel.Level.UNKNOWN)
+
+	assert_false(chart.is_province_known(3), "the neutral province starts uncharted")
+	assert_false(
+		ArmyMovement.destinations(model, army, chart).has(3),
+		"the rules offer no march onto ground the chart has never reached"
+	)
+	assert_false(
+		ArmyMovement.can_move(model, army, 3, true, chart).get("ok", false),
+		"the order is refused"
+	)
+	assert_eq(
+		String(ArmyMovement.can_move(model, army, 3, true, chart).get("reason", "")),
+		"That province has never been charted.",
+		"the words are the crew's own, one sentence for one rule"
+	)
+	var moved: Dictionary = ArmyMovement.apply_move(model, army, 3, true, chart)
+	assert_false(bool(moved.get("ok", false)), "the host does not march")
+	assert_eq(army.province, 1, "and it stands where it stood")
+
+
+## The gate is a glimpse, not a survey: a province the crown has charted at
+## `fogged` is a legal march, and a caller that keeps no chart reads every road
+## as before (wiki: fog-and-exploration § Order Visibility Requirements).
+func test_a_fogged_province_is_a_legal_march() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(4, 0, 1, ["guards"], false)
+	var chart := VisibilityModel.new()
+	chart.setup(model, FactionCatalog.PLAYER_FACTION)
+	_set_province_chart(model, chart, 1, VisibilityModel.Level.FOGGED)
+	_set_province_chart(model, chart, 3, VisibilityModel.Level.FOGGED)
+
+	assert_eq(
+		chart.province_visibility(3), VisibilityModel.Level.FOGGED,
+		"one tile at fogged is the whole gate"
+	)
+	assert_true(ArmyMovement.destinations(model, army, chart).has(3), "the march is offered")
+	assert_true(
+		bool(ArmyMovement.can_move(model, army, 3, true, chart).get("ok", false)),
+		"and the order is kept"
+	)
+	assert_true(
+		bool(ArmyMovement.can_move(model, army, 3, true).get("ok", false)),
+		"a chartless caller reads the full road, as every rules fixture does"
+	)
+
+
+## Sets one province's every tile to `level` on the test's own chart.
+func _set_province_chart(
+	model: MapModel, chart: VisibilityModel, province_id: int, level: int
+) -> void:
+	for tile: Vector2i in model.province_tiles(province_id):
+		var index: int = model.index_of(tile.x, tile.y)
+		if level > chart.level_at_index(index):
+			chart.raise_to(index, level)
+		else:
+			chart.lower_to(index, level)
