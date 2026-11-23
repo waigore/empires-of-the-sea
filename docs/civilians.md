@@ -38,12 +38,14 @@ Units: explore, improve, colonize, spy.
   an idle crew's dossier names its pick, priced by its ledger.
 - **Towns:** Builders raise them to 4; port towns cap extraction;
   levels 2, 4 manufacture ([economy.md](economy.md)).
-- **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port
+- **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
+  per hull, no troops); lands on a coastal tile beside its zone
   ([DR-20261119-03](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-03));
-  lands on a coastal tile; Explorers/Merchants any coast, others crown land.
-  **A rival reads the ground:** its colonist takes the charted coast its
-  workshop can turn, plus mineral-bearing terrain by `economy.riches_route_weight`
-  ([DR-20261123-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261123-09)).
+  Explorers/Merchants any coast, others crown land. **A rival reads the
+  ground:** its colonist takes the charted coast its workshop can turn, and —
+  once its chart crosses the Passage — mineral-bearing terrain by
+  `economy.riches_route_weight`, never above a raw it is short of
+  ([DR-20261123-19](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261123-21)).
   **The crown reads her own step:** the passenger block names the voyage and
   marks its press (DR-20261121-08/22-21).
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,

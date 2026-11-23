@@ -11715,14 +11715,25 @@ func test_the_landing_pass_reads_the_treasury_beside_the_workshop() -> void:
 		).get("tile", Vector2i(-1, -1))), Vector2i(3, 1),
 		"the workshop's own appetite is unchanged"
 	)
-	# Beside it the riches key: the peak now outranks the plain.
+	# Beside it the riches key: a raw the workshop is short of still leads, so
+	# the sugar plain keeps the landing and the peak waits.
 	var with_riches: Dictionary = {"sugarCane": 4, "riches": 100}
 	assert_eq(
 		Vector2i(AiColonisationPlanner.plan(
 			_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
 			null, AiPhasePlanner.PHASE_PEACE, false, with_riches
+		).get("tile", Vector2i(-1, -1))), Vector2i(3, 1),
+		"a raw the workshop wants still leads the riches read"
+	)
+	# A crop nobody is short of does not: with the sugar row gone the peak is
+	# the ground worth the voyage.
+	var riches_only: Dictionary = {"riches": 100}
+	assert_eq(
+		Vector2i(AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+			null, AiPhasePlanner.PHASE_PEACE, false, riches_only
 		).get("tile", Vector2i(-1, -1))), Vector2i(1, 1),
-		"the mineral-bearing ground is worth the landing"
+		"ground worth surveying outranks a crop nobody wants"
 	)
 	# The appetite's own read: the riches key rides only on a charted New
 	# World, and it never names a mineral.
