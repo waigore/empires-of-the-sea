@@ -42,6 +42,7 @@ blocks victory or confuses the player.
 | Free-playtest [`wiki-diary.md`](../free-playtest-agent/references/wiki-diary.md) | Diary + learnings format |
 | File-issue [`bug-template.md`](../file-github-issue/references/bug-template.md) / [`feature-template.md`](../file-github-issue/references/feature-template.md) | Issue bodies |
 | [`agent-debug-bridge`](../agent-debug-bridge/SKILL.md) | Optional live state dumps |
+| [`playtest-capture`](../playtest-capture/SKILL.md) | Desktop screenshots/video with comments; report for issue filing |
 
 **Not this agent:** area free-play + fixes → [`free-playtest-agent`](../free-playtest-agent/SKILL.md). Rules hunt + fix PR → [`hunt-defects-agent`](../hunt-defects-agent/SKILL.md). AI bench climb → [`optimize-ai-agent`](../optimize-ai-agent/SKILL.md). Missing features → implement-feature. Wiki ambiguity → elucidate-design. Interactive single-report filing → [`file-github-issue`](../file-github-issue/SKILL.md).
 
@@ -71,6 +72,11 @@ Sync to current `main`. Read Playtest Learnings; skim recent diary. Fetch victor
 Keep a running **session issue log** (playbook format). For each finding: lens → expected (wiki/`RUB-*` cite) → observed → severity → repro notes. Do not invent house rules. Do not treat “unimplemented deferred feature” as a rules bug — file as `enhancement` only when it blocks or hollows the victory path.
 
 Lenses: UX/rubric · wiki mechanics · rival AI competitiveness · balance/pacing · crashes/soft-locks/save-load · novelty when it blocks or confuses.
+
+On desktop live play, turn on [`playtest-capture`](../playtest-capture/SKILL.md)
+(**F9**) and save each finding's frame with a typed comment. At the end, file
+from its report so each issue carries the seed, turn, crown and build; the
+[agent debug bridge](../agent-debug-bridge/SKILL.md) still supplies live dumps.
 
 ### 4. End condition
 
