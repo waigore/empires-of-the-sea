@@ -3274,6 +3274,71 @@ func test_only_the_marches_that_fight_spend_a_commander() -> void:
 	)
 
 
+## The fights the command line names are printed on THE CROWN'S ARMY, where the
+## standards they lead wear the counsel's mark, so the sheet carries the door
+## that opens it — standing only while the reading names a fight
+## (wiki: military-generals § The hosts the court would lead; DR-20261123-06;
+## REQ-P5-01, REQ-P5-03, REQ-P5-06).
+func test_the_command_line_carries_the_door_to_the_fights_it_names() -> void:
+	# Pure: a reading that names a host leads, an empty read and the gate do not.
+	assert_false(MapPlayCommandPick.leads({}), "no reading, no door")
+	assert_false(
+		MapPlayCommandPick.leads(MapPlayCommandPick.of(0, 2, 2)),
+		"a gate names no fight"
+	)
+	assert_true(MapPlayCommandPick.leads(MapPlayCommandPick.of(2, 1, 2)))
+	assert_true(
+		MapPlayCommandPick.leads(MapPlayCommandPick.of(1, 0, 0)),
+		"a host with no commander is still a fight"
+	)
+
+	_attach()
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	assert_true(panel.is_open())
+	assert_not_null(panel.army_press(), "the sheet carries the door")
+	assert_eq(panel.army_press().text, CommandLedgerPanel.ARMY_DOOR)
+	assert_true(
+		panel.army_press().tooltip_text.contains("THE CROWN'S ARMY"),
+		"the door names the sheet it opens"
+	)
+	# A reading of no fight stands the press down with its line.
+	panel._counsel.show_value(MapPlayCommandPick.of(0, 1, 2))
+	panel._sync_army_door()
+	assert_false(panel.army_press_shown(), "no fight, no door")
+	# A reading that names fights stands it under the line.
+	panel._counsel.show_value(MapPlayCommandPick.of(2, 1, 2))
+	panel._sync_army_door()
+	assert_true(panel.army_press_shown(), "a named fight carries the door")
+
+
+## The door opens THE CROWN'S ARMY and this sheet steps aside, so the crown reads
+## the page the fights are marked on rather than two sheets at once — and an army
+## sheet already standing is left standing (DR-20261123-06; REQ-P5-01, REQ-P5-07).
+func test_the_command_door_opens_the_army_and_steps_aside() -> void:
+	_attach()
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	var keys: Array[String] = []
+	panel.door_pressed.connect(func(key: String) -> void: keys.append(key))
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	panel._counsel.show_value(MapPlayCommandPick.of(2, 1, 2))
+	panel._sync_army_door()
+	panel.army_press().pressed.emit()
+	assert_eq(keys.size(), 1, "one door press")
+	assert_eq(keys[0], HudLedgerDoors.ARMY, "the door names the army sheet")
+	assert_true(screen.hud.army_ledger.is_open(), "the door opens THE CROWN'S ARMY")
+	assert_false(panel.is_open(), "the command sheet steps aside for it")
+	# An army sheet already up stays up: the press does not toggle it shut.
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	assert_true(panel.is_open())
+	panel._counsel.show_value(MapPlayCommandPick.of(2, 1, 2))
+	panel._sync_army_door()
+	panel.army_press().pressed.emit()
+	assert_true(screen.hud.army_ledger.is_open(), "a sheet already up stays up")
+	assert_false(panel.is_open())
+	screen.hud.army_ledger.close()
+
+
 ## The line names the fights, not only their number: the standard the army sheet
 ## prints and the ground its order storms or relieves, three named and the rest
 ## counted, with the pool's answer after them (wiki: military-generals § The hosts
