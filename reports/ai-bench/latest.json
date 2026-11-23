@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:d7075a73fdc8b60f13d806adcda654328893a5c76d9ed583296a2382ec7298cb",
-  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261123T040110601023Z@9b18538d",
+  "submission_hash": "sha256:0577125c7792f21c027fa4883f035062a2c5af2cf55e3f618e0d9272112b4ead",
+  "submission_git": "feat/rival-deed-survey@e393e1ea",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:f885b90dfd495cc1cc8e4e82a1d1afb872c5a0528898356249a0c26319749548",
+    "ai_surface_hash": "sha256:0f4653803cd8286f5249fcc82fc064857e9bbddb15154dc6a9cd532f08e25cdd",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-23T04:39:23Z",
+  "timestamp": "2026-11-23T06:21:09Z",
   "report_version": 1,
-  "signature": "hmac-sha256:b7eaf7710e4ff1e047586d1c325dd6c58eabc28c8d75c51a17c879d5d9ee3a57"
+  "signature": "hmac-sha256:1cf2ca32be7f61433bb3cf331d866aa572da7c26bd5f06dabba0fdbc3a91598f"
 }
