@@ -15,37 +15,31 @@ const Naval = preload("res://tests/naval_fixture.gd")
 const Civilians = preload("res://tests/civilian_fixture.gd")
 const Fixture = preload("res://tests/map_fixture.gd")
 
-## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s. Snapshot-only cases never call
-## `_attach()`, so they skip the re-seat; sheet/drive cases re-seat lazily
-## (`Fixture.suite_reset`) instead of remounting. The hospitals sheet rides this
-## same chart — a second mount used to cost another ~0.5 s under coverage.
-var screen: MapScreen = null
-var pristine: Dictionary = {}
+## Shared world snapshot; non-underscore so before_all copies it onto each case.
 var pristine_map: Array = []
-## The crown holding a seat on both charts, captured once: the three cycle cases
+## Chart mounts lazily: under coverage a mount costs ~0.5 s and a re-seat ~0.15 s.
+## ~189 projection cases never call `_attach()`, so they never pay a MapScreen
+## (same pattern as research / audio; docs/testing.md § Speed rules). Static
+## because gd-tools clones each case. The hospitals sheet rides this same chart.
+static var _host: Node = null
+static var screen: MapScreen = null
+static var pristine: Dictionary = {}
+## The crown holding a seat on both charts, captured on the first cycle case:
 ## re-seat from it instead of swapping both charts again (~2.5 s under coverage).
-var both_charts: Dictionary = {}
-var both_charts_map: Array = []
+static var both_charts: Dictionary = {}
+static var both_charts_map: Array = []
 ## The orders a hand-built batch walk filed, read by the raise-spine cases.
 var _filed: Array = []
 
 
 func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
-	screen = Fixture.attach_screen(self)
-	pristine = Fixture.suite_capture(screen)
-	_boot_both_charts()
-	both_charts = Fixture.suite_capture(screen)
-	both_charts_map = Fixture.snapshot(Fixture.world())
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(screen, pristine, Fixture.world())
-	Fixture.park_screen(screen)
+	_host = self
 
 
 func before_each() -> void:
-	# Snapshot-only cases never call `_attach()`; park so idle HUD/fog work
-	# does not run under every pure case (docs/testing.md § Speed rules).
+	# Projection cases never mount; after the chart exists, park so idle HUD/fog
+	# work does not run under coverage between sheet cases.
 	Fixture.park_screen(screen)
 
 
@@ -58,17 +52,20 @@ func after_all() -> void:
 		screen.free()
 	screen = null
 	pristine = {}
+	both_charts = {}
+	both_charts_map = []
+	_host = null
 
 
-## A sheet/drive case starts on a pristine chart. Projection cases that never
-## read the chart never pay the re-seat (docs/testing.md § Speed rules).
+## A sheet/drive case starts on a pristine chart. First call mounts once; later
+## calls re-seat. Projection cases that never ask never pay the mount.
 func _attach() -> MapScreen:
-	if screen == null or not is_instance_valid(screen):
-		screen = Fixture.attach_screen(self)
-		pristine = Fixture.suite_capture(screen)
-		return screen
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(screen, pristine, Fixture.world())
+	if not is_instance_valid(screen):
+		screen = Fixture.attach_screen(_host)
+		pristine = Fixture.suite_capture(screen)
+	else:
+		Fixture.suite_reset(screen, pristine, Fixture.world())
 	# Realm sheets are not dock panels: a case that leaves one open would answer
 	# the next case's back press.
 	screen.hud.command_ledger.close()
@@ -79,6 +76,17 @@ func _attach() -> MapScreen:
 	# back cases in this boot must not swallow each other's press.
 	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
 	return screen
+
+
+## Builds the both-charts capture once: far-chart seat + load_region round trip.
+## Cycle cases ask; every other case skips the ~2.5 s boot under coverage.
+func _ensure_both_charts() -> void:
+	if not both_charts.is_empty() and is_instance_valid(screen):
+		return
+	_attach()
+	_boot_both_charts()
+	both_charts = Fixture.suite_capture(screen)
+	both_charts_map = Fixture.snapshot(Fixture.world())
 
 
 ## --- the province ledger -----------------------------------------------------
@@ -2823,10 +2831,11 @@ func _boot_both_charts() -> void:
 	play.army_layer.deselect()
 
 
-## Re-seats the crown on the both-charts capture `before_all` took: the far
-## chart's seat and its squadrons come back with the save, so the case does not
-## swap both charts again to rebuild them.
+## Re-seats the crown on the both-charts capture (built once on first ask): the
+## far chart's seat and its squadrons come back with the save, so the case does
+## not swap both charts again to rebuild them.
 func _seat_both_charts() -> void:
+	_ensure_both_charts()
 	Fixture.restore(Fixture.world(), both_charts_map)
 	Fixture.suite_reset(screen, both_charts, Fixture.world())
 	screen.play.ship_layer.deselect()
