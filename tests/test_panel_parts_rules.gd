@@ -457,6 +457,26 @@ func test_the_province_sheet_names_the_hosts_that_stand_on_its_ground() -> void:
 	assert_false(grid.hosts.visible, "the row leaves with the host")
 
 
+## The province sheet names the squadrons riding its harbour — the hull count a
+## crown may read of any court in a charted port — and leaves the row out for a
+## harbour no squadron rides (wiki: fog-and-exploration § Order-of-battle
+## readings; DR-20261123-14).
+func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_false(grid.harbour.visible, "a sheet with no session invents no squadron")
+	assert_eq(_province_panel_panel.harbour_text(), "")
+	grid.set_harbour("England 3 hulls · Spain 1 hull")
+	assert_true(grid.harbour.visible, "the row arrives with the reading")
+	assert_eq(_province_panel_panel.harbour_text(), "England 3 hulls · Spain 1 hull")
+	grid.set_harbour("")
+	assert_false(grid.harbour.visible, "the row leaves with the squadron")
+
+
 ## The province sheet names what the wall soaks and what it spares the garrison
 ## — the fort table's own figures, so a plan is made against the wall a battle
 ## would fight — and leaves the row out on open ground (wiki: siege-mechanics

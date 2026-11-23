@@ -239,6 +239,7 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	_head.show_province(data)
 	_grid.show_province(model, province_id, data)
 	_grid.set_hosts(_hosts_line(model, province_id))
+	_grid.set_harbour(_harbour_line(model, province_id))
 	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
 		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
 		_tech_caps, _blockade
@@ -295,6 +296,21 @@ func _hosts_line(model: MapModel, province_id: int) -> String:
 	if play == null or not is_instance_valid(play):
 		return ""
 	return MapPlayProvinceHosts.line(play, model, province_id)
+
+
+## The Squadrons row's text for the province on show, for tests and tooling
+## (REQ-P3-02). Empty when no squadron rides its harbour or the boot bound no
+## reading.
+func harbour_text() -> String:
+	return "" if _grid == null or not _grid.harbour.visible else _grid.harbour.text
+
+
+## The Squadrons row's one reading, off the same seated session the hosts row
+## reads, so the two rows can never name two different charts.
+func _harbour_line(model: MapModel, province_id: int) -> String:
+	if play == null or not is_instance_valid(play):
+		return ""
+	return MapPlayProvinceHarbour.line(play, model, province_id)
 
 
 ## The rail's marks: the presses the court's own crew pass would file on this
