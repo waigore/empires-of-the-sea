@@ -10,6 +10,9 @@ extends RefCounted
 ## player can press.
 
 const MAX_TURN_ATTEMPTS: int = 6
+## A driver's plate release loop: bounded so a plate that refuses to close can
+## never spin the run.
+const MAX_PLATE_RELEASES: int = 12
 
 
 ## Writes `slot` from the pause menu, confirming the overwrite guard when the
@@ -63,10 +66,24 @@ static func row(screen: MapScreen, slot: int) -> Button:
 
 ## Closes one turn, answering whatever consent decision a rival court raised
 ## (the player would answer the court plate). False when the turn stays shut.
-static func advance(play: PlaySession) -> bool:
+##
+## **One turn, never two.** Answering a court raises the suspended turn again —
+## `MapPlayTurn.answer_*` runs it to its end — so the check is made twice: once
+## after the press and once after the answer. A caller that only re-read the
+## calendar after the press would press End Turn on the turn the answer already
+## closed, and report two turns' recovery as one (combat § Regiment condition:
+## a field's quarter, a hospital's 40%, is a **turn's** share).
+##
+## `release` runs after every press, so a driver whose close raised a battle
+## plate can dismiss it before the next press reads the plate's input lock.
+static func advance(play: PlaySession, release: Callable = Callable()) -> bool:
+	if play == null:
+		return false
 	for _attempt in MAX_TURN_ATTEMPTS:
 		var before: int = play.turn
 		MapPlayTurn.end_turn(play)
+		if release.is_valid():
+			release.call()
 		if play.turn > before:
 			return true
 		if not answer_pending(play):
@@ -74,6 +91,20 @@ static func advance(play: PlaySession) -> bool:
 		if play.turn > before:
 			return true
 	return false
+
+
+## Dismisses a battle plate a close raised, so the next press is not refused by
+## the plate's own input lock (REQ-P5-06). Bounded, so a plate that refuses to
+## close can never spin a driver.
+static func release_plate(play: PlaySession) -> void:
+	if play == null or play.hud == null:
+		return
+	var overlay: QuickBattleOverlay = play.hud.quick_battle_overlay
+	var guard: int = 0
+	while overlay != null and overlay.is_shown() and guard < MAX_PLATE_RELEASES:
+		overlay.skip()
+		overlay._on_continue()
+		guard += 1
 
 
 static func answer_pending(play: PlaySession) -> bool:
