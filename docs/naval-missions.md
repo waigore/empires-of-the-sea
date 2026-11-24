@@ -3,11 +3,10 @@
 Stations, interception, retreat, raids; movement and the yard:
 [fleets.md](fleets.md).
 
-**Pillars:** P2, P3, P4 (turn-end), P5 (dossier stations and raids).
-**Wiki:** [ships-and-naval](https://github.com/waigore/empires-of-the-sea/wiki/ships-and-naval)
+**Pillars:** P2–P5. **Wiki:** [ships-and-naval](https://github.com/waigore/empires-of-the-sea/wiki/ships-and-naval)
 § Missions and Movement, § Naval Interception Probability, § Trade and Transport
 Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02,
-DR-20261124-06.
+DR-20261124-04, DR-20261124-06.
 
 ## Stations
 
@@ -80,10 +79,12 @@ merchant hulls.
 **A raid sinks a merchant hull** (DR-20261111-17): a second roll sends one
 **civilian hull** down (richest hold first). Warships are never prizes.
 
+**The market sheet names the cover (DR-20261124-04):** `CONVOY  1 warship cuts a
+raid by 20%.`
+
 **Raids cut both ways.** Any crown's station off a hostile coast raids a
-declared enemy by the same formulas: **prize cargo** leaves the victim's
-stockpile for the raider's, never an import, priced on the dossier over its
-at-war coasts with the hull a hit sinks (DR-20261111-20, DR-20261120-01).
+declared enemy: **prize cargo** leaves the victim's stockpile for the raider's,
+never an import, priced on the dossier (DR-20261111-20, DR-20261120-01).
 
 ## Deferred (REQ-P2-02)
 
@@ -94,18 +95,18 @@ Gaps: [`deferred.md`](deferred.md).
 | File | Role |
 |------|------|
 | `scripts/rules/{fleet_state,fleet_missions}.gd` | mission, blockade target, station gates |
-| `scripts/rules/blockades.gd` | sealed coasts, the paths they cut |
-| `scripts/rules/{naval_station,naval_interception,naval_retreat,naval_raid,naval_hull_loss}.gd` | station read, chance, roll, retreat, raids, hulls |
+| `scripts/rules/blockades.gd` | sealed coasts, paths cut |
+| `scripts/rules/{naval_station,naval_interception,naval_retreat,naval_raid,naval_hull_loss,convoy_read}.gd` | station, chance, retreat, raids, hulls, convoy |
 | `scripts/rules/world_market.gd` | crown cargo books |
 | `scripts/map/{map_play_raids,map_play_fleet_missions,map_play_station_notes}.gd` | ledger, dossier, prices, reports |
 
 Rules are node-free (`REQ-P3-03`); stations are dossier rows
-([fleets.md](fleets.md) for map controls).
+([fleets.md](fleets.md)).
 
 ## Tests
 
 `test_naval_rules`, `test_fleet_orders`,
-`test_battle_rules`, `test_a_map_screen`.
+`test_battle_rules`, `test_a_map_screen`, `test_economy_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

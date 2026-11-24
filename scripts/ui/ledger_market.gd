@@ -127,7 +127,34 @@ func _add_cargo_banner() -> void:
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.custom_minimum_size = Vector2(240, 0)
 	add_child(banner)
+	_add_convoy()
 	_add_crossing()
+
+
+## What the crown's warships do for the holds above: the escort cover the raid
+## pass reads and what a hit still costs the convoy (wiki: ships-and-naval
+## § Trade and Transport Interception; DR-20261124-04). A crown with no merchant
+## hull to protect reads no line, so a young court keeps its page short
+## (REQ-P1-07). The words are [ConvoyRead]'s own, so the sheet and the turn's
+## raids cannot price one convoy two ways (REQ-P2-03).
+func _add_convoy() -> void:
+	var read: Dictionary = _cargo.get("convoy", {}) as Dictionary
+	var line: String = String(read.get("line", ""))
+	if line.is_empty():
+		return
+	var row := UiRowBuilder.label(line, 12, _convoy_color(read))
+	row.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	row.custom_minimum_size = Vector2(240, 0)
+	row.tooltip_text = String(read.get("tip", ""))
+	add_child(row)
+
+
+## A covered convoy is ordinary ink; a convoy no warship covers is a warning,
+## because the raid chance is then the published base (REQ-P5-05).
+static func _convoy_color(read: Dictionary) -> Color:
+	if int(read.get("warships", 0)) <= 0:
+		return Palette.GOLD_PALE
+	return Palette.TEXT_DIM
 
 
 ## The crossing the holds will make this turn, under the holds they spend: the
