@@ -4091,6 +4091,34 @@ func test_a_hire_ordered_at_war_musters_for_its_price() -> void:
 	)
 
 
+## The sheet-order home (MapPlayPanelOrders) keeps the road, build, upgrade and
+## unknown presses that MapPlayInput used to own in one book (REQ-P3-01): a
+## road intent parses, a quiet seat refuses, and an unknown word toasts the
+## province's name.
+func test_panel_orders_home_gates_road_build_and_unknown() -> void:
+	var play: PlaySession = _screen.play
+	var selected_before: int = play.selected_province
+	MapPlayInput.deselect(play)
+	MapPlayInput.on_panel_action(play, "build")
+	assert_eq(play.selected_province, -1, "no province: the build press does nothing")
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	var tile: Vector2i = _buildable_owned_resource_tile()
+	assert_true(tile.x >= 0, "map has a roadable owned tile")
+	MapPlayInput.on_panel_action(play, "road:%d,%d" % [tile.x, tile.y])
+	MapPlayInput.on_panel_action(play, "road:bad")
+	MapPlayInput.on_panel_action(play, "build")
+	MapPlayInput.on_panel_action(play, "upgrade_town")
+	MapPlayInput.on_panel_action(play, "not_a_real_order")
+	assert_true(
+		_toast_texts().any(func(text: String) -> bool:
+			return text.begins_with("Order noted in")),
+		"an unknown press toasts the province (%s)" % str(_toast_texts())
+	)
+	if selected_before >= 0:
+		MapPlayInput.select_province(play, selected_before, _capital_point())
+
+
+
 # --- folded: order motion (issue #1198; REQ-P1-04, REQ-P5-05) -----------------
 ## Own crews, standards and squadrons paint a loop while they hold an order.
 ## Rides this suite's one chart mount so coverage never pays a second Godot boot

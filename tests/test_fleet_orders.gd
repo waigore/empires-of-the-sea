@@ -4441,6 +4441,9 @@ func _expedition_play(
 	var state := DiplomacyState.new()
 	state.reset(1)
 	state.ensure_relation(MapScreen.PLAYER_FACTION, 9, 1)
+	# The pick reads a war crossing: a Tribal coast is a target only under a
+	# declaration (wiki: diplomacy § War required for hostile actions).
+	state.relation(MapScreen.PLAYER_FACTION, 9).at_war = true
 	var play := PlaySession.new()
 	play.player_faction = MapScreen.PLAYER_FACTION
 	play.map_seed = 1500

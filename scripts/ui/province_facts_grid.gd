@@ -28,9 +28,9 @@ var hosts: Label = null
 ## grid owns no session.
 var harbour: Label = null
 var hospital: Label = null
-## The courts that have bought land in this province (wiki: factions § Tribe —
-## "unless another GP has invested in the province"; DR-20261120-05). The row
-## hides for a province nobody has bought into rather than printing an absence.
+## The courts that have bought land in this province (wiki: diplomacy § GP–Minor
+## Rules § Intervention; DR-20261120-05, DR-20261124-07). The row hides for a
+## province nobody has bought into rather than printing an absence.
 var deeds: Label = null
 
 ## The province last shown, so a crown-link change repaints without a reload.
@@ -71,8 +71,8 @@ func show_province(
 	terrain.text = _terrain_row(model, province_id)
 	var port_tile: Vector2i = data.port_tile
 	if port_tile.x >= 0:
-		var zone: int = model.sea_zone_at(port_tile.x, port_tile.y)
-		port.text = "Harbour · %s" % model.sea_zone_name(zone)
+		var water: String = ProvinceLedger.harbour_name(model, data)
+		port.text = ("Harbour · %s" % water) if not water.is_empty() else "Harbour"
 	else:
 		port.text = "Landlocked"
 	town.text = DossierCopy.town(data)

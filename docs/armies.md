@@ -18,32 +18,32 @@
 - **Armies** (`ArmyState`): one province per army; one Home Army per crown at
   its capital, never deleted; split/combine needs one province and owner; one
   march a turn, foreign land must border. **Dismiss** sheds a regiment (or all),
-  a peasant each, no refund; an emptied army retires (DR-20261109-01).
-  A stranded host walks home (DR-20261121-15); across the sea it names the
-  harbour for the squadron (DR-20261122-07/-09).
+  a peasant each, no refund; an emptied army retires (DR-20261109-01). A stranded
+  host walks home, naming its harbour across the sea (DR-20261121-15,
+  DR-20261122-07/-09).
 - **Upkeep:** 1–3 food a regiment, by era.
+- **Rations** (`ArmyRationRead`, DR-20261124-02): the dossier names the share fed
+  and the morale the field reads, full, 0.75 or half (wiki: combat § Feeding
+  modifiers).
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
   citation weight; DEF/9; ratio bands; elimination precedes a flip; mutual ruin
   restores `ceil(20%)` infantry.
 - **Condition** (`RegimentCondition`, DR-20261110-19): health (`60 + 10 × DEF`)
   and chevrons; a break mauls survivors, winners gain a chevron.
-- **Titles** (`RegimentNames`, `RegimentRecord`, DR-20261111-18): one title per
-  army, kept through split/merge; the dossier renames it (DR-20261113-05).
+- **Titles** (`RegimentNames`, `RegimentRecord`, DR-20261111-18): one per army,
+  kept through split/merge; the dossier renames it (DR-20261113-05).
 - **Colours** (`RegimentRecord`, `RegimentDecorations`, DR-20261112-02/-10,
-  DR-20261113-04): winners take the province once; a survivor keeps its newest
-  eight despatches, a mauled win being a **citation** (`cited` +5%,
-  `laurelled` +10%); decorated colours lead and fall last.
-- **The crown's army** (`ArmyLedger`, DR-20261116-16): the muster roll reads
-  every regiment.
+  DR-20261113-04): winners take the province once; a survivor keeps eight
+  despatches, a mauled win a **citation** (`cited` +5%, `laurelled` +10%);
+  decorated colours lead and fall last.
 - **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
-  DR-20261121-14; `MapPlayForceCounsel`, DR-20261121-17/22-03): the standard's
-  order prints on its dossier, THE CROWN'S ARMY and the muster roll, or the
-  gate when none is given; named headings and rows wear `▸`, its legend
-  (DR-20261122-05, DR-20261123-03).
+  DR-20261121-14; `MapPlayForceCounsel`, DR-20261121-17/22-03): the order prints
+  on its dossier, THE CROWN'S ARMY (`ArmyLedger`, DR-20261116-16) and the muster
+  roll, or the gate; named rows wear `▸` with its legend (DR-20261122-05,
+  DR-20261123-03).
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03/22-12): the
-  muster block prints, in gold, the line the published muster would raise (or
-  its gate) and marks that pattern `▸`, with its legend (DR-20261123-08).
-  Reads only.
+  muster block prints in gold the line the published muster would raise (or its
+  gate) and marks that pattern `▸` (DR-20261123-08). Reads only.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): one pooled name each.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on
   town tiles; rest 40%/55%, wear 80%/65%; wards eat 2 food a level, unfed 25%
@@ -84,7 +84,7 @@ ArmyLayer        hands a crown over in place, then writes stored rosters back
 
 ## Tests
 
-`test_army_*`, `test_battle_rules`.
+`test_army_*`, `test_a_battle_rules`.
 
 ```bash
 gd-tools test --coverage --min 80

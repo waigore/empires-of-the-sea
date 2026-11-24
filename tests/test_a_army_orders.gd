@@ -167,6 +167,36 @@ func test_a_muted_hud_leaves_the_crown_view_alone() -> void:
 	assert_false(hud.panels.is_army_panel_open(), "the muted pass painted no dossier")
 
 
+## The dossier's ration row reads the crown's own filed coverage, so a hungry
+## court reads why a winnable storm comes home a draw before it marches, and the
+## next turn's Consumption moves the row (wiki: combat § Feeding modifiers;
+## DR-20261124-02).
+func test_the_dossier_names_the_rations_the_next_storm_reads() -> void:
+	var play: PlaySession = _screen.play
+	var home: ArmyState = _player_home()
+	assert_not_null(home)
+	play.feeding[play.player_faction] = 0.6
+
+	MapPlayArmies.select(play, home)
+
+	var panel: ArmyPanel = play.hud.panels.army_panel
+	assert_true(
+		panel.rations_text().contains("60% of the bill fed"),
+		"the dossier names the share the granary fed: %s" % panel.rations_text()
+	)
+	assert_true(
+		panel.rations_text().contains("0.75 morale"),
+		"and the band the exchange reads: %s" % panel.rations_text()
+	)
+
+	play.feeding[play.player_faction] = 1.0
+	MapPlayArmies.show_panel(play, home)
+	assert_true(
+		play.hud.panels.army_panel.rations_text().contains("full morale"),
+		"a whole bill reads full morale"
+	)
+
+
 func test_detach_all_moves_the_whole_army_in_one_order() -> void:
 	var home: ArmyState = _player_home()
 	var total: int = home.count()
@@ -1745,6 +1775,10 @@ func test_the_dossier_offers_dismiss_all_once() -> void:
 	assert_eq(filed, [], "one tap files nothing")
 	assert_true(press.text.contains("Confirm"), press.text)
 	assert_true(press.text.contains("2"), press.text)
+	# One standard left to shed reads in the singular on the same press.
+	panel._orders._retitle_dismiss(1)
+	assert_eq(press.text, "Confirm — dismiss all 1 regiment")
+	panel._orders._retitle_dismiss(2)
 	press.pressed.emit()
 	assert_eq(filed, ["dismiss_all"], "the second tap files the whole order")
 	panel.free()
@@ -1809,6 +1843,20 @@ func test_the_courts_pick_takes_the_home_army_into_the_field() -> void:
 		"the court would take the field — 2 regiments from the seat, 1 held to guard it"
 	)
 	assert_true(MapPlayArmyPick.line(play, home).begins_with("The court would take"), "one sentence")
+	# A split that leaves one standard behind, or keeps one guard, counts in the
+	# singular (REQ-P1-07).
+	assert_eq(
+		MapPlayArmyPickWords.split_line(1, 0),
+		"the court would take the field — 1 regiment from the seat"
+	)
+	assert_eq(
+		MapPlayArmyPickWords.split_line(1, 1),
+		"the court would take the field — 1 regiment from the seat, 1 held to guard it"
+	)
+	assert_eq(
+		MapPlayArmyPickWords.split_line(2, 1),
+		"the court would take the field — 2 regiments from the seat, 1 held to guard it"
+	)
 	assert_eq(home.count(), 3, "a reading: the seat still holds its three")
 	play.army_layer.free()
 

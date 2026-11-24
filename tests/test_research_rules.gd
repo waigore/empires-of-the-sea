@@ -999,6 +999,68 @@ func test_the_gauge_previews_the_next_phase() -> void:
 	assert_true(bar.is_paid())
 
 
+## The college names when a study lands, not only where the next phase leaves
+## it: the catalogue prices 6–12 turns at Medium and a preset only moves that
+## pace, so the slot owes the wait in the raise ledger's own words
+## (wiki: tech-tree § Research Model; DR-20261124-01; REQ-P5-03, REQ-P5-05).
+func test_a_slot_names_the_turns_its_study_has_left() -> void:
+	_bind_panel()
+	_panel_state.assign("land_enclosure", "medium")
+	_panel_state.add_progress("land_enclosure", 800)
+	_panel.refresh(_panel_state, 2500)
+	assert_eq(_slot_row(0).price().turns_left(), 4, "1,000 points left at 300 a turn")
+	assert_not_null(_label_containing("+300 → 1,100 · 4 turns left"))
+
+
+## A study the coming phase completes owes one turn, and the row says one: the
+## wait is the phase's own arithmetic, never the catalogue's 6–12.
+func test_a_study_the_coming_phase_completes_reads_one_turn_left() -> void:
+	_bind_panel()
+	_panel_state.assign("land_enclosure", "high")
+	_panel_state.add_progress("land_enclosure", 1600)
+	_panel.refresh(_panel_state, 2500)
+	assert_eq(_slot_row(0).price().turns_left(), 1)
+	assert_not_null(_label_containing("+800 → 1,800 · 1 turn left"))
+
+
+## The wait comes off the price alone, and a slot that cannot promise names its
+## rule instead: an unpaid phase, a preset that buys nothing, an idle slot and a
+## study the next phase already covers (wiki: tech-tree § Research Model — no
+## partial funding).
+func test_the_wait_is_read_off_the_price_alone() -> void:
+	var priced: ResearchSlotPrice = ResearchSlotPrice.from_priced({
+		"tech": "land_enclosure", "funding": "medium", "gold": 150, "rp": 300,
+		"cost": 1800, "progress": 800, "paid": true,
+	})
+	assert_eq(priced.turns_text(), "4 turns")
+	assert_true(priced.next_text().ends_with("4 turns left"), priced.next_text())
+	assert_true(
+		priced.next_tip().contains("in 4 turns at this preset"), priced.next_tip()
+	)
+	# The phase completes it: one turn, not none.
+	var due: ResearchSlotPrice = ResearchSlotPrice.from_priced({
+		"tech": "land_enclosure", "funding": "high", "gold": 400, "rp": 800,
+		"cost": 1800, "progress": 1600, "paid": true,
+	})
+	assert_eq(due.turns_text(), "1 turn")
+	var unpaid: ResearchSlotPrice = ResearchSlotPrice.from_priced({
+		"tech": "land_enclosure", "funding": "maximum", "gold": 0, "rp": 0,
+		"cost": 1800, "progress": 800, "paid": false,
+	})
+	assert_eq(unpaid.turns_left(), 0, "the treasury cannot keep a wait it cannot pay")
+	assert_eq(unpaid.next_text(), "unpaid next turn")
+	var silent: ResearchSlotPrice = ResearchSlotPrice.from_priced({
+		"tech": "land_enclosure", "funding": "none", "gold": 0, "rp": 0,
+		"cost": 1800, "progress": 800, "paid": true,
+	})
+	assert_eq(silent.turns_left(), 0)
+	assert_eq(silent.next_text(), "earns nothing")
+	var idle := ResearchSlotPrice.new()
+	assert_eq(idle.turns_left(), 0)
+	assert_eq(idle.next_text(), "")
+	assert_eq(idle.next_tip(), "")
+
+
 ## A funding change repaints the slot the player is looking at; rebuilding it
 ## would lose the button and restart the gauge (REQ-P1-05).
 func test_changing_the_priority_repaints_the_same_row() -> void:

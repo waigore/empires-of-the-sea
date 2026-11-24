@@ -32,7 +32,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   redraws nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
-  (gd-tools clones each case). Pocket chart; one Standard census.
+  (gd-tools clones each case). Pocket chart; census from
+  `tests/data/census_world_160.bin` (`tests/write_census_fixture.gd`).
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); one mount per advanced tier. Pure cases skip re-seat (lazy
   `_screen` / `main` / menu-flow `chart`). Mostly-pure: skip `before_all`
@@ -50,7 +51,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   pocket chart and `ResearchPanel` only when read.
-- **Heaviest suite first**: `test_a_map_screen` leads so it does not drain alone.
+- **Heaviest first**: `test_a_battle_rules`, `test_a_ai_rules`,
+  `test_a_army_orders`, `test_a_map_screen` lead under `parallel = 4`.
 - One Godot boot per theme — coverage ~15–35 s/suite; fold micro-suites into a
   neighbour (order motion → map; capture → chrome) so `parallel = 4` stays
   ≤5 min. Court-words at rules; suspending / campaign-end use `AiControl.NOOP`;

@@ -2603,6 +2603,27 @@ func test_a_projection_does_not_record_the_phase() -> void:
 	assert_eq(economy.production.made, {}, "a preview is not a phase")
 
 
+## The ceiling the PRODUCTION tab's "+" is capped by reads the court's studies,
+## so the page can never offer a run the phase would skip for want of a
+## technology (wiki: production-recipes § Technology-gated recipes — the gate is
+## enforced wherever availability is evaluated, order projections included).
+func test_the_ledger_ceiling_reads_the_courts_studies() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.stockpile = {"cotton": 12}
+	var labour: int = economy.workers.labour()
+	assert_eq(
+		ProductionBatch.allowance(economy, "fabric_from_cotton", 0, economy.stockpile, labour, []),
+		0,
+		"a locked row is offered no run"
+	)
+	economy.tech_unlocked["cotton_weaving"] = true
+	assert_eq(
+		ProductionBatch.allowance(economy, "fabric_from_cotton", 0, economy.stockpile, labour, []),
+		1,
+		"two idle points buy one run once the study lands"
+	)
+
+
 ## The record rides the save, and a damaged row drops instead of aborting the
 ## load (wiki: production-recipes § Acceptance Criteria).
 func test_the_workshop_record_round_trips_and_drops_junk() -> void:
@@ -6265,6 +6286,36 @@ func test_the_production_pick_names_the_hands_it_has_not() -> void:
 
 	assert_eq(String(pick.get("kind", "")), MapPlayProductionPick.KIND_HANDS)
 	assert_eq(String(pick["line"]), MapPlayProductionPick.HANDS_LINE)
+
+
+## The hands the tab reads are the hands the phase will have: a pool of two
+## strikers counts its workers but turns no wheel, so the counsel names the
+## strike instead of promising a run the Production phase refuses (issue #1433).
+func test_the_production_pick_reads_the_hands_the_strike_leaves_idle() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"timber": 10, "wool": 4}
+	economy.workers = WorkerPool.make(2)
+	var config: AiConfig = AiConfig.build(1, 1500)
+	# The court's own pass books its runs against the hands the phase will have:
+	# a pool of two strikers hands it none, and the tab must name the strike
+	# rather than a run the Production phase would refuse (issue #1433).
+	var striking_plan: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {}, 0
+	)
+	var fed_plan: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+
+	var striking: Dictionary = MapPlayProductionPick.of(economy, striking_plan, 0)
+	var fed: Dictionary = MapPlayProductionPick.of(economy, fed_plan)
+
+	assert_eq(
+		String(striking.get("kind", "")), MapPlayProductionPick.KIND_HANDS,
+		"the strike is the gate, not a run the phase would refuse"
+	)
+	assert_eq(String(striking["line"]), MapPlayProductionPick.HANDS_LINE)
+	assert_eq(
+		String(fed.get("kind", "")), MapPlayProductionPick.KIND_RUN,
+		"and the same pool fed books its runs"
+	)
 
 
 ## Idle hands and empty stores: the store — or the bench — is the gate, and the

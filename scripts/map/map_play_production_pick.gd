@@ -64,7 +64,8 @@ static func pick(play: PlaySession) -> Dictionary:
 		return {}
 	return of(
 		economy,
-		plan_for(play, faction, String(court["kind"]), court["config"], economy)
+		plan_for(play, faction, String(court["kind"]), court["config"], economy),
+		MapPlayEconomyLarder.idle_labour(play, faction, economy)
 	)
 
 ## The plan the court's own economy pass books for its manufacture: the published
@@ -87,13 +88,19 @@ static func plan_for(
 	)
 	return AiBindEconomy.production_orders(
 		kind, config, economy, TownIndustry.best_level(play.world, faction),
-		chest.get("held", {}) as Dictionary
+		chest.get("held", {}) as Dictionary,
+		MapPlayEconomyLarder.idle_labour(play, faction, economy)
 	)
 
 ## The pick, worded off plan data alone: the runs the plan books in the catalogue
 ## order the page prints them, or the gate that leaves every row out. Pure — a
 ## sheet and its suite drive it without a session.
-static func of(economy: PlayerEconomy, plan: Dictionary) -> Dictionary:
+##
+## `idle` is the labour the Production phase will really have, read by the caller
+## from the larder's own dry run: a pool of strikers counts its hands but turns
+## no wheel, so a court told its hands stand idle must read the strike and not
+## the roster (issue #1433). The −1 sentinel keeps the roster's whole labour.
+static func of(economy: PlayerEconomy, plan: Dictionary, idle: int = -1) -> Dictionary:
 	if economy == null or plan.is_empty():
 		return {}
 	var runs: Dictionary = {}
@@ -126,7 +133,8 @@ static func of(economy: PlayerEconomy, plan: Dictionary) -> Dictionary:
 		)
 	if short_rows == 0:
 		return {"kind": KIND_DONE, "runs": {}, "line": DONE_LINE}
-	if economy.workers.labour() < cheapest:
+	var hands: int = economy.workers.labour() if idle < 0 else maxi(idle, 0)
+	if hands < cheapest:
 		return {"kind": KIND_HANDS, "runs": {}, "line": HANDS_LINE}
 	return {"kind": KIND_STORES, "runs": {}, "line": STORES_LINE}
 

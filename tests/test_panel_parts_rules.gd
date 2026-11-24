@@ -430,10 +430,9 @@ func test_the_dossier_lists_every_estate_not_just_the_headline() -> void:
 	assert_true(tiles.has(Fixture.TIMBER_TILE), "the province's other timber tile")
 
 
-## The province sheet's Deeds row names the crown that bought land here — the bar
-## an undeclared march meets — and leaves the grid when nobody has (wiki:
-## factions § Tribe — "unless another GP has invested in the province";
-## DR-20261120-05).
+## The province sheet's Deeds row names the crown that bought land here — the
+## stake the intervention trial reads — and leaves the grid when nobody has
+## (wiki: diplomacy § GP–Minor Rules § Intervention; DR-20261120-05).
 func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	_setup_province_panel()
 	_province_panel_panel.set_data(
@@ -491,6 +490,32 @@ func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
 	assert_eq(grid.harbour.text, "England 2 hulls")
 	grid.fill({})
 	assert_false(grid.harbour.visible, "a reading with no harbour prints no row")
+
+
+## The province sheet names the water its harbour opens on — the zone the quay
+## faces, the same reading the realm row and the observatory print — and never
+## ends the row on a bare separator (wiki: capital-and-connectivity § Blockade;
+## ships-and-naval § Missions and Movement; DR-20261124-05). A chart that keeps
+## the sea zone on the water rather than the quay used to read "Harbour ·" with
+## nothing after it, because the row asked the port tile's own zone.
+func test_the_province_sheet_names_the_water_its_harbour_opens_on() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_eq(_model.sea_zone_at(Fixture.COAST_TILE.x, Fixture.COAST_TILE.y), MapModel.NO_ID,
+		"the quay sits on land, one tile off the water")
+	assert_eq(grid.port.text, "Harbour · Mar Caribe", "the water beside the quay")
+	# A quay that touches no water prints the plain word, not a dangling row.
+	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Fixture.BARE_TILE
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(grid.port.text, "Harbour")
+	# No port tile at all keeps the sheet's own word for inland ground.
+	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Vector2i(-1, -1)
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(grid.port.text, "Landlocked")
 
 
 ## The province sheet names what the wall soaks, what it spares the garrison and
@@ -2429,6 +2454,38 @@ func test_army_roster_block_hides_detach_while_embarked() -> void:
 	panel.free()
 
 
+## An army's dossier names the crown's own ration band under the strength line,
+## and another court's standard prints none: her larder is not the crown's to read
+## (wiki: combat § Feeding modifiers; DR-20261124-02).
+func test_the_army_dossier_names_the_rations_the_field_reads() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(23, 0, 1, ["guards"], false)
+
+	var fed := ArmyDossierOpening.of(army, true)
+	fed.rations = 0.6
+	panel.refresh(model, fed)
+	assert_true(
+		panel.rations_text().contains("60% of the bill fed"),
+		"the row names the share of the bill the granary fed"
+	)
+	assert_true(
+		panel.rations_text().contains("0.75 morale"),
+		"and the morale the next engagement reads off it"
+	)
+
+	var whole := ArmyDossierOpening.of(army, true)
+	whole.rations = 1.0
+	panel.refresh(model, whole)
+	assert_true(panel.rations_text().contains("full morale"), "a whole bill reads full morale")
+
+	var rival := ArmyDossierOpening.of(army, false)
+	panel.refresh(model, rival)
+	assert_eq(panel.rations_text(), "", "another court's standard prints no ration row")
+	panel.free()
+
+
 # --- ledger_frame (the docked ledgers' one chrome) ---
 
 func _ledger_frames() -> Array[LedgerFrame]:
@@ -3534,6 +3591,68 @@ func test_a_prompt_names_the_courts_in_english() -> void:
 	assert_eq(ConsentCopy.button("join"), "Join the war")
 
 
+## Every answer on the intervention banner names what it costs before the crown
+## takes it — the war a join starts, the relation a protest spends and the
+## embassy standing aside loses (wiki: diplomacy § Intervention; REQ-P5-06).
+func test_an_intervention_names_each_answer_and_its_price() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "embassy", "deeds": 0}
+	var line: String = ConsentCopy.intervention_body(offer)
+	assert_true(line.begins_with("France has declared war on "), line)
+	assert_true(line.contains("go to war with France"), line)
+	assert_true(line.contains("protest for −10 with the aggressor"), line)
+	assert_true(line.contains("−5 if she holds Propaganda"), line)
+	assert_true(line.contains("lose the embassy"), line)
+
+
+## The banner's figures are the rule's own, so a retuned protest price moves the
+## prompt with the penalty the answer pays (REQ-P2-03).
+func test_the_prompt_prices_the_protest_the_rule_charges() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "embassy", "deeds": 0}
+	var line: String = ConsentCopy.intervention_stake(offer)
+	var full: int = int(DiplomacyCatalog.PROTEST_PENALTY)
+	var soft: int = int(DiplomacyCatalog.PROTEST_PENALTY_PROPAGANDA)
+	assert_true(line.contains("−%d with the aggressor" % full), line)
+	assert_true(line.contains("−%d if she holds Propaganda" % soft), line)
+	assert_eq(full, int(Intervention.protest_penalty({})), "the banner reads the rule's figure")
+	assert_eq(
+		soft, int(Intervention.protest_penalty({"propaganda": true})), "and the softened one"
+	)
+
+
+## A court offered only through its deed has no embassy to lose: the banner
+## names the war and the price, and never a loss that is not at stake.
+func test_a_deed_only_intervention_names_the_war_and_no_embassy() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "deed", "deeds": 1}
+	var line: String = ConsentCopy.intervention_stake(offer)
+	assert_true(line.begins_with("Our deed there is at stake"), line)
+	assert_true(line.contains("join the war against France"), line)
+	assert_true(line.contains("−10 with the aggressor"), line)
+	assert_false(line.contains("embassy"), line)
+
+
+func test_two_deeds_read_in_the_plural() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "deed", "deeds": 2}
+	var line: String = ConsentCopy.intervention_stake(offer)
+	assert_true(line.begins_with("Our 2 deeds there are at stake"), line)
+	assert_true(line.contains("−10 with the aggressor"), line)
+
+
+## A court that holds both claims reads both stakes, and an offer that carries a
+## deed count with no deed basis still reads in the plural.
+func test_an_embassy_and_deeds_name_both_stakes() -> void:
+	var both: Dictionary = {"aggressor": 2, "target": 6, "basis": "both", "deeds": 2}
+	var line: String = ConsentCopy.intervention_stake(both)
+	assert_true(line.begins_with("Our embassy stands and our 2 deeds there are at stake"), line)
+	assert_true(line.contains("go to war with France"), line)
+	assert_true(line.contains("lose the embassy"), line)
+	var one: Dictionary = {"aggressor": 2, "target": 6, "basis": "both", "deeds": 1}
+	var single: String = ConsentCopy.intervention_stake(one)
+	assert_true(single.begins_with("Our embassy stands and our deed there is at stake"), single)
+	var counted: Dictionary = {"aggressor": 2, "target": 6, "basis": "embassy", "deeds": 2}
+	var counted_line: String = ConsentCopy.intervention_stake(counted)
+	assert_true(counted_line.begins_with("Our 2 deeds there are at stake"), counted_line)
+
+
 func test_a_prompt_keeps_the_authored_source() -> void:
 	DialogueLocale.set_locale("de")
 	var line: String = ConsentCopy.say("call/toast", ["England", "France"])
@@ -4271,7 +4390,7 @@ func test_ai_recalls_a_spy_to_screen_at_war() -> void:
 func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	# Floors with no regional work: 2 builders, engineer_target (2), explorer_target (3).
 	# The court is neutral here so the floors are the published ones — an
-	# archetype's own crew is a target of its own (AiStaffTaste, test_ai_rules).
+	# archetype's own crew is a target of its own (AiStaffTaste, test_a_ai_rules).
 	var config: AiConfig = AiConfig.build(RIVAL, 1500)
 	config.personality = AiPersonality.NEUTRAL
 	var roster: Array[CivilianState] = [
