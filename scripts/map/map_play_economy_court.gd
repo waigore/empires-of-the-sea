@@ -56,6 +56,11 @@ var conquest_bank: bool = false
 ## and the region's own crews that lead while the chest itself keeps its
 ## claim on the deferrable purchases.
 var invest_bank: bool = false
+## The muster aim's stall length (issue #603), as this turn's income read
+## took it: past the escalation bar the #603 valve has re-routed the chest,
+## and the readers that ride the valve price against the chest the fill was
+## standing still for (issue #1488).
+var muster_stall: int = 0
 var regiments: int = 0
 var ships: int = 0
 var warships: int = 0
@@ -161,10 +166,13 @@ func rehearse() -> void:
 	var pressure: Dictionary = AiVictoryPressure.read(
 		play.world, faction, play.human_faction_id(), play.difficulty, config
 	)
+	# The stall the income read rode (issue #1488): the same read, carried for
+	# the readers that price against the chest the fill was standing still for.
+	muster_stall = AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line")
 	income = AiBindEconomy.income_plan(
 		kind, config, economy, at_war, regiments, hull_chest, warships,
 		# A war chest the court has stalled on re-routes (#603).
-		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line"),
+		muster_stall,
 		# The win-bar reading the bank rides on (issue #995).
 		int(pressure["need"]) > 0,
 		# The storm chest the thinnest wall ahead prices (issue #1381): the

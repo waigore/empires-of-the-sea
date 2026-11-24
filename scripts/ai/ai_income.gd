@@ -277,32 +277,23 @@ static func saving_reason(income: Dictionary, amount: int = 0) -> String:
 
 ## True while this court is banking for the army its conquest still needs
 ## (issue #995): the win-bar gap holds, the host stands under the war-time
-## target, and the purse is short of the chest — so every deferrable purchase
-## (a war, a pact break, an envoy rung) waits, and a purse that peaks inside a
-## turn still belongs to the army that marches before anything else spends it.
-## The read is the purse, the host and the bar — and the chest the income row
-## stamps (`bank_chest`), never the wobbling money goal: the goal's own
-## reserve re-routes on the #603 cycle, and a bank that released at the peak
-## of its own fill unpinned the college and burned the margin it was holding
-## for. A caller with no ledger or no income row keeps the published
-## behaviour.
-##
-## The release is the host's own price (issue #1488): the purse covers the
-## chest — the war's next line, its own levy and price — and the bank lets go.
-## The chest the court once banked for was made unreachable by the second
-## line's price the shortfall carried on top: the bank's provisioning works
-## and the college's ladder spend ~1,000-1,450 a close while the bank holds
-## (the trim's own list, by design), the market refills the purse after the
-## ledger's read, and a bar a full-AI economy never presents held every court
-## at peace for the last 170 turns of the age — no pact broken, no war
-## declared, no muster past turn 4. The chest itself is floor-protected while
-## it stands (the reserve every planner reads is the chest), so the spending
-## the release frees cannot eat it; what the release hands over is the war.
+## target, and the purse is one line-cycle short of the chest — so every
+## deferrable purchase (a war, a pact break, an envoy rung) waits, and a purse
+## that peaks inside a turn still belongs to the army that marches before
+## anything else spends it. The read is the purse, the host and the bar — and
+## the chest the income row stamps (`bank_chest`), never the wobbling money
+## goal: the goal's own reserve re-routes on the #603 cycle, and a bank that
+## released at the peak of its own fill unpinned the college and burned the
+## margin it was holding for. A caller with no ledger or no income row keeps
+## the published behaviour. The second line's price is what keeps the release
+## rare: a bank that let go the moment the chest stood in the purse handed it
+## to a premature Minor war, and the colony-and-deed flywheel that was growing
+## the purse past the bar never started (measured on seed 1501, issue #1488).
 ##
 ## A purse the bank has already filled is not banking (issue #1135): once the
-## chest stands in the purse, the army can be paid this turn and the court's
-## other spending leads again — the trace names the army aim the bank waits
-## for while it holds.
+## chest and the line's price stand in the purse, the army can be paid this
+## turn and the court's other spending leads again — the trace names the army
+## aim the bank waits for while it holds.
 static func banking(
 	config: AiConfig, ai_state: AiState, income: Dictionary
 ) -> bool:
@@ -315,16 +306,15 @@ static func banking(
 	)
 	if economy == null:
 		return false
-	# The release is the host's own price (issue #1488): the chest — the war's
-	# next line, its own levy and price — is what the bank was holding the
-	# purse for. The line's price it carried on top priced a purse the full-AI
-	# economy never presents (the provisioning works and the college's ladder
-	# spend the close's own margin by design), so the pact break and the
-	# declaration waited behind a bar no court could reach and no war opened
-	# for the age's last 170 turns.
+	# The release keeps #1135's own shape: the chest plus the cheapest line's
+	# price. The measured release (seed 1501) at the chest alone handed the
+	# purse to a premature Minor war — the colony-and-deed flywheel that was
+	# growing the purse past the bar never started, and the age lost its one
+	# end-to-end run. The bar becomes reachable on the college's own read
+	# instead (see the research book's ladder: the college rides the valve).
 	var shortfall: int = maxi(
 		int(income.get("bank_chest", income.get("reserve", 0))), 0
-	)
+	) + maxi(AiArmyReinforce.cheapest_line_price(economy), 0)
 	return int(income.get("treasury", 0)) < shortfall
 
 
