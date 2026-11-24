@@ -99,4 +99,4 @@ Live: workshop/riches landing (`ground_appetite`, DR-19-05/21); [`deferred.md`](
 
 ## Tests
 
-`test_market_economy_rules`, `test_economy_screen`, `test_a_ai_rules`.
+`test_market_economy_rules`, `test_market_economy_rules`, `test_a_ai_rules`.
