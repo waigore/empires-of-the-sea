@@ -191,6 +191,7 @@ func _road_press(row: Dictionary, road: Dictionary, note: Label) -> Button:
 	var ready: bool = (
 		bool(road.get("engineer", false))
 		and not (road.get("route", []) as Array).is_empty()
+		and String(road.get("reason", "")).is_empty()
 	)
 	button.disabled = not ready
 	button.tooltip_text = _road_tip(road) if ready else String(road.get("reason", ""))

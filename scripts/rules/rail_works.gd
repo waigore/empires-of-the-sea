@@ -19,15 +19,18 @@ const RAIL: String = "build_rail"
 ## idle Rail Builder can take the order, what the order spends and how long it
 ## waits, and why not when it cannot — so the press prints its own step rather
 ## than a hover (DR-20261125-08). `needed` is false for ground that is not the
-## crown's, carries no road, already carries a railroad, or waits on a study —
-## the block prints only what can be pressed.
+## crown's, carries no road, already carries a railroad, or waits on a study, so
+## the block prints only what can be pressed. `stockpile` is the crown's live
+## purse when the caller knows it; null leaves the money gate to the order that
+## charges it (REQ-P2-03).
 static func plan(
 	model: MapModel,
 	works: LandWorks,
 	units: Array[CivilianState],
 	owner: int,
 	tile: Vector2i,
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	stockpile: Variant = null
 ) -> Dictionary:
 	var plan_out: Dictionary = {
 		"needed": false, "rail_builder": false, "reason": "", "cost": {}, "turns": 0,
@@ -52,8 +55,14 @@ static func plan(
 	# tile, read off the order that charges it (DR-20261125-08).
 	plan_out["cost"] = CivilianWorkPlan.cost_for(RAIL)
 	plan_out["turns"] = CivilianWorkPlan.duration_for(model, RAIL, tile, works)
+	# The stores are the order's gate too, so a press never offers a step the
+	# crown cannot pay (REQ-P2-03; DR-20261125-08). Rail Builders are exempt from
+	# the per-tile exclusivity rule, so the crew gate is the only other one.
+	var short: String = CivilianWorkRefusals.known_stores(plan_out["cost"], stockpile)
 	if not bool(plan_out["rail_builder"]):
 		plan_out["reason"] = "No idle Rail Builder musters — train one at the capital."
+	elif not short.is_empty():
+		plan_out["reason"] = short
 	return plan_out
 
 
@@ -66,7 +75,8 @@ static func province_plans(
 	units: Array[CivilianState],
 	owner: int,
 	province_id: int,
-	tech_unlocked: Dictionary = {}
+	tech_unlocked: Dictionary = {},
+	stockpile: Variant = null
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = [] as Array[Dictionary]
 	if model == null or works == null or owner < 0:
@@ -75,7 +85,9 @@ static func province_plans(
 	if province == null:
 		return rows
 	for tile: Vector2i in province.tiles:
-		var plan_out: Dictionary = plan(model, works, units, owner, tile, tech_unlocked)
+		var plan_out: Dictionary = plan(
+			model, works, units, owner, tile, tech_unlocked, stockpile
+		)
 		if not bool(plan_out["needed"]):
 			continue
 		rows.append({
@@ -99,10 +111,14 @@ static func dispatch(
 	tile: Vector2i,
 	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
-	var plan_out: Dictionary = plan(model, works, units, owner, tile, tech_unlocked)
+	var plan_out: Dictionary = plan(
+		model, works, units, owner, tile, tech_unlocked, stockpile
+	)
 	if not bool(plan_out["needed"]):
 		return {"ok": false, "message": "This tile cannot take a railroad."}
-	if not bool(plan_out["rail_builder"]):
+	# The plan stays `needed` (the row still names its ground) and carries the
+	# gate that shuts the press — a missing crew, or a purse that is short.
+	if not String(plan_out["reason"]).is_empty():
 		return {"ok": false, "message": String(plan_out["reason"])}
 	var crew: CivilianState = nearest_rail_builder(units, owner, tile)
 	var result: Dictionary = CivilianWork.assign(

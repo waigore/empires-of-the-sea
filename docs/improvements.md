@@ -51,7 +51,8 @@ level-4 Great Power towns, four grain farms.
   Builder names that gate. Each leads with `▸` (DR-20261122-04, DR-20261123-08).
 - **Province dossier**: town level, crown link, estates, unsurveyed ground,
   the harvest at today's sell (DR-20261123-25); a cut-off estate's **Build
-  road** prints its price, wait and gate (DR-20261125-08).
+  road** prints its price, wait and gate, and greys on a short purse or a tile
+  another crew holds (DR-20261125-08, DR-20261125-09).
 
 ## Deferred (REQ-P2-02)
 

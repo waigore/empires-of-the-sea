@@ -2987,6 +2987,13 @@ domain = "ai_works"
 match = "scripts/rules/civilian_work_refusals.gd*"
 domain = "ai_works"
 
+# The refusal wording the province sheet's crew presses read (DR-20261125-09): the
+# Build road and Lay railroad plans ask `known_stores` and `tile_busy` before they
+# offer a press, so this file also rides the sheet slice that proves those rows.
+[[rules]]
+match = "scripts/rules/civilian_work_refusals.gd*"
+domain = "province_sheet"
+
 # What a Merchant's deed buys, named on the crew's order row and its sheet: the
 # rules suite proves the terms and the panel-parts boot proves the two surfaces
 # that print them. Kept off the civilian map/battle fan-out (tier-1 5 min).

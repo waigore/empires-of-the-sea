@@ -79,7 +79,9 @@ static func route(
 ## what the order spends and how long it waits — so the press prints its own step
 ## rather than a hover (DR-20261125-08). `resolved` may be handed in so a whole
 ## province costs one [method LandConnectivity.resolve] (the dossier's own
-## reading).
+## reading). `stockpile` is the crown's live purse when the caller knows it; null
+## leaves the money gate to the order that charges it, as the wall, the ward and
+## the town reads do (REQ-P2-03).
 static func plan(
 	model: MapModel,
 	works: LandWorks,
@@ -87,7 +89,8 @@ static func plan(
 	owner: int,
 	capital_tile: Vector2i,
 	tile: Vector2i,
-	resolved: Dictionary = {}
+	resolved: Dictionary = {},
+	stockpile: Variant = null
 ) -> Dictionary:
 	var plan_out: Dictionary = {
 		"needed": false,
@@ -117,15 +120,26 @@ static func plan(
 	plan_out["needed"] = true
 	plan_out["gap"] = route_tiles.size()
 	plan_out["route"] = route_tiles
-	plan_out["engineer"] = not idle_engineers(units, owner).is_empty()
+	var dispatch_tile: Vector2i = route_tiles[0] if not route_tiles.is_empty() else tile
+	var engineer: CivilianState = nearest_engineer(units, owner, dispatch_tile)
+	plan_out["engineer"] = engineer != null
 	# The step the press prints: the Engineer's own price and wait for this tile,
 	# read off the order that charges it (DR-20261125-08).
 	plan_out["cost"] = CivilianWorkPlan.cost_for(ROAD)
 	plan_out["turns"] = CivilianWorkPlan.duration_for(model, ROAD, tile, works)
+	# The stores and the tile's own exclusivity are the order's gates too, so a
+	# press never offers a step the rules would refuse (REQ-P2-03;
+	# DR-20261125-08).
+	var short: String = CivilianWorkRefusals.known_stores(plan_out["cost"], stockpile)
+	var busy: String = CivilianWorkRefusals.tile_busy(units, engineer, dispatch_tile)
 	if route_tiles.is_empty():
 		plan_out["reason"] = "No owned-land route to the crown."
-	elif not bool(plan_out["engineer"]):
+	elif engineer == null:
 		plan_out["reason"] = "No idle Engineer musters — train one at the capital."
+	elif not busy.is_empty():
+		plan_out["reason"] = busy
+	elif not short.is_empty():
+		plan_out["reason"] = short
 	return plan_out
 
 
@@ -140,7 +154,8 @@ static func province_plans(
 	units: Array[CivilianState],
 	owner: int,
 	capital_tile: Vector2i,
-	rows: Array[Dictionary]
+	rows: Array[Dictionary],
+	stockpile: Variant = null
 ) -> Dictionary:
 	var plans: Dictionary = {}
 	if model == null or works == null or owner < 0:
@@ -150,7 +165,8 @@ static func province_plans(
 	)
 	for row: Dictionary in rows:
 		var plan_out: Dictionary = plan(
-			model, works, units, owner, capital_tile, row["tile"], resolved
+			model, works, units, owner, capital_tile, row["tile"], resolved,
+			stockpile
 		)
 		if bool(plan_out["needed"]):
 			plans[row["tile"]] = plan_out
@@ -170,11 +186,15 @@ static func dispatch(
 	tile: Vector2i,
 	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
-	var plan_out: Dictionary = plan(model, works, units, owner, capital_tile, tile)
+	var plan_out: Dictionary = plan(
+		model, works, units, owner, capital_tile, tile, {}, stockpile
+	)
 	if not bool(plan_out["needed"]):
 		return {"ok": false, "message": "This estate already reaches the crown."}
 	var route_tiles: Array[Vector2i] = plan_out["route"]
-	if route_tiles.is_empty() or not bool(plan_out["engineer"]):
+	# The plan stays `needed` (the row still names its gap) and carries the gate
+	# that shuts the press — a missing route, a missing crew, or a short purse.
+	if not String(plan_out["reason"]).is_empty():
 		return {"ok": false, "message": String(plan_out["reason"])}
 	var engineer: CivilianState = nearest_engineer(units, owner, route_tiles[0])
 	var result: Dictionary = CivilianWork.assign(
@@ -207,7 +227,8 @@ static func idle_engineers(units: Array[CivilianState], owner: int) -> Array[Civ
 
 
 ## Closest idle Engineer by Manhattan distance; ties break on unit id, exactly
-## as the estates ledger's Builder dispatch does.
+## as the estates ledger's Builder dispatch does. Null when no Engineer is free,
+## so the plan and the dispatch read one hand (REQ-P3-02).
 static func nearest_engineer(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:

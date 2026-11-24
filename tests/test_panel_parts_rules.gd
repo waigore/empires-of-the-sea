@@ -1698,6 +1698,56 @@ func test_build_road_emits_the_estates_tile() -> void:
 	assert_eq(actions[0], "road:1,1")
 
 
+## A short purse is the order's gate too: the press never offers a step the
+## stores cannot pay, and the row prints the work order's own shortfall. The
+## plan reads the crown's purse the way the wall, the ward and the town beside it
+## do (wiki: civilian-units § Work Order Summary; REQ-P2-03, REQ-P5-07;
+## DR-20261125-08).
+func test_build_road_prices_the_purse_it_would_spend() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Vector2i(0, 2))]
+	_seat_province_sheet({}, {"lumber": 0, "castIron": 0})
+	_province_panel_panel.refresh(_model, 0)
+	var cut := _road_button(OFF_ROAD_TILE)
+	assert_not_null(cut, "the estate still names the gap")
+	assert_true(cut.disabled, "an empty purse cannot pay the road")
+	var block: ProvinceResources = _province_panel_panel._resources
+	var note: String = block.road_note(OFF_ROAD_TILE)
+	assert_true(note.contains("Stores are short of"), note)
+	assert_eq(
+		note, CivilianWorkRefusals.stores(CivilianWorkPlan.cost_for("build_road"), {}),
+		"the row prints the work order's own shortfall"
+	)
+
+
+## The tile's own exclusivity is a gate too: a tile another crew already holds
+## offers no Build road press, because the order would refuse it. The plan reads
+## it the way the ward's row on the same sheet does (wiki: civilian-units
+## § Per-player tile exclusivity; REQ-P2-03; DR-20261125-08).
+func test_build_road_waits_for_the_tiles_own_crew() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Vector2i(0, 2))]
+	_seat_province_sheet({}, Fixture.stockpile())
+	var block: ProvinceResources = _province_panel_panel._resources
+	# The route's first tile is the one the dispatch would claim; a Builder holds
+	# it, so the Engineer's order would be refused.
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _units, 0, Vector2i(0, 0), OFF_ROAD_TILE
+	)
+	var first: Vector2i = (plan["route"] as Array)[0]
+	var builder: CivilianState = Fixture.unit("builder", first)
+	builder.start_work("build_improvement", first, 2, first, {})
+	_units.append(builder)
+	_province_panel_panel.refresh(_model, 0)
+	var cut := _road_button(OFF_ROAD_TILE)
+	assert_not_null(cut, "the estate still names the gap")
+	assert_true(cut.disabled, "another crew holds the tile the order would claim")
+	assert_true(
+		block.road_note(OFF_ROAD_TILE).contains("already working this tile"),
+		block.road_note(OFF_ROAD_TILE)
+	)
+
+
 ## The Build road control printed on one estate's line, or null when the estate
 ## needs no road.
 func _road_button(tile: Vector2i) -> Button:
@@ -3319,6 +3369,30 @@ func test_the_rail_block_waits_for_a_rail_builder() -> void:
 	var reason: String = String((block.rows()[0] as Dictionary)["plan"].get("reason", ""))
 	assert_eq(block.rail_note(RAIL_TILE), reason, "the row prints its own gate")
 	assert_true(reason.contains("Rail Builder"), reason)
+
+
+## A short purse is the order's gate here too: the rail row never offers a step
+## the stores cannot pay, and prints the work order's own shortfall. The rail
+## plan reads the crown's purse as the wall and the ward on the same sheet do
+## (wiki: civilian-units § Rail Builder work; REQ-P2-03, REQ-P5-07;
+## DR-20261125-08).
+func test_the_rail_press_prices_the_purse_it_would_spend() -> void:
+	_setup_province_panel()
+	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_ROAD)
+	_units = [] as Array[CivilianState]
+	_units.append(_rail_builder())
+	_seat_province_sheet(STEAM, {"lumber": 0, "steel": 0})
+	_province_panel_panel.refresh(_model, 0)
+	var block: ProvinceRailBlock = _province_panel_panel._rail
+	var button: Button = _rail_button(block, RAIL_TILE)
+	assert_not_null(button, "the row still names the ground")
+	assert_true(button.disabled, "an empty purse cannot pay the rail")
+	var note: String = block.rail_note(RAIL_TILE)
+	assert_true(note.contains("Stores are short of"), note)
+	assert_eq(
+		note, CivilianWorkRefusals.stores(CivilianWorkPlan.cost_for("build_rail"), {}),
+		"the row prints the work order's own shortfall"
+	)
 
 
 ## A province with nothing to rail says nothing: no heading over no ground.
