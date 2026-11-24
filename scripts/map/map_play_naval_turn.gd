@@ -17,7 +17,7 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		"seed": play.map_seed, "turn": play.turn, "has_tech": tech_gate,
 		# Last turn's rations decide how hard each squadron can fight
 		# (wiki: workers-and-population § Consumption).
-		"navy_feeding": _navy_feeding(play),
+		"navy_feeding": navy_feeding(play),
 		# A rival of the chosen difficulty fights its own strength
 		# (wiki: ruleset-config § Difficulty), and a crown whose leader publishes
 		# a naval row (de Ruyter) fights at that multiplier (leader-bonuses).
@@ -153,8 +153,11 @@ static func reconcile_decks(play: PlaySession) -> Array[Dictionary]:
 
 ## Each crown's last resolved navy coverage, read from its own ledger so the
 ## human and every rival answer the same rule (wiki: workers-and-population
-## § Consumption). A crown with no ledger fights at full rations.
-static func _navy_feeding(play: PlaySession) -> Dictionary:
+## § Consumption). A crown with no ledger fights at full rations. The battle
+## pass hands this to the resolver and the fleet dossier prices its water with
+## it, so the odds a crown reads are the odds the fight strikes
+## (ships-and-naval § Naval Combat Resolution; DR-20261124-15).
+static func navy_feeding(play: PlaySession) -> Dictionary:
 	var feeding: Dictionary = {}
 	for faction: int in FactionCatalog.great_power_ids():
 		var ledger: PlayerEconomy = play.ledger_for(faction)
