@@ -6,7 +6,7 @@ Stations, interception, retreat, raids; movement and the yard:
 **Pillars:** P2–P5. **Wiki:** [ships-and-naval](https://github.com/waigore/empires-of-the-sea/wiki/ships-and-naval)
 § Missions and Movement, § Naval Interception Probability, § Trade and Transport
 Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02,
-DR-20261124-04, DR-20261124-06.
+DR-20261124-04/-06/-15.
 
 ## Stations
 
@@ -18,7 +18,7 @@ DR-20261124-04, DR-20261124-06.
 | Beachhead | at sea beside a hostile coast | One-turn landing site |
 
 A station spends the move and persists until the squadron sails, docks or
-retakes one; the home fleet holds none; a target no longer hostile lapses it.
+retakes it; the home fleet holds none; a target no longer hostile lapses.
 A blockade stands only in the water its port faces (`port_sea_zones`).
 
 A sealed harbour severs the coast; the capital's cuts every sea path
@@ -37,7 +37,7 @@ Deterministic from seed, turn, zone and owners. Success makes the patroller the
 attacker; a miss leaves the mover. Only Patrol or a standing Blockade rolls, and
 only at war.
 
-**The dossier prices the catch (DR-20261120-02):** a station at sea prints
+**The dossier prices the catch (DR-20261120-02):** a station prints
 `Interception: 62% to catch 4 hulls if they stay.` over its holders and every
 hostile the crown has **read**; an unread rival and empty water print none.
 
@@ -59,6 +59,9 @@ and clears its station; failure is a rout, and no safe water means no retreat.
 reads `Beaten here by England: 40% to slip into the Golfo de México.` beside its
 share, over the strongest court there — or `no adjacent water is safe` when the
 rout is certain. A water the crown holds prints none.
+
+**Rations (DR-20261124-15):** `60% of the hulls fed · sea battles fight at 0.75
+morale`.
 
 ## Raids
 

@@ -44,6 +44,11 @@ var court_coast: int = -1
 ## pick travels, not the sentence it words, so the slip marks its rows off the
 ## same reading (DR-20261122-12).
 var yard_pick: Dictionary = {}
+## The crown's own navy ration band: the share of its hulls last turn's
+## Consumption fed, which scales every sea battle it fights. `NO_READING` when
+## the sheet is another court's — her larder is not the crown's to read (wiki:
+## workers-and-population § Consumption — naval combat; DR-20261124-15).
+var rations: float = NavyRationRead.NO_READING
 
 
 ## A squadron's dossier at its plainest: the caller adds the blocks it has.
