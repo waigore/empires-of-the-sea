@@ -571,6 +571,14 @@ match = "scripts/map/map_play_input.gd"
 domain = "play_screen"
 
 [[rules]]
+match = "scripts/map/map_play_hover.gd*"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_panel_orders.gd*"
+domain = "play_screen"
+
+[[rules]]
 match = "scripts/map/map_play_turn_finish.gd"
 domain = "play_screen"
 
@@ -3724,6 +3732,16 @@ domain = "diplomacy"
 # domain so a one-line sheet refresh does not pull the whole map suite set.
 [[rules]]
 match = "scripts/map/map_play_input.gd"
+domain = "crown_road"
+
+# Hover tooltip and province-sheet presses extracted from MapPlayInput
+# (REQ-P3-01): keep them on the same reading/sheet domains as the door.
+[[rules]]
+match = "scripts/map/map_play_hover.gd*"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/map/map_play_panel_orders.gd*"
 domain = "crown_road"
 
 # The chart's readings: raise, walk and fade (map_play_lens) and mount (its
