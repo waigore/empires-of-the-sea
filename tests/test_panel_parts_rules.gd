@@ -430,10 +430,9 @@ func test_the_dossier_lists_every_estate_not_just_the_headline() -> void:
 	assert_true(tiles.has(Fixture.TIMBER_TILE), "the province's other timber tile")
 
 
-## The province sheet's Deeds row names the crown that bought land here — the bar
-## an undeclared march meets — and leaves the grid when nobody has (wiki:
-## factions § Tribe — "unless another GP has invested in the province";
-## DR-20261120-05).
+## The province sheet's Deeds row names the crown that bought land here — the
+## stake the intervention trial reads — and leaves the grid when nobody has
+## (wiki: diplomacy § GP–Minor Rules § Intervention; DR-20261120-05).
 func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	_setup_province_panel()
 	_province_panel_panel.set_data(
