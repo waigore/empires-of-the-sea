@@ -2486,6 +2486,43 @@ func test_the_army_dossier_names_the_rations_the_field_reads() -> void:
 	panel.free()
 
 
+## An army's dossier prices the land battle it would fight: the ducats each
+## fight takes from the crown's treasury and the studies that have cut it, and
+## another court's standard prints none — her studies are not the crown's to read
+## (wiki: tech-tree-military § Economy modifiers; DR-20261124-11).
+func test_the_army_dossier_prices_the_battle_it_would_fight() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(24, 0, 1, ["guards"], false)
+
+	var plain := ArmyDossierOpening.of(army, true)
+	panel.refresh(model, plain)
+	assert_eq(
+		panel.attack_text(),
+		"Battles · each land battle costs 100 ducats",
+		"a court with no studies reads the published base"
+	)
+
+	var studied := ArmyDossierOpening.of(army, true)
+	studied.attack_unlocked = {"industrial_machinery": true}
+	panel.refresh(model, studied)
+	assert_true(
+		panel.attack_text().contains("75 ducats"),
+		"the row reads the price the crown's own studies have cut: %s" % panel.attack_text()
+	)
+	assert_true(
+		panel.attack_text().contains("Industrial Machinery"),
+		"and names the study that cut it"
+	)
+
+	var rival := ArmyDossierOpening.of(army, false)
+	rival.attack_unlocked = {"industrial_machinery": true}
+	panel.refresh(model, rival)
+	assert_eq(panel.attack_text(), "", "another court's standard prices no battle")
+	panel.free()
+
+
 # --- ledger_frame (the docked ledgers' one chrome) ---
 
 func _ledger_frames() -> Array[LedgerFrame]:

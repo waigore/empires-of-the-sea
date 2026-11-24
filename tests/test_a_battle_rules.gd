@@ -65,6 +65,46 @@ func test_the_ration_row_words_the_band_the_exchange_reads() -> void:
 	)
 
 
+## The dossier's battle row words the price the charge itself reads: the ducats
+## one land battle takes from the crown's treasury and the studies that cut it, so
+## a crown prices three storms before she orders them (wiki: tech-tree-military
+## § Economy modifiers; DR-20261124-11).
+func test_the_battle_row_words_the_price_the_charge_reads() -> void:
+	# One home: the row prices the battle, it does not price it twice.
+	assert_eq(AttackPriceRead.price({}), ArmyAttackCost.cost({}))
+	assert_eq(AttackPriceRead.price({}), 100)
+	assert_eq(
+		AttackPriceRead.line({}),
+		"Battles · each land battle costs 100 ducats",
+		"a court with no studies pays the published base"
+	)
+	assert_eq(
+		AttackPriceRead.line({"industrial_machinery": true}),
+		"Battles · each land battle costs 75 ducats — Industrial Machinery cuts the 100"
+	)
+	assert_eq(
+		AttackPriceRead.line({
+			"industrial_machinery": true, "modern_military_funding": true,
+		}),
+		(
+			"Battles · each land battle costs 63 ducats — Industrial Machinery "
+			+ "and Modern Military Funding cut the 100"
+		),
+		"both factors multiply, as the charge multiplies them"
+	)
+	assert_eq(
+		AttackPriceRead.line({"navigation": true}),
+		"Battles · each land battle costs 100 ducats",
+		"a study that does not price the land leaves the price alone"
+	)
+	# The tip carries the whole ladder, because a phone keeps no hover.
+	assert_true(AttackPriceRead.tip({}).contains("63"), "the tip works both studies together")
+	assert_true(
+		AttackPriceRead.tip({}).contains("walk-in"),
+		"and names the walk-in that pays nothing"
+	)
+
+
 func test_medal_aura_is_five_percent_per_medal_capped_at_twenty() -> void:
 	assert_almost_eq(ArmyModifiers.medal_aura(0), 1.0, 0.001)
 	assert_almost_eq(ArmyModifiers.medal_aura(2), 1.1, 0.001)

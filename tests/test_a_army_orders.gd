@@ -197,6 +197,46 @@ func test_the_dossier_names_the_rations_the_next_storm_reads() -> void:
 	)
 
 
+## The dossier prices the fight the crown orders from it: the land-battle price is
+## charged before the outcome, and the crown's own studies cut it, so the sheet
+## reads the figure the exchange will spend instead of the despatch after the
+## turn. Another court's standard prices none of it (wiki: tech-tree-military
+## § Economy modifiers; DR-20261124-11).
+func test_the_dossier_prices_the_land_battle_it_would_fight() -> void:
+	var play: PlaySession = _screen.play
+	var home: ArmyState = _player_home()
+	assert_not_null(home)
+	var economy: PlayerEconomy = _screen.economy.economy
+	var had: bool = economy.tech_unlocked.has("industrial_machinery")
+	economy.tech_unlocked.erase("industrial_machinery")
+
+	MapPlayArmies.select(play, home)
+	var panel: ArmyPanel = play.hud.panels.army_panel
+	assert_eq(
+		panel.attack_text(),
+		"Battles · each land battle costs 100 ducats",
+		"an unstudied court reads the published base"
+	)
+
+	economy.tech_unlocked["industrial_machinery"] = true
+	MapPlayArmies.show_panel(play, home)
+	assert_true(
+		panel.attack_text().contains("75 ducats"),
+		"the crown's own study cuts the price she will pay: %s" % panel.attack_text()
+	)
+
+	# A rival's standard answers her own court, which the crown cannot read.
+	for other: ArmyState in play.army_layer.armies:
+		if other.owner == play.player_faction:
+			continue
+		MapPlayArmies.show_panel(play, other)
+		assert_eq(panel.attack_text(), "", "another court's standard prices no battle")
+		break
+
+	if not had:
+		economy.tech_unlocked.erase("industrial_machinery")
+
+
 func test_detach_all_moves_the_whole_army_in_one_order() -> void:
 	var home: ArmyState = _player_home()
 	var total: int = home.count()

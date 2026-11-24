@@ -85,7 +85,20 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 		if is_player
 		else ArmyRationRead.NO_READING
 	)
+	# The crown's own land-battle price: the studies that cut what each fight
+	# charges, printed on the standards she orders the storm from. A rival's
+	# studies are not the crown's to read, so her sheet prices none
+	# (wiki: tech-tree-military § Economy modifiers; DR-20261124-11).
+	opening.attack_unlocked = _crown_studies(play) if is_player else {}
 	play.hud.panels.show_army(play.model, opening)
+
+
+## The crown's unlocked studies, for the readings that price her orders off them.
+## A session with no ledger answers none, and the base figures print.
+static func _crown_studies(play: PlaySession) -> Dictionary:
+	if play.economy == null or play.economy.economy == null:
+		return {}
+	return play.economy.economy.tech_unlocked
 
 
 ## The dossier's field-hospital order: `{caption, ok}` or empty when the crown

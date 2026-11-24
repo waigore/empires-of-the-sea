@@ -50,8 +50,8 @@
   (DR-20261112-04).
 - **Re-equipping** (`RegimentUpgrades`): the newest same-category type its
   techs unlock; Minors follow the leading power, Tribes level 1.
-- **Attack price** (`ArmyAttackCost`): 100 ducats an attacker, ×0.75 Machinery,
-  ×0.85 Military Funding.
+- **Attack price** (`ArmyAttackCost`, DR-20261124-11): 100 ducats an attacker,
+  ×0.75 Machinery, ×0.85 Funding; the dossier names it (`AttackPriceRead`).
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side, three stances;
   strength × cohesion. Guns soak fire, cut the fort; sieges split
   wall/behind (`SiegeLanes`).
