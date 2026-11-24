@@ -162,7 +162,6 @@ static func may_invade(play: PlaySession, province_id: int) -> bool:
 	return DiplomacyRules.invadable(play.diplomacy, play.player_faction, owner)
 
 
-
 static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:
 	if army.owner != play.player_faction:
 		return
