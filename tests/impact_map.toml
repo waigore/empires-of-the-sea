@@ -3267,6 +3267,17 @@ domain = "ai_ledger"
 match = "scripts/ai/ai_income.gd*"
 domain = "ai_ledger"
 
+# The research purse and the walk a free slot takes, split out of the planner
+# (#1494): the same ledger suites prove the assignments, and the college's
+# reading rides the research suite (`MapPlayResearchPick`).
+[[rules]]
+match = "scripts/ai/ai_research_purse.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_research_plan.gd*"
+domain = "ai_ledger"
+
 [[rules]]
 match = "scripts/ai/ai_utility.gd*"
 domain = "ai_ledger"

@@ -15,7 +15,7 @@ extends RefCounted
 
 ## Tech category -> personality weight domain (wiki: ai-personalities § Domain
 ## weight vectors). The research weight shifts funding instead
-## (`AiResearchPlanner.funding_for`).
+## (`AiResearchPurse.funding_for`).
 const CATEGORY_DOMAIN: Dictionary = {
 	"gathering": "economy",
 	"labour": "economy",
