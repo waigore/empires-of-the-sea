@@ -11163,11 +11163,16 @@ func campaign__world(own_colony: bool = true) -> WorldMap:
 func campaign__config() -> AiConfig:
 	return AiConfig.build(campaign_OWNER, 1500)
 
-func _war(target: int = RIVAL) -> DiplomacyState:
+## A war state. By default the court is at war with the rival and with the Tribe
+## whose New World coast the campaign fixture puts in reach; `target` narrows it
+## to that one court.
+func _war(target: int = -1) -> DiplomacyState:
 	var state := DiplomacyState.new()
 	state.reset(1)
-	state.ensure_relation(campaign_OWNER, target, 1)
-	state.relation(campaign_OWNER, target).at_war = true
+	var owners: Array[int] = [target] if target >= 0 else [RIVAL, TRIBE]
+	for owner: int in owners:
+		state.ensure_relation(campaign_OWNER, owner, 1)
+		state.relation(campaign_OWNER, owner).at_war = true
 	return state
 
 func _peace(target: int = RIVAL) -> DiplomacyState:
@@ -11290,17 +11295,24 @@ func test_a_hostile_host_on_the_court_s_soil_keeps_the_army_home() -> void:
 		[_home_army(), invader], null, true
 	).is_empty(), "a war on its own soil comes before a voyage")
 
-func test_only_a_declared_enemy_or_a_tribe_may_be_invaded() -> void:
-	assert_true(DiplomacyRules.invadable(_peace(), campaign_OWNER, TRIBE), "tribes need no declaration")
+func test_only_a_declared_enemy_may_be_invaded() -> void:
+	assert_false(DiplomacyRules.invadable(_peace(), campaign_OWNER, TRIBE), "a Tribe at peace is no invasion")
+	assert_true(DiplomacyRules.invadable(_war(TRIBE), campaign_OWNER, TRIBE), "a declared Tribe is")
 	assert_false(DiplomacyRules.invadable(_peace(), campaign_OWNER, RIVAL), "peace holds with a crown")
-	assert_true(DiplomacyRules.invadable(_war(), campaign_OWNER, RIVAL))
+	assert_true(DiplomacyRules.invadable(_war(RIVAL), campaign_OWNER, RIVAL))
 
-func test_a_tribe_coast_is_a_lawful_target_without_a_declaration() -> void:
+## A newly contacted Tribe at peace is left to diplomacy and colonisation: the
+## court's only squadron is not hijacked for an undeclared landing (issues #1429,
+## #1454).
+func test_a_peaceful_tribe_coast_is_no_expedition() -> void:
 	var world: WorldMap = campaign__world()
-	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+	assert_true(AiInvasionPlanner.split_orders(
 		campaign__config(), _peace(), world, world.region(0), [campaign__squadron()], [_home_army()]
+	).is_empty(), "a Tribe at peace draws no crossing force")
+	var declared: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _war(TRIBE), world, world.region(0), [campaign__squadron()], [_home_army()]
 	)
-	assert_eq(actions.size(), 1, "the New World is open to a crown at peace")
+	assert_eq(declared.size(), 1, "a declared Tribe coast is a lawful target")
 
 func test_no_detachment_without_a_shore_across_the_water() -> void:
 	# A war with a crown holding no New World coast, and no tribe, is a land war.
@@ -11314,7 +11326,7 @@ func test_no_detachment_without_a_shore_across_the_water() -> void:
 		campaign__config(), _war(), home_only, home_only.region(0), [campaign__squadron()], [_home_army()]
 	).is_empty())
 
-func test_the_landing_targets_a_tribe_coast_without_a_war() -> void:
+func test_the_landing_targets_a_declared_tribe_coast() -> void:
 	var world: WorldMap = campaign__world()
 	var new_world: MapModel = world.region(1)
 	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
@@ -11323,8 +11335,15 @@ func test_the_landing_targets_a_tribe_coast_without_a_war() -> void:
 	fleet.location = FleetState.Location.AT_SEA
 	fleet.sea_zone = 0
 	fleet.province = MapModel.NO_ID
-	var order: Dictionary = AiInvasionPlanner.plan(
+	var peace: Dictionary = AiInvasionPlanner.plan(
 		campaign__config(), _peace(), world, 1, new_world, [fleet], [army]
+	)
+	assert_ne(
+		String(peace.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD,
+		"a peaceful shore is no landing site"
+	)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army]
 	)
 	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
 	assert_eq(int(order.get("province", -1)), 0)
@@ -11520,7 +11539,7 @@ func test_a_lapsed_beachhead_is_replaced_by_a_fresh_coast() -> void:
 	extra.coastal = true
 	new_world.provinces.append(extra)
 	var order: Dictionary = AiInvasionPlanner.plan(
-		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 2
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army], 2
 	)
 	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
 	assert_eq(int(order.get("province", -1)), 2, "a fresh coast is marked this turn")

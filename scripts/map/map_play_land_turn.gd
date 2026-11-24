@@ -36,7 +36,8 @@ static func battle_context(play: PlaySession) -> Dictionary:
 	}
 
 
-## Battles only happen between declared enemies and Tribes (wiki: factions).
+## Battles only happen between declared enemies (wiki: diplomacy § War required
+## for hostile actions).
 static func _war_query(play: PlaySession) -> Callable:
 	return func(a: int, b: int) -> bool:
 		return DiplomacyRules.invadable(play.diplomacy, a, b)

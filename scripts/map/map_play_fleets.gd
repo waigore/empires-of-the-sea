@@ -274,8 +274,7 @@ static func land(play: PlaySession, province_id: int) -> void:
 		return
 	var invaded: bool = play.model.province_owner(province_id) != play.player_faction
 	var result: Dictionary = ArmyTransport.disembark(
-		play.army_layer, fleet, province_id, play.turn, MapPlayBeachhead.hostile(play),
-		play.diplomacy
+		play.army_layer, fleet, province_id, play.turn, MapPlayBeachhead.hostile(play)
 	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The troops cannot land.")))
