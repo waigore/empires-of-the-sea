@@ -12,8 +12,12 @@ var can_merge: bool = false
 var command: String = ""
 ## Drill-yard rows; empty for a rival's dossier.
 var muster: Array[Dictionary] = []
-## The embark note under the orders; empty when the army cannot board.
-var embark: String = ""
+## The boarding press: `{caption, ok}` for the squadron waiting in the army's port
+## — ready with the deck it would take (`Embark aboard the fleet · 5 hulls, 2
+## free`), or refused with the rules' own reason as the caption — and empty when
+## no squadron waits there (wiki: ships-and-naval § Naval transport;
+## DR-20261124-14).
+var embark: Dictionary = {}
 ## The crown's standing Quick Battle plan (wiki: quick-battle).
 var plan: String = "balanced"
 ## The field-hospital order: `{caption, ok}` or empty when none is offered.

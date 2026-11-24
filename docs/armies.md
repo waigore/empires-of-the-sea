@@ -17,16 +17,14 @@
   feeding 1.0/0.75/0.5; wood 1.5/1.1 defender, 0.9 attacker.
 - **Armies** (`ArmyState`): one province per army; one Home Army per crown at
   its capital, never deleted; split/combine needs one province and owner; one
-  march a turn, foreign land must border. **Dismiss** sheds a regiment (or all),
+  march a turn, foreign land bordering. **Dismiss** sheds a regiment (or all),
   a peasant each, no refund; an emptied army retires (DR-20261109-01). A stranded
-  host walks home, naming its harbour across the sea (DR-20261121-15,
-  DR-20261122-07/-09).
+  host walks home, naming its harbour (DR-20261121-15, DR-20261122-07/-09).
 - **Upkeep:** 1–3 food a regiment, by era.
 - **Rations** (`ArmyRationRead`, DR-20261124-02): the dossier names the share fed
-  and the morale the field reads, full, 0.75 or half (wiki: combat § Feeding
-  modifiers).
+  and the morale the field reads (wiki: combat § Feeding modifiers).
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
-  citation weight; DEF/9; ratio bands; elimination precedes a flip; mutual ruin
+  citation; DEF/9; ratio bands; elimination precedes a flip; mutual ruin
   restores `ceil(20%)` infantry.
 - **Condition** (`RegimentCondition`, DR-20261110-19): health (`60 + 10 × DEF`)
   and chevrons; a break mauls survivors, winners gain a chevron.
@@ -38,20 +36,21 @@
   decorated colours lead and fall last.
 - **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
   DR-20261121-14; `MapPlayForceCounsel`, DR-20261121-17/22-03): the order prints
-  on its dossier, THE CROWN'S ARMY (`ArmyLedger`, DR-20261116-16) and the muster
-  roll, or the gate; named rows wear `▸` with its legend (DR-20261122-05,
-  DR-20261123-03).
+  on its dossier, the muster roll and THE CROWN'S ARMY (`ArmyLedger`,
+  DR-20261116-16), or the gate; named rows wear `▸` with its legend (DR-20261122-05/23-03).
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03/22-12): the
-  muster block prints in gold the line the published muster would raise (or its
-  gate) and marks that pattern `▸` (DR-20261123-08). Reads only.
+  muster block prints the line the published muster would raise (or its gate),
+  marked `▸` (DR-20261123-08).
 - **Named commanders** (`GeneralNames`, DR-20261112-03): one pooled name each.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on
   town tiles; rest 40%/55%, wear 80%/65%; wards eat 2 food a level, unfed 25%
   (DR-20261112-04).
 - **Re-equipping** (`RegimentUpgrades`): the newest same-category type its
-  techs unlock; Minors follow the leading power, Tribes level 1.
+  techs unlock; Minors follow the leading power, Tribes 1.
 - **Attack price** (`ArmyAttackCost`, DR-20261124-11): 100 ducats an attacker,
   ×0.75 Machinery, ×0.85 Funding; the dossier names it (`AttackPriceRead`).
+- **Boarding** (`DeckRead`, DR-20261124-14): the press names the deck, or stands
+  disabled with the rules' refusal (ships-and-naval).
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side, three stances;
   strength × cohesion. Guns soak fire, cut the fort; sieges split
   wall/behind (`SiegeLanes`).
@@ -64,8 +63,8 @@ All in [`deferred.md`](deferred.md).
 
 Rules (no nodes, `REQ-P3-03`): `scripts/rules/` `regiment_*`, `army_*`,
 `quick_battle*`, `siege_lanes`, `hospital_rules`, `hospital_train`,
-`general_*`, `naval_transport`. Presentation: `map/army_*`, `map/map_play_army*`,
-`map/map_play_muster_pick*`, `map/map_play_land_turn`, `ui/army_panel`,
+`general_*`, `naval_transport`, `deck_read`. Presentation: `map/army_*`, `map/map_play_army*`,
+`map_play_muster_pick*`, `map_play_land_turn`, `ui/army_panel`,
 `ui/quick_battle_*`, `map_screen`.
 
 ```text
@@ -78,7 +77,7 @@ ArmyLayer        hands a crown over in place, then writes stored rosters back
 
 | Action | Desktop | Touch |
 |--------|---------|-------|
-| Select / march | click standard, then province | tap both |
+| Select / march | click standard, then province | tap |
 | Detach / combine / muster / rename | dossier | dossier |
 | Embark / land | dossier | dossier |
 

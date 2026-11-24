@@ -514,6 +514,20 @@ domain = "hostility"
 match = "scripts/rules/naval_deck.gd*"
 domain = "hostility"
 
+# What a deck can still take, read by the squadron's own line and the standard's
+# boarding press (DR-20261124-14). One reading over the deck's own counts, proved
+# by the naval suite (the arithmetic and the squadron's line) and the army suite
+# (the boarding press), so it rides neither the hostility nor the army fan-out.
+[domains.deck_read]
+suites = [
+  "test_fleet_orders.gd",
+  "test_a_army_orders.gd",
+]
+
+[[rules]]
+match = "scripts/rules/deck_read.gd*"
+domain = "deck_read"
+
 [[rules]]
 match = "scripts/rules/fleet_missions.gd*"
 domain = "hostility"
@@ -4590,6 +4604,14 @@ domain = "army_orders"
 
 [[rules]]
 match = "scripts/ui/army_panel_orders.gd*"
+domain = "army_orders"
+
+# The army dossier's opening — the record one sheet hands the panel. The
+# army-orders suite reads it through `MapPlayArmies.show_panel`, so a field added
+# for a sheet's reading never pulls the `scripts/ui` menu fan-out.
+# *Declared before the ui glob.*
+[[rules]]
+match = "scripts/ui/army_dossier_opening.gd*"
 domain = "army_orders"
 
 # Roster and muster blocks are dossier presentation, not army rules: keep them

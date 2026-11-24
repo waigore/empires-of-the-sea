@@ -237,6 +237,42 @@ func test_the_dossier_prices_the_land_battle_it_would_fight() -> void:
 		economy.tech_unlocked.erase("industrial_machinery")
 
 
+## The standard prices the deck its boarding would take, and a refused boarding
+## keeps its press, disabled, with the rules' own reason on its face — the reason
+## is a reading, not a missing order (wiki: ships-and-naval § Naval transport,
+## § Civilian passengers; DR-20261124-14).
+func test_the_dossier_prices_the_deck_a_boarding_would_take() -> void:
+	var play: PlaySession = _screen.play
+	var field: ArmyState = _detach_one()
+	assert_not_null(field)
+	var fleet: FleetState = _port_fleet(play, field.province)
+	assert_not_null(fleet, "the seat keeps a squadron in port")
+
+	MapPlayArmies.show_panel(play, field)
+	var panel: ArmyPanel = play.hud.panels.army_panel
+	assert_true(panel._embark.visible, "the boarding press stands while a squadron waits")
+	assert_false(panel._embark.disabled, "her deck can take the host")
+	assert_true(
+		String(panel._embark.text).contains(
+			DeckRead.deck_text(DeckRead.read(fleet, field.count()))
+		),
+		"the press names the deck it would take: %s" % panel._embark.text
+	)
+
+	# A colonist takes the last berth a one-hull squadron keeps: the press stays,
+	# disabled, in the rules' own words.
+	while fleet.hulls.size() > 1:
+		fleet.hulls.remove_at(fleet.hulls.size() - 1)
+	fleet.add_civilian(99)
+	MapPlayArmies.show_panel(play, field)
+	assert_true(panel._embark.visible, "a refused boarding keeps its press")
+	assert_true(panel._embark.disabled, "disabled, with the reason on its face")
+	assert_true(
+		String(panel._embark.text).contains("colonists"),
+		"the rules' own refusal: %s" % panel._embark.text
+	)
+
+
 func test_detach_all_moves_the_whole_army_in_one_order() -> void:
 	var home: ArmyState = _player_home()
 	var total: int = home.count()
@@ -961,6 +997,17 @@ func _detach_one() -> ArmyState:
 	_screen.army_layer.select(home)
 	MapPlayArmies.on_action(_screen.play, "detach:%s" % home.regiments[0])
 	return _screen.army_layer.selected_army
+
+
+## A squadron of the crown in port at `province`, or null: the deck a boarding
+## would take (wiki: ships-and-naval § Naval transport).
+func _port_fleet(play: PlaySession, province: int) -> FleetState:
+	for fleet: FleetState in play.ship_layer.fleets:
+		if fleet == null or fleet.owner != play.player_faction:
+			continue
+		if fleet.is_in_port() and fleet.province == province:
+			return fleet
+	return null
 
 
 ## A squadron by id, in the shown region or in any stored region roster.

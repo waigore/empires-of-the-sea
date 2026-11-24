@@ -5223,6 +5223,71 @@ func test_the_dossier_counts_one_hull_in_the_singular() -> void:
 	assert_true(line.contains("carrying 1 regiment · 1 colonist"), "the dossier reads '%s'" % line)
 	panel.free()
 
+## The deck prices the room a boarding leaves: one hull carries one regiment or
+## one colonist, so a sheet counts what the hulls are not already carrying
+## (wiki: ships-and-naval § Naval transport, § Civilian passengers;
+## DR-20261124-14).
+func test_the_deck_reads_the_room_a_boarding_leaves() -> void:
+	var fleet := FleetState.in_port(3, 1, 0, ["ship_1", "ship_2", "ship_3"], {})
+
+	var empty: Dictionary = DeckRead.read(fleet)
+	assert_eq(int(empty["hulls"]), 3)
+	assert_eq(int(empty["free"]), 3)
+	assert_eq(DeckRead.room_text(empty), "room for 3 more")
+	assert_eq(DeckRead.deck_text(empty), "3 hulls, all free")
+
+	fleet.add_civilian(11)
+	var one: Dictionary = DeckRead.read(fleet, 1)
+	assert_eq(int(one["aboard"]), 2, "a regiment and a colonist take two berths")
+	assert_eq(int(one["free"]), 1)
+	assert_eq(DeckRead.room_text(one), "room for 1 more")
+	assert_eq(DeckRead.deck_text(one), "3 hulls, 1 free")
+
+	var over: Dictionary = DeckRead.read(fleet, 5)
+	assert_eq(int(over["free"]), 0, "a deck is never read past its hulls")
+	assert_eq(DeckRead.room_text(over), "no room aboard")
+	assert_eq(DeckRead.deck_text(over), "3 hulls, no room aboard")
+
+	var none: Dictionary = DeckRead.read(null)
+	assert_false(bool(none["known"]), "no squadron, no deck")
+	assert_eq(DeckRead.room_text(none), "", "an unknown deck prints nothing")
+	assert_eq(DeckRead.deck_text(none), "")
+
+	# A squadron the sea has emptied keeps no deck to read.
+	var bare := FleetState.new()
+	bare.id = 4
+	bare.owner = 1
+	assert_false(bool(DeckRead.read(bare)["known"]), "a squadron with no hull has no deck")
+	assert_eq(DeckRead.room_text(DeckRead.read(bare)), "", "and prints no room")
+
+
+## The dossier's own line names the room her hulls leave, so a crown reads what a
+## host or a colonist still fits before she orders either aboard (wiki:
+## ships-and-naval § Naval transport; DR-20261124-14).
+func test_the_dossier_names_the_room_aboard() -> void:
+	_setup_fleet_names()
+	var panel := FleetPanel.new()
+	add_child(panel)
+	var fleet := FleetState.in_port(3, 1, 0, ["ship_1", "ship_2"], {})
+
+	panel.refresh(fleet_names_NavalFixture.build(), FleetDossierOpening.of(fleet, true))
+	assert_true(_muster_text(panel).contains("room for 2 more"), _muster_text(panel))
+
+	var carried := FleetDossierOpening.of(fleet, true)
+	carried.carried = 2
+	panel.refresh(fleet_names_NavalFixture.build(), carried)
+	assert_true(_muster_text(panel).contains("no room aboard"), _muster_text(panel))
+	panel.free()
+
+
+## The composition line naming the hulls and the food they eat.
+func _muster_text(panel: FleetPanel) -> String:
+	for node: Node in panel.find_children("*", "Label", true, false):
+		var text: String = (node as Label).text
+		if text.contains("upkeep"):
+			return text
+	return ""
+
 ## The dossier names the hull, and the break-up confirmation names what it breaks
 ## (REQ-P1-03, REQ-P5-04).
 func test_the_dossier_and_the_break_up_name_the_hull() -> void:

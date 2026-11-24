@@ -41,9 +41,13 @@ static func can_embark(model: MapModel, army: ArmyState, fleet: FleetState) -> D
 		return OrderVerdict.deny("The squadron is carrying colonists; land them before taking troops aboard.")
 	if army.count() > NavalDeck.capacity(fleet):
 		var room: int = NavalDeck.capacity(fleet)
+		var men: int = army.count()
+		# One hull holds one regiment: the deck names both counts, and a host of
+		# one reads the singular (REQ-P1-07; the press prints these words as its
+		# own caption, DR-20261124-14).
 		return OrderVerdict.deny(
-			"The squadron has %d hull%s and cannot carry %d regiments."
-			% [room, "" if room == 1 else "s", army.count()]
+			"The squadron has %d hull%s and cannot carry %d regiment%s."
+			% [room, "" if room == 1 else "s", men, "" if men == 1 else "s"]
 		)
 	if model == null or model.province_data(army.province) == null:
 		return OrderVerdict.deny("That is not a province.")
