@@ -10494,6 +10494,48 @@ func test_the_fleet_dossier_names_the_rations_the_next_battle_reads() -> void:
 	)
 
 
+## The band's own dress is one home for the field and the sea (RationBand): the
+## ladder only decides whether it is dim or gold. A hungry crown reads gold with
+## the rule's tip beside the words; a whole one reads dim; and a rule that bars
+## every coverage still prints its rule's line, hiding only a blank one
+## (DR-20261124-15; REQ-P5-06).
+func test_the_band_dresses_a_hungry_crown_in_gold() -> void:
+	var block := FleetStrengthSection.new()
+	add_child(block)
+	block.set_data({"count": 3, "known": true}, 0.6)
+	var band: RationBand = block.get("_rations") as RationBand
+	assert_true(band != null, "the squadron's strength block mounts the shared band")
+	assert_true(band.visible, "a reading stands the band")
+	assert_true(
+		band.tooltip_text.contains("0.75 morale"),
+		"the rule's tip rides the band: %s" % band.tooltip_text
+	)
+	assert_eq(
+		band.get_theme_color("font_color"), Palette.GOLD_PALE,
+		"a hungry fleet wears gold so the bite reads before the next water"
+	)
+
+	block.set_data({"count": 3, "known": true}, 1.0)
+	assert_eq(
+		band.get_theme_color("font_color"), Palette.TEXT_DIM,
+		"a whole fleet reads the dim ink"
+	)
+
+	# A rule that bars every coverage (an unread ladder) stands its line down.
+	var barred := RationBand.make(11)
+	add_child(barred)
+	RationBand.show_line(
+		barred, 1.0,
+		func(_coverage: float) -> String: return "",
+		func(_coverage: float) -> String: return "",
+		func(_coverage: float) -> float: return 1.0
+	)
+	assert_false(barred.visible, "a blank line prints no band")
+	assert_eq(RationBand.text_of(barred), "", "and the sheet reads no row")
+	barred.queue_free()
+	block.queue_free()
+
+
 ## The harness's own rows read the band into the tallies, but a navy that has
 ## never closed a turn carries no reading at all (a fixture's session).
 func test_a_session_without_a_ledger_reads_no_navy_band() -> void:

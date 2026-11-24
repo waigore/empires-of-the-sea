@@ -27,7 +27,7 @@ var _strength: Label = null
 ## The crown's ration band under the strength line: the share of the army's bill
 ## the granary fed and the morale the next engagement reads off it, or no row for
 ## another court's standard (wiki: combat § Feeding modifiers; DR-20261124-02).
-var _rations: Label = null
+var _rations: RationBand = null
 ## The land-battle price under the ration band: what each fight this crown
 ## attacks charges her treasury, and the studies that have cut it, or no row for
 ## another court's standard (wiki: tech-tree-military § Economy modifiers;
@@ -90,9 +90,7 @@ func _build() -> void:
 	# The ration band sits under the bill it answers: the strength line names the
 	# food the men eat, this names what the granary fed of it and the morale the
 	# next engagement reads (wiki: combat § Feeding modifiers; DR-20261124-02).
-	_rations = UiRowBuilder.line(12, Palette.TEXT_DIM)
-	_rations.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_rations.visible = false
+	_rations = RationBand.make(12)
 	shell.add_child(_rations)
 
 	# The battle price sits under the ration band: both are the field's own
@@ -275,24 +273,22 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 ## the rule's own ladder words it (`ArmyRationRead`), and a crown fed short of its
 ## bill wears the sheet's gold so the reader sees the bite before the next storm
 ## (wiki: combat § Feeding modifiers; DR-20261124-02). A `NO_READING` opening —
-## another court's standard — prints no row at all.
+## another court's standard — prints no row at all. The band's dress is
+## `RationBand`'s, which the sea's squadron wears too.
 func _show_rations(coverage: float) -> void:
-	if _rations == null:
-		return
-	var text: String = ArmyRationRead.line(coverage)
-	_rations.text = text
-	_rations.visible = not text.is_empty()
-	_rations.tooltip_text = ArmyRationRead.tip(coverage)
-	var hungry: bool = coverage >= 0.0 and ArmyRationRead.multiplier(coverage) < 1.0
-	_rations.add_theme_color_override(
-		"font_color", Palette.GOLD_PALE if hungry else Palette.TEXT_DIM
+	RationBand.show_line(
+		_rations,
+		coverage,
+		ArmyRationRead.line,
+		ArmyRationRead.tip,
+		ArmyRationRead.multiplier
 	)
 
 
 ## The ration row's text for tests and tooling (REQ-P3-02). Empty when the sheet
 ## holds no reading for the standard on show.
 func rations_text() -> String:
-	return "" if _rations == null or not _rations.visible else _rations.text
+	return RationBand.text_of(_rations)
 
 
 ## The battle price under the ration band, off the crown's own studies: what each
