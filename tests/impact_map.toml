@@ -725,6 +725,18 @@ match = "scripts/ui/hud_stat_chips.gd*"
 domain = "palette"
 
 [[rules]]
+match = "scripts/ui/hud_stat_chip_build.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chip_motion.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_treasury_tooltip.gd*"
+domain = "palette"
+
+[[rules]]
 match = "scripts/ui/improvement_panel.gd*"
 domain = "palette"
 
@@ -4775,8 +4787,21 @@ domain = "despatch"
 
 # Treasury chip copy only: the purse tooltip prints through MoneyText, so keep
 # it off the ui domain's battle boot when stacked on a ducats formatting PR.
+# Build / motion / tip extracts ride the same lean slice as the binder.
 [[rules]]
 match = "scripts/ui/hud_stat_chips.gd*"
+domain = "money_text"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chip_build.gd*"
+domain = "money_text"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chip_motion.gd*"
+domain = "money_text"
+
+[[rules]]
+match = "scripts/ui/hud_treasury_tooltip.gd*"
 domain = "money_text"
 
 # HudSheet reveal law: pure; rides the chrome leftovers boot. Named before the
