@@ -145,7 +145,7 @@ func _note(text: String) -> Label:
 	var label := Label.new()
 	label.text = text
 	label.add_theme_font_size_override("font_size", 11)
-	label.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.85))
+	label.add_theme_color_override("font_color", Palette.with_alpha(Palette.TEXT_DIM, 0.85))
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return label
 

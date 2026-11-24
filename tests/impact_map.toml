@@ -227,6 +227,22 @@ suites = [
   "test_naval_rules.gd",
 ]
 
+# The convoy's escort cover (wiki: ships-and-naval § Trade and Transport
+# Interception; DR-20261124-04): one pure reading over the raid's own escort
+# terms, printed on the market sheet. The naval rules suite proves the reading
+# against the raid's figures and the economy-screen suite mounts the row, so a
+# wording change never pays for the rules catch-all's battle and world boots.
+[domains.convoy]
+suites = [
+  "test_naval_rules.gd",
+  "test_economy_screen.gd",
+]
+
+[[rules]]
+match = "scripts/rules/convoy_read.gd*"
+domain = "convoy"
+
+
 
 # Fog of war (wiki: fog-and-exploration): the rules, the layer, the save and the
 # AI gates that read a chart. Kept its own (small) domain so a fog change is
@@ -618,6 +634,155 @@ suites = [
   "test_army_orders.gd",
   "test_fleet_orders.gd",
 ]
+
+# Parchment / gold-rule call sites from the one-palette refactor (#1430): each
+# path only swaps a hand-spelled ink for Palette.PARCHMENT / GOLD_RULE /
+# with_alpha, so they ride the lean palette slice. Named before their prior
+# domains so a bulk ink PR stays inside the tier-1 5 min budget; restore those
+# prior domains when a non-ink change reshapes the file.
+[[rules]]
+match = "scripts/debug/playtest_capture_overlay.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/map/army_marker.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/map/civilian_marker.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/map/map_overlay.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/map/ship.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/army_muster_block.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/army_panel.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/army_roster_block.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/audio_controls.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/battle_sim_setup.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/capital_choice_chrome.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/civilian_panel.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/colony_ledger_panel.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/command_ledger_panel.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/end_turn_door.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/estates_head.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/fleet_dossier_section.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/fleet_panel.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_chrome.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_despatches.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chips.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/improvement_panel.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/improvement_row.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/ledger_filter_bar.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/ledger_frame.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/ledger_list.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/ledger_row.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/lens_legend.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/lens_seal.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/map_region_toggle.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/menu_frame.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/modal_shell.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/province_panel.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/raise_ledger_row.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/top_bar.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/ui_row_builder.gd*"
+domain = "palette"
 
 # The one modal every cartouche door stands on and the door that hosts a panel
 # carrying its own chrome (issue #692). They are the sheet chrome plus the bar's
@@ -2433,6 +2598,20 @@ suites = [
 suites = [
   "test_ledgers.gd",
 ]
+
+# The map hook that carries the harvest line to the estate block (DR-20261123-25):
+# the ledgers suite mounts the screen, opens the seat's dossier and reads the line
+# off the boot's own bind, so the hook rides that one suite instead of the muster
+# fan-out the dossier already belongs to.
+[domains.province_harvest_sheet]
+suites = [
+  "test_ledgers.gd",
+]
+
+[[rules]]
+match = "scripts/map/map_play_province_harvest.gd*"
+domain = "province_harvest_sheet"
+
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
 domain = "province_sheet"
@@ -3312,12 +3491,19 @@ domain = "ai_works"
 match = "scripts/map/civilian_muster.gd*"
 domain = "ai_works"
 
-# The one reader every rival pass asks for a court's standing and order of
-# battle. The yard-chest re-route (#878) is proved by the AI/economy suites;
-# keep it off the observer/battle fan-out and the broad map catch-all
-# (tier-1 5 min budget).
+# The court reader trio: seat/planner gate, holdings, and roster. The yard-chest
+# re-route (#878) is proved by the AI/economy suites; keep all three off the
+# observer/battle fan-out and the broad map catch-all (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_court_holdings.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_court_roster.gd*"
 domain = "ai_economy"
 
 # Sea earning asks only the income plan; keep a bind retarget off the broad

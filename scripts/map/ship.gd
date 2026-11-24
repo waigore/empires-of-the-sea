@@ -193,7 +193,7 @@ func _draw() -> void:
 			lane + Vector2(0, 0), 24.0, 0, TAU, 40, Color(0.99, 0.93, 0.72, 0.9), 2.0, true
 		)
 		draw_arc(
-			lane + Vector2(0, 0), 29.0, 0, TAU, 40, Color(0.83, 0.69, 0.22, 0.35), 4.0, true
+			lane + Vector2(0, 0), 29.0, 0, TAU, 40, Palette.with_alpha(Palette.GOLD_RULE, 0.35), 4.0, true
 		)
 
 

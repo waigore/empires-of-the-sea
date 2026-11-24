@@ -4,6 +4,9 @@ extends Node
 ## voice pool and the sea ambience. Nothing here decides gameplay; screens call
 ## `play_event` / `play_music` and the mix stays in `AudioMix` (REQ-P1-06, P3).
 ##
+## The fades live in [AudioBedFader] so a driven run can land them without the
+## desk holding a book per Tween.
+##
 ## Lives as a scene node (no autoload) so `arch-lint` keeps autoloads empty and
 ## tests can instantiate it in isolation.
 
@@ -13,11 +16,18 @@ const MUSIC_FADE := 1.6
 const SFX_VOICES := 6
 const SILENT_DB := -80.0
 const AMBIENCE_GAIN := 0.55
+## A mix knob settles to disk this long after the last turn, so a drag of the
+## slider writes once (REQ-P1-06).
+const SAVE_DELAY := 0.5
 
 ## Multiplier on every bed fade. Live play reads each knob as its published
 ## length; a driven run (the headless smoke) sets it to 0 so no frame is spent
 ## waiting out a fade nothing listens to (docs/testing.md § Speed rules).
-var fade_scale: float = 1.0
+var fade_scale: float:
+	get:
+		return _fader.scale
+	set(value):
+		_fader.scale = value
 
 var mix: AudioMix = AudioMix.new()
 var settings_path: String = AudioMix.SETTINGS_PATH
@@ -26,13 +36,13 @@ var last_event: String = ""
 var last_track_id: String = ""
 var sfx_played: int = 0
 
+var _fader: AudioBedFader = AudioBedFader.new()
 var _music: Array[AudioStreamPlayer] = []
 var _active: int = 0
 var _sfx: Array[AudioStreamPlayer] = []
 var _cursor: int = 0
 var _ambience: AudioStreamPlayer = null
 var _cache: Dictionary = {}
-var _fades: Array[Tween] = []
 var _save_timer: Timer = null
 var _current_track: String = ""
 ## The score is walking `MusicPlaylist.ROTATION`; an explicit looping bed clears
@@ -61,15 +71,22 @@ func play_event(event_name: String, volume_scale: float = 1.0) -> bool:
 		return true
 	var cue: Dictionary = AudioEvents.cue(event_name)
 	var pitch: float = float(cue.get("pitch", 0.0))
-	var player: AudioStreamPlayer = _take_sfx_player()
-	player.stream = stream
-	player.pitch_scale = 1.0 + randf_range(-pitch, pitch)
-	player.volume_db = SILENT_DB
-	if not mix.muted:
-		var trim: float = float(cue.get("volume_db", -12.0))
-		var scale_db: float = linear_to_db(clampf(volume_scale, 0.05, 1.0))
-		player.volume_db = trim + scale_db + mix.sfx_db()
-	player.play()
+	var trim: float = float(cue.get("volume_db", -12.0))
+	var gain: float = linear_to_db(clampf(volume_scale, 0.05, 1.0))
+	_play_voice(stream, trim + gain + mix.sfx_db(), randf_range(-pitch, pitch))
+	return true
+
+
+## One-shot musical hit (victory fanfare, defeat knell) over the running bed.
+func play_stinger(track_id: String, volume_db: float = -4.0) -> bool:
+	var stream: AudioStream = _stream(MusicPlaylist.path_for(track_id))
+	if stream == null:
+		return false
+	_set_loop(stream, false)
+	sfx_played += 1
+	if mix.muted:
+		return true
+	_play_voice(stream, volume_db + mix.sfx_db(), 0.0)
 	return true
 
 
@@ -112,40 +129,19 @@ func play_rotation(track_id: String = "", fade: float = MUSIC_FADE) -> bool:
 func stop_music(fade: float = MUSIC_FADE) -> void:
 	rotating = false
 	_current_track = ""
-	var player: AudioStreamPlayer = _active_player()
-	_fade_to(player, SILENT_DB, fade, true)
+	_fader.fade(self, _active_player(), SILENT_DB, fade, true)
 
 
 ## Lands every bed now at the knob it is fading toward, the way `_apply_mix`
 ## does when the mix changes. A driven run ends its fades this way so no Tween
 ## keeps the tree busy after the last assert (docs/testing.md § Speed rules).
 func land_fades() -> void:
-	for tween: Tween in _fades:
-		if tween.is_valid():
-			tween.custom_step(60.0)
-	_fades.clear()
+	_fader.land()
 	# The stopped bed stays stopped; the desk only restores the live one, and
 	# only when the mix is not muted (the mute assert left it at silence).
 	if _current_track.is_empty() or mix.muted:
 		return
 	_active_player().volume_db = mix.music_db()
-
-
-## One-shot musical hit (victory fanfare, defeat knell) over the running bed.
-func play_stinger(track_id: String, volume_db: float = -4.0) -> bool:
-	var stream: AudioStream = _stream(MusicPlaylist.path_for(track_id))
-	if stream == null:
-		return false
-	_set_loop(stream, false)
-	sfx_played += 1
-	if mix.muted:
-		return true
-	var player: AudioStreamPlayer = _take_sfx_player()
-	player.stream = stream
-	player.pitch_scale = 1.0
-	player.volume_db = volume_db + mix.sfx_db()
-	player.play()
-	return true
 
 
 func current_track_id() -> String:
@@ -157,23 +153,17 @@ func current_track_id() -> String:
 
 func set_music_volume(value: float) -> void:
 	mix.set_music(value)
-	_apply_mix()
-	_save_soon()
-	mix_changed.emit(mix.music, mix.sfx, mix.muted)
+	_mix_spoken()
 
 
 func set_sfx_volume(value: float) -> void:
 	mix.set_sfx(value)
-	_apply_mix()
-	_save_soon()
-	mix_changed.emit(mix.music, mix.sfx, mix.muted)
+	_mix_spoken()
 
 
 func set_muted(value: bool) -> void:
 	mix.set_muted(value)
-	_apply_mix()
-	_save_soon()
-	mix_changed.emit(mix.music, mix.sfx, mix.muted)
+	_mix_spoken()
 
 
 func toggle_mute() -> void:
@@ -187,6 +177,24 @@ func is_muted() -> bool:
 # --- internals ---------------------------------------------------------------
 
 
+## Applies a fresh mix, saves it soon and tells the desk's listeners: one door
+## for every knob, so the three setters cannot drift apart (REQ-P1-06).
+func _mix_spoken() -> void:
+	_apply_mix()
+	if _save_timer != null:
+		_save_timer.start()
+	mix_changed.emit(mix.music, mix.sfx, mix.muted)
+
+
+## One cue on a pooled voice: the desk picks the player, the caller prices it.
+func _play_voice(stream: AudioStream, volume_db: float, pitch: float) -> void:
+	var player: AudioStreamPlayer = _take_sfx_player()
+	player.stream = stream
+	player.pitch_scale = 1.0 + pitch
+	player.volume_db = volume_db
+	player.play()
+
+
 func _build_players() -> void:
 	for index in 2:
 		var player := AudioStreamPlayer.new()
@@ -196,32 +204,24 @@ func _build_players() -> void:
 		add_child(player)
 		_music.append(player)
 	for index in SFX_VOICES:
-		var player := AudioStreamPlayer.new()
-		player.name = "Sfx%d" % index
-		player.volume_db = SILENT_DB
-		add_child(player)
-		_sfx.append(player)
+		var voice := AudioStreamPlayer.new()
+		voice.name = "Sfx%d" % index
+		voice.volume_db = SILENT_DB
+		add_child(voice)
+		_sfx.append(voice)
 	_ambience = AudioStreamPlayer.new()
 	_ambience.name = "Ambience"
 	_ambience.volume_db = SILENT_DB
 	add_child(_ambience)
 	_save_timer = Timer.new()
 	_save_timer.one_shot = true
-	_save_timer.wait_time = 0.5
+	_save_timer.wait_time = SAVE_DELAY
 	_save_timer.timeout.connect(func() -> void: mix.save(settings_path))
 	add_child(_save_timer)
 
 
-func _save_soon() -> void:
-	if _save_timer != null:
-		_save_timer.start()
-
-
 func _apply_mix() -> void:
-	for tween: Tween in _fades:
-		if tween.is_valid():
-			tween.kill()
-	_fades.clear()
+	_fader.clear()
 	for index in _music.size():
 		var player: AudioStreamPlayer = _music[index]
 		player.volume_db = mix.music_db() if index == _active else SILENT_DB
@@ -265,27 +265,8 @@ func _crossfade(stream: AudioStream, fade: float) -> void:
 	incoming.volume_db = SILENT_DB
 	incoming.play()
 	_active = next_index
-	_fade_to(previous, SILENT_DB, fade, true)
-	_fade_to(incoming, mix.music_db(), fade, false)
-
-
-func _fade_to(player: AudioStreamPlayer, target_db: float, fade: float,
-		stop_when_done: bool) -> void:
-	# A driven run asks for no fade: land on the knob at once, as a zero-length
-	# crossfade already does, so the bed is the same without the wait.
-	fade *= fade_scale
-	if fade <= 0.0:
-		player.volume_db = target_db
-		if stop_when_done:
-			player.stop()
-		return
-	var tween := create_tween()
-	tween.tween_property(player, "volume_db", target_db, fade)
-	if stop_when_done:
-		tween.tween_callback(player.stop)
-	_fades.append(tween)
-	if _fades.size() > 8:
-		_fades = _fades.slice(_fades.size() - 8)
+	_fader.fade(self, previous, SILENT_DB, fade, true)
+	_fader.fade(self, incoming, mix.music_db(), fade, false)
 
 
 func _active_player() -> AudioStreamPlayer:

@@ -67,13 +67,16 @@ func _build_trigger() -> void:
 	var seal := Button.new()
 	seal.name = "MenuSeal"
 	seal.pressed.connect(open)
-	TopBar.dress(seal, "", "MENU", "Menu — save, load, sound or return to the title")
+	var skin := TopBar.dress(seal, "", "MENU", "Menu — save, load, sound or return to the title")
 	var hud := get_node_or_null("../HUD/HudRoot") as GameHud
 	if hud == null or hud.top_row == null:
 		seal.position = Vector2(18.0, 132.0)
 		_ui.add_child(seal)
 		door.mount(seal)
 		return
+	# The bar keeps the caption it must hide on a compact phone, so the layout
+	# never searches the row for the MENU seal (REQ-P3-02).
+	TopBar.register_door(hud, seal, skin.caption)
 	hud.top_row.add_child(seal)
 	hud.top_row.move_child(seal, 0)
 	door.mount(seal)

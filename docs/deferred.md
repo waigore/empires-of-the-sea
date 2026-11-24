@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1427 (REQ-P2-02). Largest gap, then REQ/wiki.
+Audited through #1442 (REQ-P2-02). Largest gap, then REQ/wiki.
 
 ## Already live
 
@@ -20,8 +20,7 @@ Audited through #1427 (REQ-P2-02). Largest gap, then REQ/wiki.
 | Raid hulls/rival prizes/naval plate | `NavalRaid`, `MapPlayRaids`, `NavalPlate` |
 | Road L2/gathering/path transport | `TechUnlocks`/`Extraction` |
 | Chart/Passage/OOB/Hosts | `AdvancedSeas`; `OobReadings`; `ProvinceHosts` |
-| Sea-zone names | `MapNaming` (DR-13-07) |
-| Yarn + consent | `DialogueYarn`, `ConsentCopy` |
+| Sea-zone names; yarn + consent | `MapNaming`; `DialogueYarn`, `ConsentCopy` |
 | War footing/money/victory/need | `AiPhasePlanner`; `AiIncome`; `AiDiplomacyDesire` |
 | Phoney front; college chest; pact lead | `holds_front`; `bank_chest`; `pact_break_leads` |
 | Declare-war / Tribe-chain / crews | `SLOT_DECLARE_WAR`/`TRIBE_CHAIN`/`CREWS` |
@@ -36,11 +35,11 @@ Audited through #1427 (REQ-P2-02). Largest gap, then REQ/wiki.
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face; muster; fan; capital chart | `RaiseBatchPress`; `FleetMuster`/`FleetLanes`; `CapitalChoiceScreen` |
-| Rival priced overtures | `DiplomacyProposals` + asking ledger |
-| AI win / border front (#995) | `AiBorderFronts`; bench t101 (DR-19-16) |
+| Rival priced overtures; AI win/front | `DiplomacyProposals`; `AiBorderFronts` |
 | Passengers; raid/catch prices | `EmbarkBatch`; `NavalRaid`/`NavalInterception` |
 | Harbour hulls + aboard | `ProvinceHarbour` (+`.aboard`, DR-14/18) |
-| Wall storm; storm fee; riches; bank | `WallRead`; `ArmyAttackCost`; `ground_appetite`; `AiIncome.invests` |
+| Wall storm; fee; riches; bank | `WallRead`; `ArmyAttackCost`; `ground_appetite`; `AiIncome.invests` |
+| Harvest; college turns; Engineer port | `MapPlayProvinceHarvest`; `ResearchSlotPrice`; `VoyageRead.needs_port` |
 
 ## Gaps (ranked)
 
@@ -66,6 +65,6 @@ None; see `docs/rubric.md` / wiki.
 ## Wiki drift
 
 `DR-20261111-05` still names Tribe contact and fleetless crowns (both live).
-`capital-choice-phase` “UI deferred” — stale. Soft weight (DR-13-15);
-treasury/domain “seed” (DR-16-09) — stale. #1416–#1427 not backlog.
-#1382 open while riches landing is live. #1422 is a defect, not gap.
+`capital-choice-phase` “UI deferred” — stale. Soft weight / treasury seed
+(DR-13-15 / DR-16-09) — stale. #1416–#1442 not backlog. #1382 / #1422 open
+while riches and Engineer voyage/port are live. #1429 / #1432–#1435 defects.

@@ -12,7 +12,7 @@ signal close_pressed
 
 ## The ledger's fill: near-black parchment, so the chart's ink never shows
 ## through the sheet.
-const FILL: Color = Color(0.10, 0.08, 0.06, 0.97)
+const FILL: Color = Color(Palette.PARCHMENT, 0.97)
 const PADDING: Vector4 = Vector4(20, 14, 20, 14)
 const PADDING_COMPACT: Vector4 = Vector4(12, 8, 12, 8)
 const TITLE_PIXELS: int = 24
