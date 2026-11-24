@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:78cfa2a7c6cd1a473794ef0d1767fff2c1563c742940ad403bda955d5db05930",
-  "submission_git": "fix/tribe-invasion-needs-war@e5fcad92",
+  "submission_hash": "sha256:c32b1267b0640f8c68a5075e8ffd126381100dad63d4aa3db63a177ff468f447",
+  "submission_git": "fix/1433-famine-order@69e1d252+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:1ad52fec947f522317a7fc4fdc63d205b17c6690dfecc27d087cfd02c86fad29",
+    "ai_surface_hash": "sha256:7ec9055c7838b9125b813db1caac3bb86047d91cefb3ffb7905df86c613d4284",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T03:45:37Z",
+  "timestamp": "2026-11-24T07:20:30Z",
   "report_version": 1,
-  "signature": "hmac-sha256:ccd57426b610fd1af324b9360d7c58ea5232f1148cf1aaba0507d767643711a1"
+  "signature": "hmac-sha256:cc4fd5ecbb67062075b30b6e9e9e6f192f45a49122295a67a3f037a511d2b769"
 }
