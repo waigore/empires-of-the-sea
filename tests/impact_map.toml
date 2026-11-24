@@ -227,6 +227,22 @@ suites = [
   "test_naval_rules.gd",
 ]
 
+# The convoy's escort cover (wiki: ships-and-naval § Trade and Transport
+# Interception; DR-20261124-04): one pure reading over the raid's own escort
+# terms, printed on the market sheet. The naval rules suite proves the reading
+# against the raid's figures and the economy-screen suite mounts the row, so a
+# wording change never pays for the rules catch-all's battle and world boots.
+[domains.convoy]
+suites = [
+  "test_naval_rules.gd",
+  "test_economy_screen.gd",
+]
+
+[[rules]]
+match = "scripts/rules/convoy_read.gd*"
+domain = "convoy"
+
+
 
 # Fog of war (wiki: fog-and-exploration): the rules, the layer, the save and the
 # AI gates that read a chart. Kept its own (small) domain so a fog change is
@@ -3326,12 +3342,19 @@ domain = "ai_works"
 match = "scripts/map/civilian_muster.gd*"
 domain = "ai_works"
 
-# The one reader every rival pass asks for a court's standing and order of
-# battle. The yard-chest re-route (#878) is proved by the AI/economy suites;
-# keep it off the observer/battle fan-out and the broad map catch-all
-# (tier-1 5 min budget).
+# The court reader trio: seat/planner gate, holdings, and roster. The yard-chest
+# re-route (#878) is proved by the AI/economy suites; keep all three off the
+# observer/battle fan-out and the broad map catch-all (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_court_holdings.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_court_roster.gd*"
 domain = "ai_economy"
 
 # Sea earning asks only the income plan; keep a bind retarget off the broad

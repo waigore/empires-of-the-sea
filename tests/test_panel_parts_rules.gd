@@ -5321,6 +5321,29 @@ func test_a_sale_and_an_overseas_share_are_named() -> void:
 	)
 	assert_eq(LedgerMarketText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
 
+
+## One clearing's move is priced for one crown: its own fills and the share its
+## deeds drew, never a rival's trade (wiki: world-market § Trade orders,
+## § First right of refusal; REQ-P5-05).
+func test_a_clearing_is_priced_for_one_crown() -> void:
+	var report: Dictionary = {
+		"fills": {
+			0: {"bought": 3, "sold": 1, "spent": 120, "earned": 50},
+			1: {"bought": 1, "sold": 0, "spent": 40, "earned": 0},
+		},
+		"credits": {"by_gp": {0: 89.4}},
+	}
+	assert_eq(LedgerMarketText.clearing_net(report, 0), 19, "earned less spent, plus the share")
+	assert_eq(LedgerMarketText.clearing_net(report, 1), -40, "a rival's fills are not ours")
+	assert_eq(LedgerMarketText.clearing_net({}, 0), 0, "no clearing, no move")
+	# A report whose `fills` is not a per-court map is read as no fills, never a
+	# cast failure: the panels' own fixtures clear with an empty array here.
+	assert_eq(
+		LedgerMarketText.clearing_net({"fills": [], "credits": {}}, 0), 0,
+		"a fills list that names no court is no move",
+	)
+
+
 ## The "Next turn" promise names the orders that settle after it, so a staged
 ## order is never read as already counted (wiki: stockpiles-and-production
 ## § Production flow — the auction clears after Production).
@@ -5747,6 +5770,60 @@ func test_the_chips_hold_the_plaques_and_the_hud_only_mounts_them() -> void:
 	assert_false(_has_property(_hud, "_treasury_label"), "the HUD keeps no plaque copy")
 	assert_false(_has_property(_hud, "_army_chip"), "nor a chip copy")
 	assert_false(_has_property(_hud, "_toast_box"), "nor a despatch lane copy")
+
+
+## The plaque's per-turn figure is the phases' alone. The staged book and the
+## last clearing settle after it, so the bar names them, and a purse that moved
+## wider than the label is named too — never left for the ledger to explain
+## (wiki: world-market § Trade orders; REQ-P5-05).
+func test_the_treasury_plaque_names_what_the_label_leaves_out() -> void:
+	_setup_hud_toast()
+	var chips: HudStatChips = _hud.stats
+	chips.set_treasury(744, false)
+	chips.set_income(0)
+	var text: String = chips.treasury_chip.tooltip_text
+	assert_true(text.contains("+0 per turn from the phases"), text)
+	assert_true(text.contains("nothing is staged for the auction after them"), text)
+	assert_false(text.contains("before the auction"), "the auction is no longer the excuse")
+	chips.set_income_scope(2, -450)
+	chips.set_purse_moved(-1_413)
+	text = chips.treasury_chip.tooltip_text
+	assert_true(text.contains("2 staged orders and the last clearing (-450)"), text)
+	assert_true(text.contains("last turn the purse moved -1,413"), text)
+	# One standing order reads as one, and a clearing alone still speaks.
+	chips.set_income_scope(1, 0)
+	assert_true(
+		chips.treasury_chip.tooltip_text.contains("1 staged order moves the purse after the phases"),
+		chips.treasury_chip.tooltip_text,
+	)
+	chips.set_income_scope(0, 60)
+	assert_true(
+		chips.treasury_chip.tooltip_text.contains(
+			"the last clearing (+60) moves the purse after the phases"
+		),
+		chips.treasury_chip.tooltip_text,
+	)
+	# A turn that paid what the label promised says nothing about last turn.
+	chips.set_purse_moved(0)
+	text = chips.treasury_chip.tooltip_text
+	assert_false(text.contains("last turn the purse moved"), text)
+	assert_true(text.contains("the last clearing (+60)"), text)
+	# The verdict belongs to the closed turn: the next turn's label landing
+	# afterwards neither hides nor invents it.
+	chips.set_income(-450)
+	chips.set_purse_moved(-450)
+	assert_false(chips.treasury_chip.tooltip_text.contains("last turn the purse moved"))
+	chips.set_income(0)
+	assert_false(
+		chips.treasury_chip.tooltip_text.contains("last turn the purse moved"),
+		"a new label does not re-judge the turn that closed",
+	)
+	chips.set_purse_moved(-1_413)
+	chips.set_income(0)
+	assert_true(
+		chips.treasury_chip.tooltip_text.contains("last turn the purse moved -1,413"),
+		"a wider close stays named after the new label lands",
+	)
 
 
 ## Whether an object still declares a property by that name.

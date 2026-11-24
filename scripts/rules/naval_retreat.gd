@@ -51,6 +51,36 @@ static func safe_zones(
 	return zones
 
 
+## The way out a beaten side would take, read before the turn rolls it: the
+## published chance, the haven it would slip into and the enemy station that sets
+## the aggression. `{}` when there is nothing to read; `ok` false when no
+## adjacent water is safe, so a rout is certain. The one reading [method attempt]
+## settles through, so a sheet can never promise a retreat the pass would refuse
+## (wiki: ships-and-naval § Naval Retreat Formula; REQ-P2-03).
+static func preview(
+	model: MapModel,
+	zone: int,
+	beaten: Array,
+	victor: Array,
+	fleets: Array,
+	hostile: Callable = Callable()
+) -> Dictionary:
+	if model == null or beaten.is_empty():
+		return {}
+	var zones: Array[int] = safe_zones(model, zone, _owners(beaten), fleets, hostile)
+	if zones.is_empty():
+		return {"ok": false, "success": false, "reason": "no safe adjacent zone"}
+	var enemy_mission: int = _enemy_mission(model, victor, hostile)
+	return {
+		"ok": true,
+		"success": false,
+		"zone": zones[0],
+		"zone_name": model.sea_zone_name(zones[0]),
+		"chance": chance(beaten, victor, enemy_mission),
+		"enemy_mission": enemy_mission,
+	}
+
+
 ## Tries the retreat. On success every beaten squadron is at sea in the haven,
 ## has spent its move and has lost its station.
 static func attempt(
@@ -66,17 +96,20 @@ static func attempt(
 ) -> Dictionary:
 	if model == null or beaten.is_empty():
 		return {"ok": false, "success": false, "reason": "no water to retreat into"}
+	var offer: Dictionary = preview(model, zone, beaten, victor, fleets, hostile)
+	if not bool(offer.get("ok", false)):
+		return {
+			"ok": false,
+			"success": false,
+			"reason": String(offer.get("reason", "no safe adjacent zone")),
+		}
 	var owners: Array[int] = _owners(beaten)
-	var zones: Array[int] = safe_zones(model, zone, owners, fleets, hostile)
-	if zones.is_empty():
-		return {"ok": false, "success": false, "reason": "no safe adjacent zone"}
-	var enemy_mission: int = _enemy_mission(model, victor, hostile)
-	var found: float = chance(beaten, victor, enemy_mission)
+	var found: float = float(offer.get("chance", 0.0))
 	var rolled: float = roll_value
 	if rolled < 0.0:
 		rolled = NavalInterception.roll(seed_value, turn, zone, owners[0], 2)
 	var success: bool = rolled < found
-	var haven: int = zones[0]
+	var haven: int = int(offer.get("zone", zone))
 	var ids: Array[int] = []
 	if success:
 		for fleet: FleetState in beaten:
@@ -93,7 +126,7 @@ static func attempt(
 		"zone": haven,
 		"chance": found,
 		"roll": rolled,
-		"enemy_mission": enemy_mission,
+		"enemy_mission": int(offer.get("enemy_mission", FleetState.Mission.NONE)),
 		"fleets": ids,
 	}
 
