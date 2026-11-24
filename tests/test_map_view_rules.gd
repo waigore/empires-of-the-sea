@@ -2383,6 +2383,50 @@ func test_rival_fog_decays_at_the_end_of_the_turn() -> void:
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
+## The court charts are read again once the turn is final. The rival economy
+## pass applies the crews' moves after the battle pass, so a Spy that left its
+## province there fogs it in this same end-of-turn — no timer, no grace turns
+## (wiki: fog-and-exploration § Fog Decay; civilian-units § Spy (1);
+## DR-20261110-03).
+func test_rival_charts_settle_after_the_rivals_own_pass() -> void:
+	_setup_visibility()
+	var world := WorldMap.new()
+	world.add_region(_build_region())
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.player_faction = PLAYER
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = play.model
+	play.ship_layer.world = world
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = play.model
+	MapPlayCourtFog.build(play)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var view: VisibilityModel = play.court_charts.model_for(rival, 0)
+	view.reveal_province(2)
+	var spy: CivilianState = CivilianState.create(9, rival, "spy", Vector2i(5, 1))
+	play.civilian_layer.units.append(spy)
+	MapPlayCourtFog.resolve(play)
+	assert_true(
+		view.is_province_fully_visible(2), "a Spy standing there holds its host province"
+	)
+	# The rival's own pass applies the crew's move: the province it left is no
+	# longer held when the turn is final.
+	spy.tile = Vector2i(1, 1)
+	MapPlayCourtFog.settle(play)
+	assert_false(
+		view.is_province_fully_visible(2),
+		"the province the Spy left fogs in the same end-of-turn"
+	)
+	assert_eq(
+		view.level_at(5, 1), VisibilityModel.Level.FOGGED,
+		"and its tiles fall to fogged, never below it"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 func test_no_difficulty_level_widens_a_rival_chart() -> void:
 	_setup_visibility()
 	var baseline: PackedByteArray = _court_grid(Difficulty.DEFAULT)

@@ -153,6 +153,15 @@ static func _file_decided_sheet(play: PlaySession, book: TurnBook) -> void:
 static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 	_begin_layers(play)
 	_rival_ledgers(play, book)
+	# Both fog passes are read again once the turn is final: the layer turn-over
+	# seats squadrons in port and the rival economy applies its crews' moves and
+	# sails, so a province or a zone that lost its last crew or hull during those
+	# passes must fog in this same end-of-turn, with no grace (wiki:
+	# fog-and-exploration § Fog Decay, § Distant sea zone fog; civilian-units
+	# § Spy (1); DR-20261110-03). Both passes read the live roster, so a crew or
+	# a squadron that stayed simply holds its ground again.
+	MapPlayFogTurn.resolve(play)
+	MapPlayCourtFog.settle(play)
 	play.turn += 1
 	_crown_ledger(play, book)
 	_fort_upgrades(play, book)
