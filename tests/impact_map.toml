@@ -3342,12 +3342,19 @@ domain = "ai_works"
 match = "scripts/map/civilian_muster.gd*"
 domain = "ai_works"
 
-# The one reader every rival pass asks for a court's standing and order of
-# battle. The yard-chest re-route (#878) is proved by the AI/economy suites;
-# keep it off the observer/battle fan-out and the broad map catch-all
-# (tier-1 5 min budget).
+# The court reader trio: seat/planner gate, holdings, and roster. The yard-chest
+# re-route (#878) is proved by the AI/economy suites; keep all three off the
+# observer/battle fan-out and the broad map catch-all (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_court_holdings.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_court_roster.gd*"
 domain = "ai_economy"
 
 # Sea earning asks only the income plan; keep a bind retarget off the broad
