@@ -9,47 +9,47 @@ P5 hidden spies leave no trace.
 
 ## Implemented
 
-- **Roster:** 2,000 ducats + 4 paper at the capital; any land province, rivals,
-  Minors and Tribes included.
-- **Presence reveal** (`SpyNetworks`, `CivilianMovement`): a spy on non-owner
-  ground holds its tiles visible; it shows no terrain or minerals, and the
-  province fogs at once when the last spy leaves (no grace; wiki:
-  fog-and-exploration § Fog Decay, civilian-units § Spy, DR-20261110-03).
+- **Roster:** 2,000 ducats + 4 paper at the capital; any land province, rivals
+  and Tribes alike.
+- **Presence reveal** (`SpyNetworks`): a spy on non-owner ground holds its tiles
+  visible — no terrain or minerals — and the province fogs at once when the
+  last spy leaves (wiki: fog-and-exploration § Fog Decay, DR-20261110-03).
 - **Invisibility:** rival spies are never drawn, hovered or selectable
   (`CivilianLayer.viewer_faction`); the AI never sees human spies.
-- **Counter-espionage** (`counter_spy`): an ongoing order on an owned province.
-  One screen gives +5% kill chance in every owned province, survivors roll 10%
-  defection, and a turned spy changes crown where it stands.
+- **Counter-espionage** (`counter_spy`, an ongoing order): one screen gives +5%
+  to kill and 10% defection across every owned province; a turned spy changes
+  crown where it stands.
 - **Spy death:** relations −8, and the turn's one interaction (wiki: diplomacy).
 - **Research boost:** each observed rival adds +15% RP to slots studying a tech
   it knows (funding ≥ Low), stacking before one floor; spies killed that turn
   do not count.
-- **Court reports:** one digest per observed rival after resolution — message,
-  battles, provinces, finished technologies; never its agenda (`play.court_reports`,
-  eight lines at most).
+- **Court reports:** one digest per observed rival — message, battles,
+  provinces, finished techs; never its agenda (`play.court_reports`, ≤8 lines).
 - **Persistence:** spies ride the civilian and save tables; the screen rebuilds
   from `counter_spy` orders.
 
 ## The crown's eyes
 
 `SpyLedger` + `SpyLedgerPanel` (DR-20261115-10): the court ledger's **EYES ›**
-door (or `I`) opens one sheet — every spy with the duty its posting earns
-(`shadow`, `watch`, `screen`, `idle`, `aboard`), every Great Power shadowed or
-unobserved, and the screen's state. Visit opens the spy; the sheet moves nothing.
+door (or `I`) opens one sheet — every spy's duty (`shadow`, `watch`, `screen`,
+`idle`, `aboard`), every Great Power shadowed or open, and the screen's state.
+Visit opens the spy; it moves nothing.
 
-One gold line above the network names the spies the court would book this turn
+One gold line above the network names the spies the court would book
 (DR-20261121-11) — `The court would walk its Spy toward Genoa.` — three named,
-the rest counted. Each spy the court would *order* — a walk or a screen — leads
-its row with `▸` (DR-20261122-18); a kept spy carries none: keeping is no order.
-No spy, no planner, no line; nothing is ordered.
+the rest counted. Each spy it would *order* — a walk or a screen — leads its row
+with `▸` (DR-20261122-18); a kept spy carries none. No planner, no line.
+
+Under the network it prices the catch (DR-20261124-12): `A host's screen
+catches a shadow on 5% a turn and turns a survivor on 10% — every catch costs
+−8 with that court.` The figures are the rules' own.
 
 ## AI use
 
-`AiSpyPlanner` keeps a spy posted abroad, walks idle spies toward the nearest
-unobserved rival Great Power province (one spy per rival first), and raises a
-counter-espionage screen at home while at war. Rivals open with a spy and train
-more after their builder/engineer/explorer base. AI spies earn the same +15%
-boost.
+`AiSpyPlanner` keeps a spy abroad, walks idle spies toward the nearest
+unobserved rival Great Power province (one per rival first), and raises a screen
+at home while at war. Rivals open with a spy and train more after their first
+crews. AI spies earn the same +15% boost.
 
 ## Architecture
 
