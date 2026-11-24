@@ -122,7 +122,7 @@ func _paint(row: HBoxContainer, active_key: String) -> void:
 
 func _style(chip: Button, active: bool) -> void:
 	var fill: Color = Color(0.20, 0.16, 0.10, 0.95) if active else Color(0.12, 0.10, 0.07, 0.55)
-	var edge: Color = Palette.GOLD if active else Color(0.54, 0.43, 0.12, 0.55)
+	var edge: Color = Palette.GOLD if active else Palette.with_alpha(Palette.GOLD_DIM, 0.55)
 	var pad := Vector4(9, 3, 9, 3)
 	chip.add_theme_stylebox_override("normal", UiTheme.box(fill, edge, 1, 3, pad))
 	chip.add_theme_stylebox_override("hover", UiTheme.box(fill, Palette.GOLD, 1, 3, pad))

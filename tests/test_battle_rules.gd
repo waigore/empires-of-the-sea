@@ -26,6 +26,45 @@ func test_feeding_bands_follow_the_published_table() -> void:
 	assert_almost_eq(ArmyModifiers.feeding_multiplier(0.49), 0.5, 0.001)
 
 
+## The dossier's ration row words the ladder the exchange itself reads: the share
+## of the bill the granary fed and the morale every engagement fights at, so a
+## crown learns why a winnable storm came home a draw (wiki: combat § Feeding
+## modifiers, § Auto-resolve ratio bands; DR-20261124-02).
+func test_the_ration_row_words_the_band_the_exchange_reads() -> void:
+	assert_almost_eq(ArmyRationRead.multiplier(0.6), 0.75, 0.001)
+	assert_almost_eq(ArmyRationRead.multiplier(0.4), 0.5, 0.001)
+	assert_eq(
+		ArmyRationRead.line(1.0),
+		"Rations · the whole bill fed · engagements fight at full morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.6),
+		"Rations · 60% of the bill fed · engagements fight at 0.75 morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.4),
+		"Rations · 40% of the bill fed · engagements fight at half morale"
+	)
+	# A short band never claims a whole bill: one mouth unfed drops the ladder, so
+	# the share floors below 100 rather than contradicting the morale beside it.
+	assert_eq(
+		ArmyRationRead.line(0.996),
+		"Rations · 99% of the bill fed · engagements fight at 0.75 morale"
+	)
+	# No reading — another court's standard — prints no row, and answers the full
+	# band the battle itself defaults to when its context carries no figure.
+	assert_eq(ArmyRationRead.line(ArmyRationRead.NO_READING), "")
+	assert_almost_eq(ArmyRationRead.multiplier(ArmyRationRead.NO_READING), 1.0, 0.001)
+	assert_true(
+		ArmyRationRead.tip(0.6).contains("blunted"),
+		"the hungry tip names the blunted band"
+	)
+	assert_true(
+		ArmyRationRead.tip(1.0).contains("full morale"),
+		"a fed tip names full morale"
+	)
+
+
 func test_medal_aura_is_five_percent_per_medal_capped_at_twenty() -> void:
 	assert_almost_eq(ArmyModifiers.medal_aura(0), 1.0, 0.001)
 	assert_almost_eq(ArmyModifiers.medal_aura(2), 1.1, 0.001)
@@ -7185,6 +7224,38 @@ func test_a_storm_despatches_the_wall_and_names_no_zero_dead() -> void:
 	)
 	assert_false(line.contains("lost"), "a storm that spends no regiment names no dead")
 	assert_true(line.contains("3 chevrons won"), "its survivors rise one each: %s" % line)
+
+
+## The storm prices the host its own sheet prices (wiki: combat § Strength —
+## side strength is `Σ (FPN + FPM) × chevrons × health × decoration`; § Citations,
+## DR-20261113-04; siege-mechanics § Storming an empty walled province;
+## REQ-P2-03): a laurelled host the dossier prices over the wall takes it, where
+## a paper sum that dropped the citation weight would be repelled.
+func test_a_decorated_host_storms_the_wall_its_sheet_prices() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var host := army_field_rules_Fixture.army(
+		1, 0, 2, ["guards", "guards", "peasant_levies"]
+	)
+	for regiment_id: String in host.regiments:
+		host.regiment_history[regiment_id] = {
+			"cited": RegimentDecorations.LAUREL_AT, "fields": [],
+		}
+	host.moved = true
+	var paper: float = host.strength()
+	var solo: Array[ArmyState] = [host]
+	var printed: float = ArmyForce.side_strength(solo)
+	var threshold: float = FortRules.storm_threshold({}, 1)
+	assert_true(paper < threshold, "the paper sum alone stands under the wall: %s" % paper)
+	assert_true(printed > threshold, "the sheet prices the host over it: %s" % printed)
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	assert_true(bool(reports[0]["captured"]), "the host the sheet prices takes the wall")
+	assert_almost_eq(
+		float((reports[0]["storm"] as Dictionary)["strength"]), printed, 0.001,
+		"the storm reads the published side strength"
+	)
+	assert_eq(model.province_owner(2), host.owner)
 
 
 ## The calibration anchor (issue #1314): the opening Great Power muster —

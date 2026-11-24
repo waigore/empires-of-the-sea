@@ -18,7 +18,7 @@ static func begin(play: PlaySession) -> void:
 	if play == null or not AdvancedStart.active(play.advanced_start):
 		return
 	apply(play)
-	play.switch_region(play.region_index)
+	play.screen.switch_region(play.region_index)
 	# The preset rewrites the world the book was published from — colonies
 	# claimed, estates prospected and raised, minor land bought, towns developed
 	# — so the Minor/Tribe rows must be republished: a crown opening on turn 100
@@ -34,6 +34,9 @@ static func begin(play: PlaySession) -> void:
 	play.hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	play.hud.stats.set_income(play.income)
+	# The preset's purse is the mark the first close measures its move from; the
+	# turn-0 figure is no longer the crown's own.
+	play.purse_at_close = play.treasury()
 
 
 static func apply(play: PlaySession) -> Dictionary:

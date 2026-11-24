@@ -717,6 +717,42 @@ func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 	assert_true(buys[buys.size() - 1].disabled, "a full hold locks the Bid rows")
 
 
+## The holds banner names what the crown's warships buy the convoy: the escort
+## cover the raid pass reads, on the sheet the crown plans its trade from (wiki:
+## ships-and-naval § Trade and Transport Interception; DR-20261124-04). A crown
+## with no merchant hull has no prize to protect and reads no line.
+func test_the_ledger_names_the_convoy_its_warships_cover() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var market_body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+
+	var read: Dictionary = _screen.economy.readings.trade_cargo()["convoy"]
+	assert_true(bool(read["known"]), "the opening home fleet has a merchant hull")
+	var line: Label = _find_label(market_body, "CONVOY")
+	assert_not_null(line, "the sheet prints the escort cover")
+	assert_eq(line.text, String(read["line"]), "the sheet prints the reading's own words")
+	assert_false(
+		line.tooltip_text.is_empty(), "the rule sits on the row for a desktop hover"
+	)
+
+	var home: FleetState = _screen.ship_layer.home_fleet(_screen.play.capital_province)
+	home.add_hull("escort", "sloop")
+
+	var covered: Dictionary = _screen.economy.readings.trade_cargo()["convoy"]
+	assert_true(int(covered["warships"]) > 0)
+	assert_gt(float(covered["cover"]), 0.0, "a sloop at the seat covers the holds")
+
+	# No merchant hull anywhere in the seat squadron: nothing to protect, no line.
+	home.set_hulls(["w"], {"w": "sloop"})
+	_screen.economy.open_panel()
+	var bare: Dictionary = _screen.economy.readings.trade_cargo()["convoy"]
+	assert_false(bool(bare["known"]))
+	assert_null(
+		_find_label(panel.page_body(EconomyPanel.TAB_MARKET), "CONVOY"),
+		"a prize-less convoy prints no row"
+	)
+
+
 ## A controller that never got a map or a ship layer still answers the ledger:
 ## no holds, no overseas crossing, no home yield — never a crash.
 func test_a_bare_controller_reports_an_empty_ledger() -> void:

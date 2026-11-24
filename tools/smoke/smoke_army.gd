@@ -18,6 +18,12 @@ static func step(run) -> void:
 	screen.army_layer.select(home_army)
 	await run.tree.process_frame
 	run.check(screen.hud.panels.is_army_panel_open(), "army dossier opens")
+	# The ration band the next exchange reads (wiki: combat § Feeding modifiers;
+	# DR-20261124-02): the row stands on the crown's own sheet, not in a hover.
+	run.check(
+		screen.hud.panels.army_panel.rations_text().contains("Rations ·"),
+		"the dossier names the crown's ration band"
+	)
 	var field_before: int = home_army.count()
 	MapPlayArmies.on_action(screen.play, "detach:%s" % home_army.regiments[0])
 	await run.tree.process_frame

@@ -127,6 +127,10 @@ var turn: int = 1
 ## with the campaign (wiki: quick-battle § The crown's plan; DR-20261110-33).
 var battle_plan: String = "balanced"
 var income: int = 120
+## The purse as the last close left it: the turn finish reads the move since, so
+## the bar can name how far the purse actually went (REQ-P5-05). Derived — a
+## save carries no copy, and a load marks the restored purse.
+var purse_at_close: int = 0
 ## Last turn's world-market clearing report (deals, notes, credits), for the
 ## Deal Book and the turn trace (wiki: world-market).
 var market_report: Dictionary = {}
@@ -349,10 +353,6 @@ func emit_campaign_end(p_victory: VictoryState = null, p_defeat: DefeatState = n
 
 func refresh_map_views() -> void:
 	screen.refresh_map_views()
-
-
-func switch_region(index: int) -> void:
-	screen.switch_region(index)
 
 
 ## Turns, orders and map intents close for good once a victory is declared, the

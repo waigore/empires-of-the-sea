@@ -84,9 +84,14 @@ static func storm_one(
 		holder, {}
 	) as Dictionary
 	var level: int = FortRules.level_at(model, province)
-	var host_strength: float = 0.0
-	for army: ArmyState in storming:
-		host_strength += army.strength()
+	## The host is priced as the **published side strength** — the sum over every
+	## regiment of `(FPN + FPM) × chevrons × health × its citation weight`, the
+	## figure the army dossier prints and the field's own ratio weighs
+	## (wiki: combat § Strength; DR-20261113-04). A storm deals no line and keeps
+	## no reserve, so the slice is the whole host; a paper sum that dropped the
+	## citation (`ArmyState.strength`) would repel a host the sheet prices over
+	## the wall.
+	var host_strength: float = ArmyForce.side_strength(storming)
 	var threshold: float = FortRules.storm_threshold(tech, level)
 	## The men the ladder draws from, read before the dead are spent: a storm
 	## deals no line and keeps no reserve — every regiment marches on the wall —

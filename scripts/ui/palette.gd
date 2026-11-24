@@ -45,6 +45,18 @@ const SEA_CREST := Color(0.075, 0.098, 0.110)
 const TEXT := Color(0.941, 0.894, 0.784)
 const TEXT_DIM := Color(0.741, 0.678, 0.553)
 
+## The dossiers' panel ink without alpha: sheets take the colour and add the
+## alpha their own layer needs, so a fill, a rule or a hint never spells the
+## tone out by hand (REQ-P1-02). A row's parchment sits a touch lighter than the
+## sheet it rests on, so a ledger row still reads as a card.
+const PARCHMENT := Color(0.10, 0.08, 0.06)
+const PARCHMENT_ROW := Color(0.13, 0.11, 0.08)
+## The gold a hairline and a marker ring are drawn in, under a sheet's gold inks.
+const GOLD_RULE := Color(0.831, 0.686, 0.216)
+## The hairline between a sheet's blocks: the rule gold at a third strength, so
+## it reads on parchment without a second ink (REQ-P1-02).
+const RULE_INK := Color(0.831, 0.686, 0.216, 0.35)
+
 ## Regiment condition: a healthy line reads green, a mauled one red (REQ-P1-07).
 const HEALTH_HIGH := Color(0.361, 0.612, 0.322)
 const HEALTH_LOW := Color(0.741, 0.224, 0.176)
@@ -115,6 +127,13 @@ const TERRAIN_COLORS: Array[Color] = [
 	Color(0.655, 0.680, 0.585),
 	Color(0.755, 0.815, 0.435),
 ]
+
+
+## The same ink at another strength, so one colour serves a fill, a fade and a
+## hairline without a second constant.
+static func with_alpha(ink: Color, alpha: float) -> Color:
+	return Color(ink.r, ink.g, ink.b, alpha)
+
 
 static func terrain_color(terrain: int) -> Color:
 	if terrain < 0 or terrain >= TERRAIN_COLORS.size():

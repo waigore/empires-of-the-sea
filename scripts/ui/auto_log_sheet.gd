@@ -73,7 +73,7 @@ func _paint() -> void:
 		_empty.text = "The seat has raised no order yet."
 		_note.text = ""
 		return
-	_note.text = "%d lines kept, oldest first." % lines.size()
+	_note.text = "%d line%s kept, oldest first." % [lines.size(), MoneyText.plural(lines.size())]
 	for raw: String in lines:
 		_rows.add_child(_line(raw))
 
