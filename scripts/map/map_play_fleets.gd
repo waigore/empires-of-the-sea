@@ -110,7 +110,25 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	# slip the crown launches from (DR-20261121-02). A rival answers to her own
 	# court, and the block draws no rows for her anyway.
 	opening.yard_pick = MapPlayYardPick.pick(play) if fleet.owner == play.player_faction else {}
+	# The crown's own navy ration band: the coverage the last Consumption filed
+	# and every sea battle fights at (wiki: workers-and-population § Consumption —
+	# naval combat). A rival's larder stays behind her colours, so her sheet
+	# carries no reading (DR-20261124-15).
+	opening.rations = crown_rations(play, fleet)
 	play.hud.panels.show_fleet(play.model, opening)
+
+
+## The share of the crown's hulls its last Consumption fed, read off the ledger
+## that filed it — the same `navy_feeding` figure `NavalExchange` scales a sea
+## battle by. `NO_READING` for another court's squadron and for a session with no
+## ledger, so those sheets print no band rather than a full one they never read.
+static func crown_rations(play: PlaySession, fleet: FleetState) -> float:
+	if play == null or fleet == null or fleet.owner != play.player_faction:
+		return NavyRationRead.NO_READING
+	var ledger: PlayerEconomy = play.ledger_for(fleet.owner)
+	if ledger == null:
+		return NavyRationRead.NO_READING
+	return clampf(ledger.navy_feeding, 0.0, 1.0)
 
 
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval

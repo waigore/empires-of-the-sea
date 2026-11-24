@@ -173,7 +173,7 @@ func refresh(model: MapModel, opening: FleetDossierOpening) -> void:
 	# A home fleet's holds are the reason to merge into her: show them here.
 	if bool(merge.get("home", false)):
 		_ships.text += " · %s" % String(merge.get("holds_text", ""))
-	_strength.set_data(strength)
+	_strength.set_data(strength, opening.rations)
 	_fill_merge(merge)
 	if carried > 0:
 		_ships.text += " · carrying %d regiment%s" % [carried, "" if carried == 1 else "s"]

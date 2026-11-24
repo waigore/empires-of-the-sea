@@ -10340,6 +10340,108 @@ func test_a_fanned_squadron_still_reads_her_station() -> void:
 ## --- fixtures ---------------------------------------------------------------
 
 
+## The fleet's ration band words the same ladder a hungry army reads, in the
+## sea's own terms: the share of the hulls the last Consumption fed and the
+## morale every sea battle fights at (wiki: workers-and-population § Consumption
+## — naval combat; DR-20261124-15).
+func test_the_navys_ration_band_words_the_sea_battles_ladder() -> void:
+	assert_almost_eq(NavyRationRead.multiplier(1.0), 1.0, 0.001)
+	assert_almost_eq(NavyRationRead.multiplier(0.6), 0.75, 0.001)
+	assert_almost_eq(NavyRationRead.multiplier(0.4), 0.5, 0.001)
+	assert_eq(
+		NavyRationRead.line(1.0),
+		"Rations · the whole fleet fed · sea battles fight at full morale"
+	)
+	assert_eq(
+		NavyRationRead.line(0.6),
+		"Rations · 60% of the hulls fed · sea battles fight at 0.75 morale"
+	)
+	assert_eq(
+		NavyRationRead.line(0.4),
+		"Rations · 40% of the hulls fed · sea battles fight at half morale"
+	)
+	# A short band never claims a whole fleet: one hull unfed drops the ladder,
+	# so the share floors below 100 rather than contradicting the morale beside it.
+	assert_eq(
+		NavyRationRead.line(0.996),
+		"Rations · 99% of the hulls fed · sea battles fight at 0.75 morale"
+	)
+	# No reading — another court's squadron — prints no band and answers the full
+	# one the resolver defaults to when its context carries no coverage.
+	assert_eq(NavyRationRead.line(NavyRationRead.NO_READING), "")
+	assert_almost_eq(NavyRationRead.multiplier(NavyRationRead.NO_READING), 1.0, 0.001)
+	# One ladder for both halves of the rule: the sea reads the army's own home.
+	assert_almost_eq(
+		NavyRationRead.multiplier(0.3), ArmyRationRead.multiplier(0.3), 0.0001
+	)
+	assert_true(NavyRationRead.tip(0.6).contains("0.75 morale"), NavyRationRead.tip(0.6))
+	assert_true(NavyRationRead.tip(1.0).contains("full morale"), NavyRationRead.tip(1.0))
+
+
+## The dossier names the rations the next sea battle reads, off the crown's own
+## filed coverage, and a rival's sheet — or a session with no ledger — prints
+## none (wiki: workers-and-population § Consumption — naval combat;
+## DR-20261124-15).
+func test_the_fleet_dossier_names_the_rations_the_next_battle_reads() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	assert_eq(
+		MapPlayFleets.crown_rations(_screen.play, fleet),
+		1.0,
+		"a fresh campaign has fed the whole fleet"
+	)
+	_screen.economy.economy.navy_feeding = 0.6
+
+	_screen.ship_layer.select(ship)
+
+	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
+	assert_true(
+		block.rations_text().contains("60% of the hulls fed"),
+		"the dossier names the share the larder fed: %s" % block.rations_text()
+	)
+	assert_true(
+		block.rations_text().contains("0.75 morale"),
+		"and the band the sea battle reads: %s" % block.rations_text()
+	)
+
+	_screen.economy.economy.navy_feeding = 1.0
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+	assert_true(
+		block.rations_text().contains("full morale"),
+		"a whole fleet reads full morale: %s" % block.rations_text()
+	)
+
+	# Another court's larder is not the crown's to read, and a session with no
+	# ledger has nothing to hand in.
+	var enemy: FleetState = _screen.ship_layer.fleet_of(_enemy_ship())
+	assert_eq(
+		MapPlayFleets.crown_rations(_screen.play, enemy),
+		NavyRationRead.NO_READING,
+		"a rival's squadron hands in no coverage"
+	)
+	assert_almost_eq(
+		MapPlayFleets.crown_rations(_screen.play, null), NavyRationRead.NO_READING, 0.0001
+	)
+	assert_eq(
+		NavyRationRead.line(MapPlayFleets.crown_rations(_screen.play, enemy)),
+		""
+	)
+
+
+## The harness's own rows read the band into the tallies, but a navy that has
+## never closed a turn carries no reading at all (a fixture's session).
+func test_a_session_without_a_ledger_reads_no_navy_band() -> void:
+	var play: PlaySession = _screen.play
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var held: EconomyController = play.economy
+	play.economy = null
+	assert_almost_eq(
+		MapPlayFleets.crown_rations(play, fleet), NavyRationRead.NO_READING, 0.0001
+	)
+	play.economy = held
+
+
 ## Two Old-World charts: region 0 is at war over the Caribbean with four carracks
 ## against one sloop, region 1 keeps two squadrons of one crown in company.
 func _passes_world() -> WorldMap:

@@ -4161,6 +4161,20 @@ domain = "naval_feeding"
 match = "scripts/rules/naval_dispatch.gd*"
 domain = "naval_feeding"
 
+# The navy's own ration band on the fleet dossier (wiki: workers-and-population
+# § Consumption — naval combat; DR-20261124-15): one pure reading over the
+# ladder the army sheet already proves and the `navy_feeding` figure the ledger
+# files. The fleet orders suite proves the band and mounts the dossier row, so a
+# wording change never pays for the feeding domain's battle and map boots.
+[domains.navy_rations]
+suites = [
+  "test_fleet_orders.gd",
+]
+
+[[rules]]
+match = "scripts/rules/navy_ration_read.gd*"
+domain = "navy_rations"
+
 [[rules]]
 match = "scripts/rules/naval_*.gd"
 domain = "fleet"
