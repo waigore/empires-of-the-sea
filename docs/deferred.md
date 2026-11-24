@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1500 (REQ-P2-02).
+Audited through #1509 (REQ-P2-02).
 
 ## Already live
 
@@ -64,6 +64,6 @@ None; see `docs/rubric.md` / wiki.
 
 ## Wiki drift
 
-`DR-20261111-05` / capital UI / soft weight — stale (live). #1444–#1500
-not backlog. Closed: #1382/#1422/#1433–#1435. Open bugs (not gaps):
-#1429, #1383, #1432, #1484, #1488, #1492. #1499 open (navy rations).
+`DR-20261111-05` / capital UI / soft weight — stale (live). #1444–#1509
+not backlog. Closed: #1382/#1422/#1433–#1435/#1499. Open bugs (not gaps):
+#1429, #1383, #1432, #1484, #1488, #1492, #1495, #1496.
