@@ -21,8 +21,7 @@ A station spends the move and persists until the squadron sails, docks or
 retakes it; the home fleet holds none; a target no longer hostile lapses.
 A blockade stands only in the water its port faces (`port_sea_zones`).
 
-A sealed harbour severs the coast; the capital's cuts every sea path
-(`REQ-P5-05`).
+A sealed harbour severs the coast; the capital's cuts every sea path (`REQ-P5-05`).
 
 ## Interception
 
@@ -33,16 +32,16 @@ chance = clamp(missionFactor × ratio, 0.05, 0.85)
 missionFactor = 0.5 Patrol, 0.9 Blockade
 ```
 
-Deterministic from seed, turn, zone and owners. Success makes the patroller the
-attacker; a miss leaves the mover. Only Patrol or a standing Blockade rolls, and
-only at war.
+Deterministic from seed, turn, zone and owners. A hit makes the patroller the
+attacker; a miss leaves the mover. Only a Patrol or a standing Blockade rolls,
+and only at war.
 
 **The dossier prices the catch (DR-20261120-02):** a station prints
 `Interception: 62% to catch 4 hulls if they stay.` over its holders and every
 hostile the crown has **read**; an unread rival and empty water print none.
 
 **Privateering Companies** multiplies the interceptor's score by `1.25` before
-the clamp; a target's charter never helps.
+the clamp.
 
 ## Retreat
 
@@ -53,15 +52,16 @@ enemyAggression = 0.1 Patrol, 0.2 Blockade, else 0
 ```
 
 A haven is a zone no hostile fleet holds. Success moves every beaten hull there
-and clears its station; failure is a rout, and no safe water means no retreat.
+and clears its station; failure is a rout, and no haven means no retreat.
 
 **The dossier prices the way out (DR-20261124-06):** a water the crown would lose
 reads `Beaten here by England: 40% to slip into the Golfo de México.` beside its
 share, over the strongest court there — or `no adjacent water is safe` when the
-rout is certain. A water the crown holds prints none.
+rout is certain. A held water prints none.
 
 **Rations (DR-20261124-15):** `60% of the hulls fed · sea battles fight at 0.75
-morale`.
+morale`. **The odds fold them in (DR-20261125-07)** — a short fleet reads the water it
+loses.
 
 ## Raids
 
@@ -87,7 +87,7 @@ raid by 20%.`
 
 **Raids cut both ways.** Any crown's station off a hostile coast raids a
 declared enemy: **prize cargo** leaves the victim's stockpile for the raider's,
-never an import, priced on the dossier (DR-20261111-20, DR-20261120-01).
+never an import (DR-20261111-20, DR-20261120-01).
 
 ## Deferred (REQ-P2-02)
 
