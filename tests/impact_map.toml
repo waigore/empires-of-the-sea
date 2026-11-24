@@ -50,7 +50,7 @@ suites = [
 
 [domains.audio]
 suites = [
-  "test_audio_rules.gd",
+  "test_hud_campaign_plate.gd",
 ]
 
 [domains.battle]
@@ -179,7 +179,6 @@ suites = [
 
 [domains.fleet]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_market_economy_rules.gd",
   "test_a_battle_rules.gd",
@@ -200,7 +199,6 @@ suites = [
 suites = [
   "test_a_battle_rules.gd",
   "test_market_economy_rules.gd",
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
 ]
 
@@ -224,7 +222,7 @@ suites = [
   "test_a_battle_rules.gd",
   "test_market_economy_rules.gd",
   "test_a_map_screen.gd",
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
 ]
 
 # The convoy's escort cover (wiki: ships-and-naval § Trade and Transport
@@ -234,7 +232,7 @@ suites = [
 # wording change never pays for the rules catch-all's battle and world boots.
 [domains.convoy]
 suites = [
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
   "test_economy_screen.gd",
 ]
 
@@ -291,7 +289,6 @@ suites = [
 [domains.naval_fog]
 suites = [
   "test_a_ai_rules.gd",
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_map_view_rules.gd",
 ]
@@ -418,7 +415,6 @@ suites = [
 # ui and save globs so the intel change never pulls their whole fan-out.
 [domains.naval_intel]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_campaign_end.gd",
 ]
@@ -464,7 +460,6 @@ domain = "blockade"
 # fleet + naval_feeding + naval_intel + ai past the tier-1 5 min budget.
 [domains.hostility]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_a_ai_rules.gd",
   "test_a_army_orders.gd",
@@ -968,7 +963,6 @@ domain = "naval_intel"
 # slice.
 [domains.fleet_split]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
 ]
@@ -1022,7 +1016,7 @@ match = "scripts/ui/fleet_panel.gd*"
 domain = "fleet_split"
 
 [[rules]]
-match = "tests/test_naval_rules.gd*"
+match = "tests/test_fleet_orders.gd*"
 domain = "fleet_split"
 
 # Two squadrons in one station fold into one (wiki: ships-and-naval § Ship
@@ -1032,7 +1026,6 @@ domain = "fleet_split"
 # wall time to a PR that also touches the split.
 [domains.fleet_combine]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
 ]
@@ -1629,7 +1622,7 @@ suites = [
 suites = [
   "test_menu_flow.gd",
   "test_panel_parts_rules.gd",
-  "test_audio_rules.gd",
+  "test_hud_campaign_plate.gd",
   "test_mobile_layout.gd",
   "test_ledgers.gd",
 ]
@@ -2444,7 +2437,7 @@ suites = [
 suites = [
   "test_a_map_screen.gd",
   "test_ledgers.gd",
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
   "test_generated_world_rules.gd",
 ]
 
@@ -3321,7 +3314,7 @@ domain = "ai_works"
 # capital seat prove it; campaign/map catch-alls overrun the tier-1 5 min budget.
 [domains.seat_harbour]
 suites = [
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
   "test_a_ai_rules.gd",
 ]
 
@@ -5064,7 +5057,7 @@ match = "tests/test_army_*.gd"
 domain = "army"
 
 [[rules]]
-match = "tests/test_audio_*.gd"
+match = "tests/test_hud_campaign_plate.gd*"
 domain = "audio"
 
 [[rules]]
