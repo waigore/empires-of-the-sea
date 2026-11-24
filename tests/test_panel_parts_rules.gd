@@ -5253,6 +5253,28 @@ func test_a_hidden_hud_keeps_no_toast_plates() -> void:
 	_hud.toast(LINE, "silenced_gun")
 	assert_eq(_hud.despatches.box.get_child_count(), 0)
 
+## The lane reads its own plates: the newest line is the plate's to tell, and a
+## plate the lane took back stops its fade and never counts down again
+## (REQ-P3-02).
+func test_the_lane_reads_its_newest_plate_and_forgets_a_cancelled_one() -> void:
+	_setup_hud_toast()
+	var lane: HudDespatches = _hud.despatches
+	assert_eq(lane.newest_live_text(), "", "a quiet lane tells nothing")
+	_hud.toast("The turn opens")
+	var plate := lane.box.get_child(0) as HudDespatchPlate
+	assert_eq(lane.newest_live_text(), "The turn opens", "the lane reads the plate it raised")
+	assert_true(plate.is_live(), "a fresh plate is the lane's to count")
+	assert_true(plate.fade != null, "the plate rises on a fade")
+	plate.cancel()
+	assert_false(plate.is_live(), "a plate taken back no longer counts")
+	assert_true(plate.fade == null, "its fade is killed where it stands")
+	lane._plate_done(plate)
+	assert_false(plate.is_queued_for_deletion(), "a late callback leaves it alone")
+	_hud.toast("After the plate")
+	var next := lane.box.get_child(lane.box.get_child_count() - 1) as HudDespatchPlate
+	lane._plate_done(next)
+	assert_true(next.is_queued_for_deletion(), "a finished plate leaves the lane")
+
 ## The lane is the despatches' alone: the HUD keeps no copy, so unmounting it
 ## leaves nothing to read, and a missing battle plate never queues a fight
 ## (REQ-P3-01, REQ-P5-06).
