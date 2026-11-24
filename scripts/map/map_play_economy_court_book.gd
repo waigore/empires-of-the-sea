@@ -13,6 +13,15 @@ const DOOR_CHAIN: String = "chain"
 const DOOR_DEED: String = "deed"
 
 
+## True while the #603 re-route stands: the muster aim's stall has passed the
+## escalation bar, so the valve has answered and the fill the chest was
+## waiting for stands still (issue #1488). 0 when the court has no config.
+static func _reroute_active(court: MapPlayEconomyCourt) -> bool:
+	if court.config == null:
+		return false
+	return court.muster_stall >= maxi(court.config.parameter("ledger.escalate_turns"), 1)
+
+
 ## The study a court's open door needs this turn, with the link that gave it:
 ## the yard's next hull while the court is at war short of hulls (issue #484),
 ## else the envoy chain's next stage (DR-20261114-05), else the study a charted
@@ -111,6 +120,19 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 		if court.invest_bank
 		else bank_chest if court.conquest_bank else court.floor
 	)
+	if _reroute_active(court) and court.conquest_bank:
+		# The ladder rides the valve (issue #1488): past the escalation bar
+		# the #603 re-route has answered and the fill stands still — the chest
+		# the court was saving for is the purse the ladder must not burn. The
+		# ladder prices against the chest the bank holds (the canonical one
+		# the income row stamps beside the goal's re-routable reserve, #995)
+		# until the fill recovers and the valve re-arms. The standing study
+		# keeps learning at Low the whole time, and the doors keep the invest
+		# floor — the deed's rung is the income investment the flywheel leads
+		# with (DR-20261124-10, issue #1383) — while a ladder that burned
+		# ~450 a turn against a fill of ~200 priced the release bar at a purse
+		# the economy never presents.
+		ladder_floor = maxi(ladder_floor, bank_chest)
 	var door_floor: int = (
 		invest_floor if court.invest_bank
 		else bank_chest if court.conquest_bank else 0

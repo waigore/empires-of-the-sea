@@ -7156,9 +7156,8 @@ func test_below_bar_reads_the_win_bar() -> void:
 
 func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 	# The conquest bank's canonical read (issue #995): the win-bar gap, the
-	# host under the war-time target, and the purse short of the chest — never
-	# the money goal, which wobbles on the re-route cycle. The release is the
-	# host's own price (issue #1488): the chest stands and the bank lets go.
+	# host under the war-time target, and the purse one line-cycle short of
+	# the chest — never the money goal, which wobbles on the re-route cycle.
 	var config: AiConfig = _phase_config()
 	var state := AiState.new()
 	var row: Dictionary = {
@@ -7167,7 +7166,7 @@ func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 	}
 	assert_true(
 		AiIncome.banking(config, state, row),
-		"short of the bar, under host, short of the chest"
+		"short of the bar, under host, one cycle short of the chest"
 	)
 	row["treasury"] = 5000
 	assert_false(AiIncome.banking(config, state, row), "a purse past the cycle spends as published")
@@ -7185,21 +7184,19 @@ func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 	# the peak of its own fill unpinned the college and burned the margin it
 	# was holding for — the row's canonical chest keeps the bank through the
 	# wobble, exactly as the DR's own "never the wobbling money goal" promises.
-	# The release is the host's own price (issue #1488): the purse covers the
-	# chest and the bank lets go — the second line's price the shortfall used
-	# to carry priced a purse no full-AI economy presents.
+	var price: int = AiArmyReinforce.cheapest_line_price(state.economy_for(0))
 	var wobbled: Dictionary = {
 		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "bank_chest": 2200,
-		"treasury": 2199, "regiments": 1, "conquest_gap": true,
+		"treasury": 500 + price - 1, "regiments": 1, "conquest_gap": true,
 	}
 	assert_true(
 		AiIncome.banking(config, state, wobbled),
 		"a purse the wobbling goal calls spare still banks against the chest"
 	)
-	wobbled["treasury"] = 2200
+	wobbled["treasury"] = 2200 + price
 	assert_false(
 		AiIncome.banking(config, state, wobbled),
-		"a purse past the chest spends as published: the host's own price stands"
+		"a purse past the chest and the line spends as published"
 	)
 	assert_eq(
 		int(
