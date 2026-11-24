@@ -88,11 +88,20 @@ static func best(
 	# embassy it lands opens ground that clears to the treasury, the same engine the
 	# chest fills from, so it leads from the purse above the court's own cash floor
 	# exactly as the studies and the crews do (#1384's split) — while the colony
-	# chain keeps the bank's face (#1271). A purse that cannot pay the rung and keep
-	# that floor keeps the published wait.
+	# chain keeps the bank's face (#1271). The bypass names ONE seller: the court's
+	# own deed partner, the cheapest priced deed its chart carries
+	# (`AiMerchantWork.deed_seller`), because the published nudge walks that partner
+	# alone — a banked court that chained every charted Minor spent its chest on
+	# embassies the deed book could not use (bench: the subject's earned flow fell
+	# 285 → 149 when every seller was let through). A purse that cannot pay the rung
+	# and keep that floor keeps the published wait.
 	var next: String = DiplomacyCatalog.next_stage(state.overture(config.faction, target))
 	var income: Dictionary = context.get("income", {}) as Dictionary
-	var deed_paid: bool = deed_matters and _deed_rung_funded(config, income, next)
+	var deed_paid: bool = (
+		deed_matters
+		and target == int(context.get("deed_seller", -1))
+		and _deed_rung_funded(config, income, next)
+	)
 	if not income.is_empty() and (
 		not chain_matters
 		or (bool(income.get("conquest_gap", false)) and not deed_paid)
