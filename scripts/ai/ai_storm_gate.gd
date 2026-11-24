@@ -18,17 +18,38 @@ extends RefCounted
 ## [method FortRules.storm_ceiling]. The extra rides the target, so the
 ## muster, its labour floor and the chest it holds for the next regiment all
 ## ask for the same host, and the map layer keeps no second target
-## ([method AiArmyReinforce.desired_regiments]).
+## ([method AiArmyReinforceHost.desired_regiments]).
 ##
 ## Pure: the map, the court's own wall reading and the registry are the only
 ## inputs (REQ-P2-03, REQ-P3-03). No rule changes: the muster spends through
 ## `ArmyTraining`, and the storm still resolves in [ArmyCombat].
 
+## The wall plus the battery this province's holder actually mounts (issue
+## #1381): the resolver prices a storm with the **defender's** emplaced line
+## (`ArmyStorm`, `FortRules.storm_threshold`), so the gate that decides whether
+## to march reads the same figure — a Minor Nation mounts the Royal floor, a
+## Great Power its own Royal → Heavy → Siege line. The map layer notes the
+## campaign's tech table on the court's config ([field AiConfig.wall_techs]);
+## a caller with none keeps the top of the ladder ([method
+## FortRules.storm_ceiling]), which is what every planner read before the
+## table was shared. The shipped ladder never moves: the gate only stops
+## pricing every minor's Wood wall as if it carried siege guns.
+static func threshold(config: AiConfig, model: MapModel, province: int) -> float:
+	var level: int = FortRules.level_at(model, province)
+	if config == null or model == null or config.wall_techs.is_empty():
+		return FortRules.storm_ceiling(level)
+	var owner: int = model.province_owner(province)
+	var tech: Variant = config.wall_techs.get(owner, {})
+	if not (tech is Dictionary):
+		return FortRules.storm_ceiling(level)
+	return FortRules.storm_threshold(tech as Dictionary, level)
+
+
 ## True when `army` may storm `province`: the wall soaks attacking strength, and
 ## the defenders it leaves need the attack margin left over. An empty walled
-## province still prices the top of the emplaced line, because a planner cannot
-## read another court's ledger (issue #1314). The land march and the overseas
-## landing ask this one gate, so both admit the same hosts (REQ-P2-03,
+## province still prices the battery its holder mounts, because a storm against
+## an empty wall is the same storm ([method threshold]). The land march and the
+## overseas landing ask this one gate, so both admit the same hosts (REQ-P2-03,
 ## REQ-P3-03). A caller with no config, model or host reads no storm.
 static func admits(
 	config: AiConfig, model: MapModel, armies: Array, army: ArmyState, province: int
@@ -42,7 +63,7 @@ static func admits(
 	)
 	var level: int = FortRules.level_at(model, province)
 	if defenders.is_empty():
-		return level < 1 or army.strength() > FortRules.storm_ceiling(level)
+		return level < 1 or army.strength() > threshold(config, model, province)
 	var wall: float = FortRules.wall_hp(level)
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0

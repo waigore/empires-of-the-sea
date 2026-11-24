@@ -70,6 +70,10 @@ var top_row: HBoxContainer = null
 ## Stat chips fall onto a second bar row when the cartouche row cannot fit.
 var chip_row: HBoxContainer = null
 var chips: Array[Control] = []
+## The bar's dressed doors and the caption each one hides on a compact bar, kept
+## from the build so the fit reads its own parts instead of searching the row
+## (REQ-P3-02). The pause menu's MENU crest registers here when it mounts.
+var bar_doors: Array[Dictionary] = []
 var minimap_frame: Control = null
 var zoom_box: Control = null
 ## The chart switch on the map's top-left corner (issue #1164); null before the

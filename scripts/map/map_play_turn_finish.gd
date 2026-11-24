@@ -231,6 +231,11 @@ static func _crown_ledger(play: PlaySession, book: TurnBook) -> void:
 		play.income = play.economy.projected_income()
 	play.hud.set_turn(play.turn, book.year)
 	if not play.observer_mode:
+		# Booked before the new label lands: the move is judged against the figure
+		# the player read during the turn that just closed, and a swing wider
+		# than it reads on the bar without the ledger being opened (REQ-P5-05).
+		play.hud.stats.set_purse_moved(play.treasury() - play.purse_at_close)
+		play.purse_at_close = play.treasury()
 		play.hud.stats.set_income(play.income)
 		MapPlayDiplomacy.refresh(play)
 	play.improvements.set_tech_caps(play.tech_caps())

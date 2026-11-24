@@ -472,6 +472,186 @@ func test_a_fallen_crown_leaves_no_deed_behind() -> void:
 	assert_eq(DeedProtection.province_holders(model, MINOR_PROVINCE), {})
 
 
+# --- the province sheet's Hosts row ---
+## The hosts standing on one province, counted for a reading crown: its own
+## everywhere, another court's only where its grid holds the province at
+## `fogged` or better (wiki: fog-and-exploration § Order-of-battle readings;
+## DR-20261123-13).
+func test_the_hosts_row_counts_what_the_rules_let_a_crown_read() -> void:
+	var own: ArmyState = ArmyState.create(
+		1, FactionCatalog.PLAYER_FACTION, 5, false, ["unit_1", "unit_2"],
+		{"unit_1": "pikemen", "unit_2": "arquebusiers"}
+	)
+	var rival: ArmyState = ArmyState.create(
+		2, BUYER, 5, false, ["unit_3", "unit_4", "unit_5"],
+		{"unit_3": "pikemen", "unit_4": "pikemen", "unit_5": "pikemen"}
+	)
+	var elsewhere: ArmyState = ArmyState.create(
+		3, BUYER, 6, false, ["unit_6"], {"unit_6": "pikemen"}
+	)
+	var armies: Array = [own, rival, elsewhere]
+	# A fogged province reads the crown's own host alone.
+	assert_eq(
+		ProvinceHosts.line(armies, 5, BUYER, FactionCatalog.PLAYER_FACTION, false),
+		"%s 2 regiments" % FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION)
+	)
+	# Charted, the province's own court leads and every other court follows.
+	assert_eq(
+		ProvinceHosts.line(armies, 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"%s 3 regiments · %s 2 regiments" % [
+			FactionCatalog.name_of(BUYER),
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+		]
+	)
+	assert_eq(ProvinceHosts.counts(armies, 5, FactionCatalog.PLAYER_FACTION, true)[BUYER], 3)
+	# Ground nobody stands on, an emptied standard and a host aboard its
+	# squadron name nothing.
+	assert_eq(ProvinceHosts.line(armies, 9, BUYER, FactionCatalog.PLAYER_FACTION, true), "")
+	assert_eq(ProvinceHosts.line([] as Array, 5, BUYER, FactionCatalog.PLAYER_FACTION, true), "")
+	# A province owner with no host on its own ground leads nothing, and a null
+	# entry in the table reads as no army rather than as one.
+	var landless: Array = armies.duplicate()
+	landless.append(null)
+	assert_eq(
+		ProvinceHosts.line(landless, 5, MINOR, FactionCatalog.PLAYER_FACTION, true),
+		"%s 2 regiments · %s 3 regiments" % [
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+			FactionCatalog.name_of(BUYER),
+		],
+		"a landless owner leads nothing; the rest read by id"
+	)
+	var embarked: ArmyState = ArmyState.create(
+		4, BUYER, 5, false, ["unit_7"], {"unit_7": "pikemen"}
+	)
+	embarked.embarked_fleet = 1
+	var empty: ArmyState = ArmyState.create(5, BUYER, 5, false)
+	assert_eq(
+		ProvinceHosts.line([embarked, empty], 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"",
+		"a host ashore only, and a standard with no men names none"
+	)
+
+
+## The squadrons riding one province's harbour, counted for a reading crown: its
+## own everywhere, another court's only where its grid holds the port at
+## `fogged` or better, and a squadron at sea names no harbour (wiki:
+## fog-and-exploration § Order-of-battle readings; DR-20261123-14).
+func test_the_squadrons_row_counts_what_the_rules_let_a_crown_read() -> void:
+	var own: FleetState = FleetState.in_port(
+		1, FactionCatalog.PLAYER_FACTION, 5, ["a1", "a2"], {}
+	)
+	var rival: FleetState = FleetState.in_port(
+		2, BUYER, 5, ["b1", "b2", "b3"], {}
+	)
+	var elsewhere: FleetState = FleetState.in_port(3, BUYER, 6, ["c1"], {})
+	var at_sea: FleetState = FleetState.at_sea(4, BUYER, 1, ["d1", "d2"], {})
+	var slip: FleetState = FleetState.empty_in_port(5, BUYER, 5)
+	var fleets: Array = [own, rival, elsewhere, at_sea, slip]
+	# A fogged port reads the crown's own hulls alone.
+	assert_eq(
+		ProvinceHarbour.line(fleets, 5, BUYER, FactionCatalog.PLAYER_FACTION, false),
+		"%s 2 hulls" % FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION)
+	)
+	# Charted, the province's own court leads and every other court follows.
+	assert_eq(
+		ProvinceHarbour.line(fleets, 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"%s 3 hulls · %s 2 hulls" % [
+			FactionCatalog.name_of(BUYER),
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+		]
+	)
+	assert_eq(
+		ProvinceHarbour.counts(fleets, 5, FactionCatalog.PLAYER_FACTION, true)[BUYER], 3
+	)
+	# A harbour no squadron rides, a squadron at sea and a slip with no hulls
+	# name nothing; a null entry in the table reads as no squadron.
+	assert_eq(
+		ProvinceHarbour.line(fleets, 9, BUYER, FactionCatalog.PLAYER_FACTION, true), ""
+	)
+	assert_eq(
+		ProvinceHarbour.line([at_sea, slip], 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"",
+		"a squadron at sea rides no harbour, and a slip with no hulls names none"
+	)
+	assert_eq(
+		ProvinceHarbour.line([] as Array, 5, BUYER, FactionCatalog.PLAYER_FACTION, true), ""
+	)
+	var holed: Array = fleets.duplicate()
+	holed.append(null)
+	assert_eq(
+		ProvinceHarbour.line(holed, 5, BUYER, FactionCatalog.PLAYER_FACTION, true),
+		"%s 3 hulls · %s 2 hulls" % [
+			FactionCatalog.name_of(BUYER),
+			FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION),
+		]
+	)
+
+
+## A regiment aboard a squadron is the third order-of-battle reading: the
+## Squadrons row names the men its hulls carry — the host the fleet's own
+## `embarked_army` names — behind the same fog gate as the hulls, so the row and
+## the Hosts row above it account for every regiment the rules let a crown read
+## (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-18).
+func test_the_squadrons_row_names_the_regiments_aboard() -> void:
+	var rival: FleetState = FleetState.in_port(
+		2, BUYER, 5, ["b1", "b2", "b3"], {}
+	)
+	var host: ArmyState = ArmyState.create(
+		7, BUYER, 5, false, ["u1", "u2"], {"u1": "pikemen", "u2": "pikemen"}
+	)
+	host.embarked_fleet = 2
+	rival.embarked_army = 7
+	var fleets: Array = [rival]
+	var armies: Array = [host]
+	assert_eq(
+		ProvinceHarbour.line(fleets, 5, BUYER, FactionCatalog.PLAYER_FACTION, true, armies),
+		"%s 3 hulls, 2 regiments aboard" % FactionCatalog.name_of(BUYER)
+	)
+	assert_eq(
+		ProvinceHarbour.aboard(fleets, armies, 5, FactionCatalog.PLAYER_FACTION, true)[BUYER],
+		2,
+		"the fleet's own host is the men it carries"
+	)
+	# Fogged, a rival's hulls and her men stay unread.
+	assert_eq(
+		ProvinceHarbour.line(fleets, 5, BUYER, FactionCatalog.PLAYER_FACTION, false, armies),
+		"",
+		"a fogged port reads no rival squadron at all"
+	)
+	# A squadron at sea rides no harbour, so her men count nowhere here.
+	var at_sea: FleetState = FleetState.at_sea(3, BUYER, 1, ["c1"], {})
+	at_sea.embarked_army = 7
+	assert_eq(
+		ProvinceHarbour.line([at_sea], 5, BUYER, FactionCatalog.PLAYER_FACTION, true, armies),
+		"",
+		"a squadron at sea and a slip with no hulls name none"
+	)
+	# A host ashore beside the squadron is the Hosts row's, not this one's.
+	var ashore: ArmyState = ArmyState.create(8, BUYER, 5, false, ["u3"], {"u3": "pikemen"})
+	assert_eq(
+		ProvinceHarbour.line(fleets, 5, BUYER, FactionCatalog.PLAYER_FACTION, true, [ashore]),
+		"%s 3 hulls" % FactionCatalog.name_of(BUYER),
+		"the row names only the men a hull carries"
+	)
+	# The crown's own squadron's men read everywhere, and one man reads singular.
+	var lone: FleetState = FleetState.in_port(
+		4, FactionCatalog.PLAYER_FACTION, 5, ["d1"], {}
+	)
+	var single: ArmyState = ArmyState.create(9, FactionCatalog.PLAYER_FACTION, 5, false, ["u4"], {"u4": "pikemen"})
+	single.embarked_fleet = 4
+	lone.embarked_army = 9
+	assert_eq(
+		ProvinceHarbour.line([lone], 5, BUYER, FactionCatalog.PLAYER_FACTION, false, [single]),
+		"%s 1 hull, 1 regiment aboard" % FactionCatalog.name_of(FactionCatalog.PLAYER_FACTION)
+	)
+	# A host another court owns is never the fleet's own men.
+	var foreign: ArmyState = ArmyState.create(7, MINOR, 5, false, ["u5"], {"u5": "pikemen"})
+	assert_eq(
+		ProvinceHarbour.line([rival], 5, BUYER, FactionCatalog.PLAYER_FACTION, true, [foreign]),
+		"%s 3 hulls" % FactionCatalog.name_of(BUYER)
+	)
+
+
 func test_one_deed_is_worth_protecting_and_two_are_serious() -> void:
 	var world: WorldMap = _minor_world()
 	assert_true(DeedProtection.worth_protecting(world, BUYER, MINOR))

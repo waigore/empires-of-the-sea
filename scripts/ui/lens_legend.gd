@@ -330,7 +330,7 @@ func _ensure() -> void:
 	if _font != null:
 		return
 	_style = UiTheme.box(
-		Color(0.10, 0.08, 0.06, 0.94), Palette.GOLD_DIM, 1, 3, Vector4.ZERO
+		Palette.with_alpha(Palette.PARCHMENT, 0.94), Palette.GOLD_DIM, 1, 3, Vector4.ZERO
 	)
 	_style.shadow_color = Color(0, 0, 0, 0.35)
 	_style.shadow_size = 6

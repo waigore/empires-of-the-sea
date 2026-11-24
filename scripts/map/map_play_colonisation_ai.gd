@@ -44,7 +44,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 				kind, config, play.world, region, model, fleets, civilians,
 				_abroad(play, target, faction), play.court_charts,
 				_voyage_posture(play, faction, posture), earning,
-				_appetite(play, faction, kind, appetites)
+				_appetite(play, faction, kind, appetites),
+				_needs_port(play, target, faction)
 			)
 			if order.is_empty():
 				continue
@@ -203,6 +204,14 @@ static func _abroad(play: PlaySession, region: int, owner: int) -> Dictionary:
 	return CivilianMuster.abroad_counts(play, region, owner)
 
 
+## True when the crown's ground in `region` still has no port to root its
+## network, so the voyage carries the Engineer that raises one (issue #1422).
+## `CivilianMuster.needs_port` is the one home: the muster holds the same crew
+## behind at the harbour.
+static func _needs_port(play: PlaySession, region: int, owner: int) -> bool:
+	return CivilianMuster.needs_port(play, region, owner)
+
+
 static func _erase_unit(units: Array, unit_id: int) -> void:
 	var index: int = -1
 	for cursor in units.size():
@@ -233,7 +242,10 @@ static func _appetite(
 		)
 		if economy != null and config is AiConfig:
 			appetite = AiEconomyPlanner.ground_appetite(
-				config as AiConfig, economy, TownIndustry.best_level(play.world, faction)
+				config as AiConfig, economy, TownIndustry.best_level(play.world, faction),
+				# The court's own chart: the riches weight rides the shore it
+				# has reached, never a shore it has not seen (issue #1382).
+				play.court_charts
 			)
 	cache[faction] = appetite
 	return appetite

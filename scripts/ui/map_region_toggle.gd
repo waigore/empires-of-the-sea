@@ -29,7 +29,7 @@ func _init() -> void:
 	add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.86), Color(0.54, 0.43, 0.12, 0.60), 1, 2,
+			Palette.with_alpha(Palette.PARCHMENT, 0.86), Palette.with_alpha(Palette.GOLD_DIM, 0.60), 1, 2,
 			Vector4(4, 2, 4, 2)
 		)
 	)

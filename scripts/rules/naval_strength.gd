@@ -63,12 +63,15 @@ static func dossier(
 	hostile: Callable = Callable(),
 	factors: Dictionary = {},
 	leaders: Dictionary = {},
-	known: Callable = Callable()
+	known: Callable = Callable(),
+	model: MapModel = null
 ) -> Dictionary:
 	if fleet == null:
 		return {}
 	var row: Dictionary = squadron(fleet)
-	var zone: Dictionary = NavalStrength.zone(fleets, fleet, hostile, factors, leaders, known)
+	var zone: Dictionary = NavalStrength.zone(
+		fleets, fleet, hostile, factors, leaders, known, model
+	)
 	if not zone.is_empty():
 		row["zone"] = zone
 	return row
@@ -95,20 +98,24 @@ static func zone(
 	hostile: Callable = Callable(),
 	factors: Dictionary = {},
 	leaders: Dictionary = {},
-	known: Callable = Callable()
+	known: Callable = Callable(),
+	model: MapModel = null
 ) -> Dictionary:
 	if fleet == null or not fleet.is_at_sea():
 		return {}
 	var own: float = 0.0
 	var own_hulls: int = 0
+	var own_group: Array = []
 	var foe: float = 0.0
 	var foe_hulls: int = 0
 	var foes: Array[int] = []
+	var courts: Dictionary = {}
 	var unread: bool = false
 	for other: FleetState in fleets:
 		if other == null or not other.is_at_sea() or other.sea_zone != fleet.sea_zone:
 			continue
 		if other.owner == fleet.owner:
+			own_group.append(other)
 			own += strength(other) * _factor(factors, other.owner) * _leader(leaders, other.owner)
 			own_hulls += other.ship_count()
 			continue
@@ -123,7 +130,10 @@ static func zone(
 		foe_hulls += other.ship_count()
 		if not foes.has(other.owner):
 			foes.append(other.owner)
+			courts[other.owner] = []
+		(courts[other.owner] as Array).append(other)
 	if own_hulls == 0:
+		own_group = [fleet]
 		own = strength(fleet) * _factor(factors, fleet.owner) * _leader(leaders, fleet.owner)
 		own_hulls = fleet.ship_count()
 	var row: Dictionary = {
@@ -137,7 +147,65 @@ static func zone(
 	row.merge(odds(own, foe))
 	if unread:
 		row["outcome"] = OUTCOME_UNKNOWN
+	else:
+		# The fight's other half: a zone the crown would lose also reads the way
+		# out the published retreat formula gives her (wiki: ships-and-naval
+		# § Naval Retreat Formula; DR-20261124-06).
+		var way_out: Dictionary = _way_out(
+			model, fleet, own_group, courts, fleets, hostile, factors, leaders
+		)
+		if not way_out.is_empty():
+			row["retreat"] = way_out
 	return row
+
+
+## The way out of a zone the crown would lose: the retreat the published formula
+## gives her against the court whose side would beat her — the strongest hostile
+## court in the water, its own id carried so the sheet can say whose guns it
+## prices. `{}` when there is nothing to read, when the crown holds the edge (a
+## retreat is rolled only for the beaten side) and when the fog hides a rival the
+## zone's share already leaves unread. The chance, the haven and the aggression
+## are [NavalRetreat.preview]'s own, so the sheet cannot promise a retreat the
+## turn would refuse (REQ-P2-03).
+static func _way_out(
+	model: MapModel,
+	fleet: FleetState,
+	own_group: Array,
+	courts: Dictionary,
+	fleets: Array,
+	hostile: Callable,
+	factors: Dictionary,
+	leaders: Dictionary
+) -> Dictionary:
+	if model == null or own_group.is_empty() or courts.is_empty():
+		return {}
+	var best: Array = []
+	var best_owner: int = -1
+	var best_weight: float = 0.0
+	for raw: Variant in courts.keys():
+		var owner: int = int(raw)
+		var group: Array = courts[raw]
+		var weight: float = 0.0
+		for other: FleetState in group:
+			weight += strength(other) * _factor(factors, other.owner) * _leader(leaders, other.owner)
+		if best_owner < 0 or weight > best_weight:
+			best = group
+			best_owner = owner
+			best_weight = weight
+	if best.is_empty():
+		return {}
+	var ours: float = 0.0
+	for own: FleetState in own_group:
+		ours += strength(own) * _factor(factors, own.owner) * _leader(leaders, own.owner)
+	if outcome_of(odds(ours, best_weight)) != OUTCOME_LOSS:
+		return {}
+	var offer: Dictionary = NavalRetreat.preview(
+		model, fleet.sea_zone, own_group, best, fleets, hostile
+	)
+	if offer.is_empty():
+		return {}
+	offer["court"] = best_owner
+	return offer
 
 
 ## The battle's arithmetic: the share of combined strength a side holds, and

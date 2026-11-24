@@ -173,22 +173,15 @@ func _fall_pass(rival: int) -> void:
 
 
 ## One calendar turn through MapPlayTurn, reading every battle plate the turn
-## raises and answering whatever consent decision it stops on.
+## raises and answering whatever consent decision it stops on. The shared closer
+## presses once per turn: a decision that runs the suspended turn to its end is
+## not pressed a second time.
 func _take_turn() -> void:
-	var guardian: int = 0
-	var was: int = _play.turn
-	while guardian < 8:
-		MapPlayTurn.end_turn(_play)
-		var overlay: QuickBattleOverlay = _play.hud.quick_battle_overlay
-		while overlay != null and overlay.is_shown() and guardian < 12:
-			overlay.skip()
-			overlay._on_continue()
-			guardian += 1
-		if _play.turn != was or _play.campaign_over():
-			return
-		if not SaveDrive.answer_pending(_play):
-			return
-		guardian += 1
+	SaveDrive.advance(_play, _release_plate)
+
+
+func _release_plate() -> void:
+	SaveDrive.release_plate(_play)
 
 
 func _toasts_since(start: int) -> PackedStringArray:

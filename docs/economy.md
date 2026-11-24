@@ -86,7 +86,7 @@ their deal (`LedgerWorkersText.recruit_line`): price, gate or ration
 
 ## Deferred (REQ-P2-02)
 
-Live: workshop landing (`ground_appetite`, DR-19-05); see [`deferred.md`](deferred.md).
+Live: workshop/riches landing (`ground_appetite`, DR-19-05/21); [`deferred.md`](deferred.md).
 
 ## Architecture
 

@@ -900,6 +900,97 @@ func test_blockade_targets_are_the_hostile_coasts_beside_the_zone() -> void:
 	var docked := FleetState.in_port(2, 0, 1)
 	assert_eq(FleetMissions.blockade_targets(_fleet_missions_model, docked, _war), [])
 
+## A coast that runs along two waters while its harbour faces only one: the case
+## the blockade's water gate turns on (wiki: ships-and-naval § Missions and
+## Movement — "the blockading fleet must be in a sea zone adjacent to that
+## province's port").
+func _port_gate_model() -> MapModel:
+	var model := MapModel.new()
+	model.setup(6, 5)
+	var riva_tiles: Array[Vector2i] = [
+		Vector2i(0, 0), Vector2i(1, 0), Vector2i(2, 0),
+		Vector2i(1, 1), Vector2i(2, 1), Vector2i(2, 2),
+	]
+	for tile: Vector2i in riva_tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 0
+	# The port's water (east) and a second water along the same coast (south).
+	for tile: Vector2i in [Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2)]:
+		model.sea_zone[model.index_of(tile.x, tile.y)] = 0
+	for tile: Vector2i in [Vector2i(1, 2), Vector2i(2, 3)]:
+		model.sea_zone[model.index_of(tile.x, tile.y)] = 1
+	var riva := ProvinceState.create(0, "Riva", riva_tiles, Vector2(1.0, 1.0), 6, 1)
+	riva.port_tile = Vector2i(2, 0)
+	model.provinces = [riva]
+	model.sea_zones = [
+		SeaZoneState.create(
+			0, "East Water",
+			[Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2)], Vector2(3.0, 1.0), 3
+		),
+		SeaZoneState.create(
+			1, "South Water", [Vector2i(1, 2), Vector2i(2, 3)], Vector2(1.5, 2.5), 2
+		),
+	]
+	return model
+
+func test_a_blockade_stands_in_the_water_its_port_faces() -> void:
+	var model: MapModel = _port_gate_model()
+	assert_eq(NavalMovement.province_sea_zones(model, 0), [0, 1], "the coast runs on both")
+	assert_eq(
+		NavalMovement.port_sea_zones(model, 0), [0],
+		"the harbour faces the east water alone"
+	)
+	var away := FleetState.at_sea(1, 0, 1)
+	var refused: Dictionary = FleetMissions.can_assign(
+		model, away, FleetState.Mission.BLOCKADE, 0, _war
+	)
+	assert_false(bool(refused["ok"]), "the far water holds no blockade of that port")
+	assert_true(String(refused["reason"]).contains("port"))
+	assert_eq(FleetMissions.blockade_targets(model, away, _war), [])
+	away.mission = FleetState.Mission.BLOCKADE
+	away.blockade_province = 0
+	assert_false(
+		FleetMissions.is_blockading(model, away, _war),
+		"a blockade off the port's water does not stand"
+	)
+	var beside := FleetState.at_sea(2, 0, 0)
+	assert_eq(FleetMissions.blockade_targets(model, beside, _war), [0])
+	var assigned: Dictionary = FleetMissions.assign(
+		model, beside, FleetState.Mission.BLOCKADE, 0, _war
+	)
+	assert_true(bool(assigned["ok"]), String(assigned.get("reason", "")))
+	assert_true(FleetMissions.is_blockading(model, beside, _war))
+	assert_eq(NavalMovement.port_sea_zones(null, 0), [])
+	assert_eq(NavalMovement.port_sea_zones(model, 99), [])
+
+func test_a_portless_coast_keeps_its_whole_water() -> void:
+	var model: MapModel = _port_gate_model()
+	model.province_data(0).port_tile = Vector2i(-1, -1)
+	assert_eq(
+		NavalMovement.port_sea_zones(model, 0), [0, 1],
+		"a map with no harbour reads the coast"
+	)
+	var away := FleetState.at_sea(1, 0, 1)
+	assert_true(bool(FleetMissions.can_assign(
+		model, away, FleetState.Mission.BLOCKADE, 0, _war
+	)["ok"]), "no port to face, so both waters blockade")
+
+func test_a_blockade_out_of_the_ports_water_seals_nothing() -> void:
+	var model: MapModel = _port_gate_model()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var away := FleetState.at_sea(1, 0, 1)
+	away.mission = FleetState.Mission.BLOCKADE
+	away.blockade_province = 0
+	var far: Blockades = Blockades.read(world, {0: [away]}, 1, 0, 0, _war)
+	assert_false(far.seals(0, 0), "that water never reaches the harbour")
+	assert_false(far.any())
+	var beside := FleetState.at_sea(2, 0, 0)
+	beside.mission = FleetState.Mission.BLOCKADE
+	beside.blockade_province = 0
+	var near: Blockades = Blockades.read(world, {0: [beside]}, 1, 0, 0, _war)
+	assert_true(near.seals(0, 0), "the port's own water seals the coast")
+
 func test_a_normal_move_clears_the_station() -> void:
 	_setup_fleet_missions()
 	var fleet := FleetState.at_sea(1, 0, 0)
@@ -1342,6 +1433,117 @@ func test_the_despatch_names_the_withdrawal() -> void:
 	assert_eq(
 		BattleReport.describe(battle, "Windward Passage", FACTIONS),
 		"England withdraws from the Windward Passage — España holds the zone"
+	)
+
+
+## The dossier's way out reads the retreat the turn would roll — the published
+## chance, the haven the rules steer her into and the enemy station that sets the
+## aggression — and says so plainly when no adjacent water is safe (wiki:
+## ships-and-naval § Naval Retreat Formula; DR-20261124-06).
+func test_the_retreat_preview_reads_the_way_the_pass_rolls() -> void:
+	_setup_naval_retreat()
+	var strong := _naval_retreat_squadron(1, 0, 0, "carrack", 3)
+	var weak := _naval_retreat_squadron(2, 1, 0, "carrack", 1)
+	var fleets: Array = [strong, weak]
+
+	var offer: Dictionary = NavalRetreat.preview(
+		_naval_retreat_model, 0, [weak], [strong], fleets
+	)
+
+	assert_true(bool(offer.get("ok", false)), "open water offers a way out")
+	assert_almost_eq(
+		float(offer.get("chance", 0.0)),
+		NavalRetreat.chance([weak], [strong], FleetState.Mission.NONE),
+		0.0001,
+		"one formula, read by the sheet and rolled by the pass"
+	)
+	assert_eq(int(offer.get("zone", -1)), 1, "the haven is the safe water beside it")
+	assert_eq(String(offer.get("zone_name", "")), "Golfo de México", "the haven is named")
+
+	# The enemy's station sets the aggression the pass would charge.
+	strong.mission = FleetState.Mission.PATROL
+	assert_almost_eq(
+		float(NavalRetreat.preview(
+			_naval_retreat_model, 0, [weak], [strong], fleets
+		).get("chance", 0.0)),
+		0.5,
+		0.0001,
+		"a patrol costs the beaten side 10%"
+	)
+	strong.mission = FleetState.Mission.NONE
+
+	# A hostile holding the only sea road shuts the way out: a rout is certain.
+	var shut_by := _naval_retreat_squadron(3, 2, 1, "carrack", 1)
+	fleets.append(shut_by)
+	var shut: Dictionary = NavalRetreat.preview(
+		_naval_retreat_model, 0, [weak], [strong], fleets
+	)
+	assert_false(bool(shut.get("ok", true)), "no safe water is no retreat")
+	assert_eq(String(shut.get("reason", "")), "no safe adjacent zone")
+	# The attempt reads the same refusal.
+	assert_eq(
+		String(NavalRetreat.attempt(
+			_naval_retreat_model, 0, [weak], [strong], fleets
+		).get("reason", "")),
+		"no safe adjacent zone"
+	)
+	# No chart, no reading.
+	assert_eq(NavalRetreat.preview(null, 0, [weak], [strong], fleets), {})
+
+
+## A zone the crown would lose reads the way out beside its odds, over the court
+## whose side would beat her; a zone she holds, or one the fog leaves unread,
+## reads none — a retreat is rolled only for the beaten side (wiki:
+## ships-and-naval § Naval Retreat Formula, § Sighted strength; DR-20261124-06).
+func test_the_zone_reads_the_way_out_of_a_fight_the_crown_loses() -> void:
+	_setup_naval_retreat()
+	var weak := _naval_retreat_squadron(1, 0, 0, "carrack", 1)
+	var strong := _naval_retreat_squadron(2, 1, 0, "carrack", 3)
+	var fleets: Array = [weak, strong]
+
+	var zone: Dictionary = NavalStrength.zone(
+		fleets, weak, Callable(), {}, {}, Callable(), _naval_retreat_model
+	)
+
+	assert_eq(int(zone.get("outcome", 0)), NavalStrength.OUTCOME_LOSS, "a losing water")
+	var offer: Dictionary = zone.get("retreat", {})
+	assert_false(offer.is_empty(), "the losing water reads the way out")
+	assert_true(bool(offer.get("ok", true)), "open water beside it")
+	assert_eq(int(offer.get("court", -1)), 1, "the court that would beat her is named")
+	assert_eq(int(offer.get("zone", -1)), 1, "and the haven it would take")
+
+	# Two courts in the water: the sheet prices the stronger side, which is the
+	# one that would beat her.
+	fleets.append(_naval_retreat_squadron(3, 2, 0, "fluyte", 1))
+	assert_eq(
+		int((NavalStrength.zone(
+			fleets, weak, Callable(), {}, {}, Callable(), _naval_retreat_model
+		).get("retreat", {}) as Dictionary).get("court", -1)),
+		1,
+		"the strongest hostile court is the one priced"
+	)
+	fleets.pop_back()
+
+	# The same water read from the winning side: no retreat is rolled for her.
+	var won: Dictionary = NavalStrength.zone(
+		fleets, strong, Callable(), {}, {}, Callable(), _naval_retreat_model
+	)
+	assert_eq(int(won.get("outcome", 0)), NavalStrength.OUTCOME_WIN)
+	assert_false(won.has("retreat"), "a crown that holds the edge hears nothing")
+
+	# An unread rival leaves the water undecided, and the line waits on the fog.
+	var unread: Dictionary = NavalStrength.zone(
+		fleets, weak, Callable(), {}, {},
+		func(_other: FleetState) -> bool: return false,
+		_naval_retreat_model
+	)
+	assert_true(bool(unread.get("unread", false)))
+	assert_false(unread.has("retreat"), "the fog withholds the way out too")
+
+	# No chart: the odds still read, the haven cannot be named.
+	assert_false(
+		NavalStrength.zone(fleets, weak, Callable(), {}, {}, Callable()).has("retreat"),
+		"a haven needs a chart"
 	)
 
 # --- test_naval_port_loss ---
@@ -3434,6 +3636,70 @@ func test_escorts_cut_the_hull_loss() -> void:
 		"the roll that would sink her alone misses under escort"
 	)
 	assert_eq(home.hulls.size(), 2)
+
+
+## The convoy reading is the raid's own escort cover, in the raid's own words: a
+## crown can read what its warships buy before the turn closes (wiki:
+## ships-and-naval § Trade and Transport Interception; DR-20261124-04).
+func test_the_convoy_read_is_the_raids_own_escort_cover() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var alone: Dictionary = ConvoyRead.read(home)
+	assert_true(bool(alone["known"]))
+	assert_eq(int(alone["warships"]), 0)
+	assert_almost_eq(float(alone["cover"]), NavalHullLoss.escort_factor(home), 0.0001)
+	assert_true(String(alone["line"]).begins_with("CONVOY  no warship covers the holds"))
+	assert_true(
+		String(alone["line"]).contains("sinks a Fluyte on 40%"),
+		"the bare published chance, in the raid's own figures"
+	)
+
+	# A carrack and a Fluyte are three hull points of cargo; one sloop is two of
+	# escort, so the cover is 2 / 3 × 0.3 = 0.2 — under the cap, so the words name
+	# the share rather than the cap.
+	home.set_hulls(
+		["home_1", "home_3", "home_2"],
+		{"home_1": "fluyte", "home_3": "carrack", "home_2": "sloop"}
+	)
+
+	var escorted: Dictionary = ConvoyRead.read(home)
+	assert_eq(int(escorted["warships"]), 1)
+	assert_almost_eq(float(escorted["cover"]), 0.2, 0.0001, "one sloop of 3 hull against 2")
+	assert_true(String(escorted["line"]).contains("1 warship cuts a raid on the holds by 20%"))
+	assert_true(
+		String(escorted["line"]).contains("sinks a Fluyte on 32%"),
+		"the same hull chance the raid rolls under escort"
+	)
+	assert_almost_eq(
+		float(escorted["hull_chance"]), NavalHullLoss.chance(home), 0.0001,
+		"one reading: the sheet and the raid price one hull"
+	)
+
+
+## The cover stops at the published cap and the words say so, instead of
+## promising a share the formula never pays (DR-20261124-04).
+func test_a_convoy_at_the_cap_names_the_cap() -> void:
+	var home := FleetState.in_port(
+		10, 0, 0, ["home_1", "home_2"], {"home_1": "fluyte", "home_2": "sloop"}
+	)
+	# One hull each: escort 2 against cargo 1 reads 0.6, past the 0.5 cap.
+	assert_almost_eq(float(ConvoyRead.read(home)["cover"]), 0.5, 0.0001)
+	assert_true(bool(ConvoyRead.read(home)["capped"]))
+	var line: String = String(ConvoyRead.read(home)["line"])
+	assert_true(line.contains("all the cover a convoy takes (50%)"))
+	assert_true(line.contains("sinks a Fluyte on 20%"), "0.2 × (1 − 0.5) × 2.0")
+
+
+## A squadron with no merchant hull offers no prize, so there is no convoy to
+## read: the sheet prints nothing rather than a zero (REQ-P1-07).
+func test_a_warship_only_squadron_reads_no_convoy() -> void:
+	var line := FleetState.in_port(10, 0, 0, ["w"], {"w": "sloop"})
+	var read: Dictionary = ConvoyRead.read(line)
+	assert_false(bool(read["known"]))
+	assert_eq(String(read["line"]), "")
+	assert_eq(String(read["tip"]), "", "no row, no hover")
+	var empty: Dictionary = ConvoyRead.read(null)
+	assert_false(bool(empty["known"]))
+	assert_eq(String(empty["line"]), "")
 
 
 func test_the_richest_merchant_hull_is_the_one_taken() -> void:

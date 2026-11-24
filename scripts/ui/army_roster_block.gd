@@ -86,7 +86,7 @@ func _render() -> void:
 		var detail_row := HBoxContainer.new()
 		detail_row.add_theme_constant_override("separation", 8)
 		entry.add_child(detail_row)
-		var detail := UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
+		var detail := UiRowBuilder.line(11, Palette.with_alpha(Palette.TEXT_DIM, 0.75))
 		detail.text = RegimentCatalog.detail_line(type_id)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL

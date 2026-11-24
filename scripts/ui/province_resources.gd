@@ -2,7 +2,9 @@ class_name ProvinceResources
 extends VBoxContainer
 ## The province dossier's estate block: one line per resource tile the province
 ## holds, each saying whether the estate is developed and whether it reaches the
-## crown (wiki: extraction-and-improvements, capital-and-connectivity).
+## crown (wiki: extraction-and-improvements, capital-and-connectivity), then the
+## harvest those estates clear at today's sell and how many still have room to
+## raise (DR-20261123-25).
 ## Rows come from ResourceSurvey, so the dossier, the estates ledger and the
 ## survey lens never disagree about an estate (REQ-P3-02, REQ-P3-03).
 ##
@@ -28,6 +30,9 @@ var _roads: Dictionary = {}
 var _body: VBoxContainer = null
 var _empty: Label = null
 var _survey: Label = null
+## The harvest the province's own estates clear at today's sell, under the rows it
+## sums; hidden for ground the crown owns no estate in (DR-20261123-25).
+var _harvest: Label = null
 
 
 func _ready() -> void:
@@ -48,6 +53,14 @@ func _ready() -> void:
 	_empty.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	_empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_empty)
+	# What the estates above clear, in the realm's own terms: the figure a crown
+	# raises against, on the sheet it raises from (DR-20261123-25).
+	_harvest = Label.new()
+	_harvest.add_theme_font_size_override("font_size", 12)
+	_harvest.add_theme_color_override("font_color", Palette.GOLD_DIM)
+	_harvest.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_harvest.visible = false
+	add_child(_harvest)
 	# Ground still to survey: the hook that sends an Explorer out, since a
 	# mineral is hidden until the crown prospects its tile (DR-20261111-26).
 	_survey = Label.new()
@@ -74,11 +87,22 @@ func survey_text() -> String:
 	return _survey.text if _survey != null and _survey.visible else ""
 
 
+## The harvest line as last rendered ("" when the crown owns no estate here).
+func harvest_text() -> String:
+	return _harvest.text if _harvest != null and _harvest.visible else ""
+
+
 ## One line per estate. An empty list says the province holds no charted
 ## resource tile; `unsurveyed` names the ground an Explorer could still read.
 ## `roads` maps a tile to the plan RoadWorks read for it, so a cut-off estate
-## carries its Build road control (issue #671).
-func render(rows: Array[Dictionary], unsurveyed: int = 0, roads: Dictionary = {}) -> void:
+## carries its Build road control (issue #671). `harvest` is the line the realm's
+## own economy read words for this ground (DR-20261123-25); empty hides it.
+func render(
+	rows: Array[Dictionary],
+	unsurveyed: int = 0,
+	roads: Dictionary = {},
+	harvest: String = ""
+) -> void:
 	_lines = rows
 	_roads = roads
 	if _body == null:
@@ -93,6 +117,8 @@ func render(rows: Array[Dictionary], unsurveyed: int = 0, roads: Dictionary = {}
 		_empty.text = "No estates charted — %s still unsurveyed." % _tiles(unsurveyed)
 	else:
 		_empty.text = EMPTY
+	_harvest.text = harvest
+	_harvest.visible = not harvest.is_empty()
 	_survey.visible = unsurveyed > 0
 	_survey.text = "Unsurveyed ground: %s — an Explorer can prospect it." % _tiles(unsurveyed)
 

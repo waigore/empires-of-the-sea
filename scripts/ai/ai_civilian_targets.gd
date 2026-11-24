@@ -28,6 +28,9 @@ static func training_context(
 	context: Dictionary
 ) -> Dictionary:
 	var train_context: Dictionary = context.duplicate()
+	# The region's own survey rides the copied context, so the deed the college
+	# hires a Merchant for is one the court has already priced (issue #1383).
+	train_context["land_works"] = works
 	var deed_tiles: int = AiMerchantWork.buyable_tiles(
 		model, config.faction, works, context
 	).size()
@@ -35,7 +38,7 @@ static func training_context(
 		deed_tiles if deed_tiles > 0
 		else (
 			1 if not AiMerchantWork.openable_deed(
-				model, config.faction, context
+				model, config.faction, train_context
 			).is_empty() else 0
 		)
 	)

@@ -43,6 +43,8 @@ static func build_hud(play: PlaySession) -> void:
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)
+	# The opening purse is the mark the first close measures its move from.
+	play.purse_at_close = play.treasury()
 	MapPlayFocus.bind(play)
 	_seat_estates(play)
 	refresh_dossier(play)
@@ -123,6 +125,11 @@ static func _seat_commanders(play: PlaySession) -> void:
 static func refresh_dossier(play: PlaySession) -> void:
 	if play.hud == null or play.model == null or play.land_works == null:
 		return
+	# The province sheet's Hosts and Squadrons rows read the chart's armies and
+	# its harbours, and the crown's own fog, off the session it is seated with,
+	# reseated here with every dossier refresh (wiki: fog-and-exploration
+	# § Order-of-battle readings; DR-20261123-13, DR-20261123-14).
+	MapPlayProvinceHosts.seat(play)
 	play.hud.panels.panel.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.visibility,
 		play.capital_tile, play.player_faction, play.tech_caps(),
@@ -160,6 +167,9 @@ static func refresh_after_load(play: PlaySession) -> void:
 	var hud: GameHud = play.hud
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
 	hud.stats.set_treasury(play.treasury(), false)
+	# A load marks the restored purse: the next close names its own move, not
+	# the whole purse the save was taken with.
+	play.purse_at_close = play.treasury()
 	refresh_region_hud(play, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
 	MapPlayLens.mount_all(play)
 	MapPlayDiplomacy.refresh(play)

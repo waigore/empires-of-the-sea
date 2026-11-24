@@ -48,10 +48,14 @@ var at_war: bool = false
 ## The court's war footing this turn (DR-20261113-15): the dispatch table every
 ## domain planner reads its slot from (DR-20261117-01).
 var phase: String = AiPhasePlanner.PHASE_UNKNOWN
-## True while this court banks for the army its conquest still needs (issue
-## #995): on `earn` and short of the bar, the works purse and the college's
-## doors draw on the bank, not the cash floor.
+## True while the court's own bank (issue #995) holds the works purse and the
+## college's doors on the cash floor.
 var conquest_bank: bool = false
+## True while the money goal reads `earn` on the submission surface (issue
+## #1384): the split that names the bank's income investments — the studies
+## and the region's own crews that lead while the chest itself keeps its
+## claim on the deferrable purchases.
+var invest_bank: bool = false
 var regiments: int = 0
 var ships: int = 0
 var warships: int = 0
@@ -187,6 +191,16 @@ func rehearse() -> void:
 	conquest_bank = (
 		kind != AiControl.KIND_BASELINE
 		and AiIncome.banking(config, play.ai, income)
+	)
+	# The bank's own split (issue #1384): the money goal names the court's
+	# money first, and the readers that priced the whole stand-down off it
+	# held the college and the hire shut while the chest filled. This flag
+	# is the investments' half: the studies and the region's own crews lead
+	# while the chest keeps its claim on the deferrable purchases — the bid
+	# book, the deed, a new war. Baselines keep their published doctrine.
+	invest_bank = (
+		kind != AiControl.KIND_BASELINE
+		and AiIncome.invests(config, play.ai, income)
 	)
 	boost = MapPlaySpyAi.research_bonus(play, faction, economy)
 	hospitals = HospitalRules.demand_list(play.world, faction)
