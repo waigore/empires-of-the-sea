@@ -253,6 +253,34 @@ static func _college(run, screen: MapScreen) -> void:
 	)
 	chart.close()
 	run.check(not chart.is_open(), "the chart closes back to the college")
+	# A study under way names the turns it still owes at its own preset, so the
+	# crown reads when it lands instead of dividing by hand (wiki: tech-tree
+	# § Research Model; DR-20261124-01).
+	var research: Button = _button(college, "Research")
+	run.check(research != null, "an open advance offers its press")
+	if research != null and not research.disabled:
+		var free_mid: int = screen.economy.economy.research.free_slot()
+		research.pressed.emit()
+		await run.tree.process_frame
+		var waits: int = 0
+		for row: ResearchSlotRow in college.slot_rows():
+			if row.price().is_idle():
+				continue
+			waits += 1
+			run.check(
+				run.has_text(college, " · %s left" % row.price().turns_text()),
+				"a study under way names the turns it has left"
+			)
+		run.check(waits > 0, "the press puts a study in a slot")
+		var cancel: Button = _button(college, "Cancel")
+		run.check(cancel != null, "the slot offers its cancel door")
+		if cancel != null:
+			cancel.pressed.emit()
+			await run.tree.process_frame
+		run.check(
+			screen.economy.economy.research.free_slot() == free_mid,
+			"cancelling the study frees the slot again"
+		)
 	screen.hud.panels.hide_research()
 	run.check(not screen.hud.panels.is_research_open(), "college closes")
 	run.check(
