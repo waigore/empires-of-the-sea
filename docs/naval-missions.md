@@ -105,7 +105,7 @@ Rules are node-free (`REQ-P3-03`); stations are dossier rows
 
 ## Tests
 
-`test_naval_rules`, `test_fleet_orders`,
+`test_fleet_orders`,
 `test_a_battle_rules`, `test_a_map_screen`, `test_economy_screen`.
 
 ```bash
