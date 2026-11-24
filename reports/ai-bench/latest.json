@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
-  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:4d7c697520c1feba604351c24d7554bc6f2b010b394f09621322a9ac9d09f1c1",
-  "submission_git": "fix/famine-order-rival-pass@643173c5",
+  "tree_hash": null,
+  "commit": null,
+  "submission_hash": "sha256:5cbdcde0ffdd8a838014b02fde4f997b293a778c49ef2aeefb4b142271f36761",
+  "submission_git": "main@3a1c02a6+dirty",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1076.9786625032527,
+      "value": 1031.4735840076155,
       "direction": "max"
     },
     {
@@ -50,30 +50,30 @@
     },
     {
       "name": "funded_pct",
-      "value": 86.70389194139194,
+      "value": 73.57948717948717,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:ab1731bf0dd93fba0cbeb2e12dd51cd8e37338320b3ad003763c074659012e72",
+    "ai_surface_hash": "sha256:bf5b564f5edaa0120b414e957ccb2ea11acf11c2107de612cf577212fb76149e",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
       "provinces_new": 0,
       "regiments": 8,
       "ships": 1,
-      "workers": 2,
-      "extraction_per_turn": 40.16393442622951,
-      "income_per_turn": 196.65079365079364,
-      "funded_pct": 86.70389194139194
+      "workers": 3,
+      "extraction_per_turn": 46.55497382198953,
+      "income_per_turn": 133.36363636363637,
+      "funded_pct": 73.57948717948717
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 86.70389194139194
+    "funded_pct": 73.57948717948717
   },
   "params": {
     "turns": 200,
@@ -81,14 +81,14 @@
     "size": 1
   },
   "final": false,
-  "official": true,
-  "official_reason": null,
+  "official": false,
+  "official_reason": "dirty-tree",
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T11:57:07Z",
+  "timestamp": "2026-11-24T14:14:15Z",
   "report_version": 1,
-  "signature": "hmac-sha256:574d75af64a9d21c1789c309f14c26fb7e92c984e0600df0426b32d7b8d7d7e8"
+  "signature": "hmac-sha256:3dd2b832cc2ae978ed51d8973ce40d3a895240cfad7be153350cad1cab03b454"
 }
