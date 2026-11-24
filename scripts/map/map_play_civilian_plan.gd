@@ -88,6 +88,12 @@ static func region_context(
 				"diplomacy": play.diplomacy,
 				"visibility": MapPlayCourtFog.view_for(play, faction, region),
 				"treasury": int(court["spendable"]),
+				# The region's own survey, so a deposit is priced only once the
+				# court's Explorer has dug it (issue #1383).
+				"land_works": (
+					play.civilian_layer.works_regions.value(region, null)
+					if play.civilian_layer != null else null
+				),
 			}
 		)
 		context["deed_price"] = int(deed.get("price", 0))
@@ -195,27 +201,53 @@ static func bank_crops(config: Variant, economy: PlayerEconomy) -> Array:
 ## A plan on `earn` keeps only what refills the store: extraction and surveys,
 ## or the conquest bank's farms and the farm line's own feedstock, with the one
 ## road that puts an off-network town on the crown's network (issue #489, #995).
+## The banked trim retuned (issue #1384): the conquest bank's own clause still
+## names the farms and the line's feedstock — the works that keep the estate
+## engine feeding the chest — while the non-banked earn trim keeps every
+## extraction work and survey. Either way the purchases that draw the chest
+## down (towns, ports, the roads that wait with them) stay trimmed.
 static func trim_to_purse(
 	plan: Dictionary, model: MapModel, works: LandWorks, faction: int,
 	capital_tile: Vector2i, crops: Array, conquest_bank: bool
 ) -> void:
+	var root: bool = rootless(model, works, faction)
 	if not conquest_bank:
-		keep_extraction(plan, model)
+		keep_extraction(plan, model, root)
 		return
 	keep_bank_works(
 		plan, model, crops,
 		AiTownRoads.steps(
 			model, works, faction,
 			ImprovementSystem.connected_tiles(model, works, faction, capital_tile)
-		)
+		),
+		root
 	)
+
+
+## True while this region roots itself at a port: it is not the court's own and
+## no port stands on its owned ground. No capital tile seeds connectivity
+## abroad, so a port is the work that turns the region's dead estates into
+## extraction — the one work an `earn` purse must keep, because it is what refills
+## the store every other kept order spends (wiki: extraction-and-improvements
+## § Overseas delivery; issue #1422). A court with no works or no owned province
+## there roots nothing yet and keeps nothing extra.
+static func rootless(model: MapModel, works: LandWorks, faction: int) -> bool:
+	if model == null or works == null or faction < 0:
+		return false
+	if model.region_id == FactionCatalog.region_of(faction):
+		return false
+	return VoyageRead.needs_port(model, works, faction)
 
 
 ## On `earn` only extraction is funded from the cash floor: a court that cannot
 ## pay its next commitment still works the resources that refill the store, and
 ## leaves the town levels, roads and ports for the turn it can pay for them
-## (issue #489).
-static func keep_extraction(plan: Dictionary, model: MapModel) -> void:
+## (issue #489). `rootless` keeps the one port that roots an overseas region:
+## without it no estate there extracts at all, so the port is the first
+## extraction work, not a port the purse can wait on (issue #1422).
+static func keep_extraction(
+	plan: Dictionary, model: MapModel, rootless: bool = false
+) -> void:
 	var kept: Array[Dictionary] = []
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
@@ -226,6 +258,9 @@ static func keep_extraction(plan: Dictionary, model: MapModel) -> void:
 		# income a court has apart from sales (wiki: fog-and-exploration
 		# § Prospecting; issue #489).
 		if String(order.get("action", "")) == "prospect":
+			kept.append(order)
+			continue
+		if rootless and String(order.get("action", "")) == "build_port":
 			kept.append(order)
 			continue
 		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
@@ -256,12 +291,18 @@ static func keep_extraction(plan: Dictionary, model: MapModel) -> void:
 ## hire. An order on the tile of a crop the bank already keeps keeps as it is:
 ## that estate's own link is its provisioning too.
 static func keep_bank_works(
-	plan: Dictionary, model: MapModel, crops: Array, town_roads: Dictionary = {}
+	plan: Dictionary, model: MapModel, crops: Array, town_roads: Dictionary = {},
+	rootless: bool = false
 ) -> void:
 	var kept: Array[Dictionary] = []
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
 		if String(order.get("action", "")) == "prospect":
+			kept.append(order)
+			continue
+		# The port that roots an overseas region keeps with the farms: the bank's
+		# own crop estates abroad pay nothing until it stands (issue #1422).
+		if rootless and String(order.get("action", "")) == "build_port":
 			kept.append(order)
 			continue
 		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)

@@ -27,12 +27,13 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - One cached small world per worker via `MapScreen.preset_world` /
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats turn-100 civilians,
-  passing fair split on the **first** attempt.
+  fair split on the **first** attempt.
 - Terrain wash, fog and chart layers build once per map state; a re-seat
   redraws nothing.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
-  (gd-tools clones each case). Prefer a pocket chart; one Standard census.
+  (gd-tools clones each case). Pocket chart; census from
+  `tests/data/census_world_160.bin` (`tests/write_census_fixture.gd`).
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); one mount per advanced tier. Pure cases skip re-seat (lazy
   `_screen` / `main` / menu-flow `chart`). Mostly-pure: skip `before_all`
@@ -41,22 +42,21 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   `play.world` forces `generate_world`. `park_screen` after setup /
   `before_each`; `suite_reset` unparks. Free swapped screens. Far-chart fog
   / naval / seat framing: `world.region` / `regions.set_region` /
-  `region_index` (+ `play.model`) — no `_cycle_region`. Short `hold_max` /
-  `fade_seconds` on opening plates.
+  `region_index` (+ `play.model`) — no `_cycle_region`. Short opening fades.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
-  not the 48×32 chart.
+  not 48×32.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
   session (and `ai_turns` / Auto fields), re-seat lazily (~0.2 s vs ~1.5–2 s).
   Mode cases start at turn 1; shared-pass spy readings stay one `end_turn`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   pocket chart and `ResearchPanel` only when read.
-- **Heaviest suite first**: `test_a_map_screen` leads so one chart suite does
-  not drain alone.
-- One Godot boot per theme — coverage ~15 s; 25 suites; `parallel = 4`.
-  Court-words at rules; suspending / campaign-end use `AiControl.NOOP`;
-  counsel only when court open; plate saves reload in-place.
-- Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
+- **Heaviest suite first**: `test_a_map_screen` leads so it does not drain alone.
+- One Godot boot per theme — coverage ~15–35 s/suite; fold micro-suites into a
+  neighbour (order motion → map; capture → chrome) so `parallel = 4` stays
+  ≤5 min. Court-words at rules; suspending / campaign-end use `AiControl.NOOP`;
+  counsel when court open; plate saves reload in-place. Smoke/auto: short boot,
+  no sleeps; `view_live=false`.
 
 ## Local
 

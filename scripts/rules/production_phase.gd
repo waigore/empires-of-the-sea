@@ -52,6 +52,12 @@ static func claimed_labour(assignments: Array) -> int:
 ## theirs. `stockpile` is the post-Consumption store and `labour_points` the idle
 ## labour the projection reports, so the ledger never offers what the phase
 ## would refuse (wiki: stockpiles-and-production § Production flow; REQ-P2-03).
+##
+## `tech_unlocked` is the court's own study set: a row whose recipe needs a
+## technology the court has not researched is offered nothing and claims nothing,
+## because the phase skips it (wiki: production-recipes § Technology-gated
+## recipes — the gate is enforced wherever availability is evaluated, and the
+## phase's `available_for` is the one reading both go through).
 static func allowance(
 	recipe_id: String,
 	stockpile: Dictionary,
@@ -59,10 +65,13 @@ static func allowance(
 	assignments: Array,
 	workers: WorkerPool = null,
 	wip: Dictionary = {},
-	town_level: int = 0
+	town_level: int = 0,
+	tech_unlocked: Dictionary = {}
 ) -> int:
-	if not ProductionRecipes.known(recipe_id) or not ProductionRecipes.tier_met(
-		recipe_id, workers
+	if (
+		not ProductionRecipes.known(recipe_id)
+		or not ProductionRecipes.available(recipe_id, tech_unlocked)
+		or not ProductionRecipes.tier_met(recipe_id, workers)
 	):
 		return 0
 	if not ProductionRecipes.town_met(recipe_id, town_level):
@@ -74,9 +83,11 @@ static func allowance(
 		var other_id: String = String((raw as Dictionary).get("recipe", ""))
 		if other_id == recipe_id:
 			continue
-		# A gated row never runs, so it claims nothing from the rows that do.
+		# A gated row never runs, so it claims nothing from the rows that do: the
+		# study, the hand and the town's works are the phase's own three gates.
 		if (
-			not ProductionRecipes.tier_met(other_id, workers)
+			not ProductionRecipes.available(other_id, tech_unlocked)
+			or not ProductionRecipes.tier_met(other_id, workers)
 			or not ProductionRecipes.town_met(other_id, town_level)
 		):
 			continue

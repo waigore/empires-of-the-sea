@@ -1,7 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1408 (REQ-P2-02).
-Default pick: largest gap, then REQ/wiki.
+Audited through #1456 (REQ-P2-02). Largest gap, then REQ/wiki.
 
 ## Already live
 
@@ -21,8 +20,7 @@ Default pick: largest gap, then REQ/wiki.
 | Raid hulls/rival prizes/naval plate | `NavalRaid`, `MapPlayRaids`, `NavalPlate` |
 | Road L2/gathering/path transport | `TechUnlocks`/`Extraction` |
 | Chart/Passage/OOB/Hosts | `AdvancedSeas`; `OobReadings`; `ProvinceHosts` |
-| Sea-zone names | `MapNaming` (DR-13-07) |
-| Yarn + consent | `DialogueYarn`, `ConsentCopy` |
+| Sea-zone names; yarn + consent | `MapNaming`; `DialogueYarn`, `ConsentCopy` |
 | War footing/money/victory/need | `AiPhasePlanner`; `AiIncome`; `AiDiplomacyDesire` |
 | Phoney front; college chest; pact lead | `holds_front`; `bank_chest`; `pact_break_leads` |
 | Declare-war / Tribe-chain / crews | `SLOT_DECLARE_WAR`/`TRIBE_CHAIN`/`CREWS` |
@@ -37,10 +35,11 @@ Default pick: largest gap, then REQ/wiki.
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face; muster; fan; capital chart | `RaiseBatchPress`; `FleetMuster`/`FleetLanes`; `CapitalChoiceScreen` |
-| Rival priced overtures | `DiplomacyProposals` + asking ledger |
-| AI win / border front (#995) | `AiBorderFronts`; bench t101 (DR-19-16) |
-| Passengers whole-berth press | `EmbarkBatch` (DR-19-18, #1104) |
-| Station raid/catch dossier prices | `NavalRaid`/`NavalInterception` preview |
+| Rival priced overtures; AI win/front | `DiplomacyProposals`; `AiBorderFronts` |
+| Passengers; raid/catch prices | `EmbarkBatch`; `NavalRaid`/`NavalInterception` |
+| Harbour hulls + aboard | `ProvinceHarbour` (+`.aboard`, DR-14/18) |
+| Wall storm; fee; riches; bank | `WallRead`; `ArmyAttackCost`; `ground_appetite`; `AiIncome.invests` |
+| Harvest; college turns; Engineer port | `MapPlayProvinceHarvest`; `ResearchSlotPrice`; `VoyageRead.needs_port` |
 
 ## Gaps (ranked)
 
@@ -54,19 +53,19 @@ None; see `docs/rubric.md` / wiki.
 
 - Predict-the-line (DR-12-02); era — no model (DR-11-08).
 - Healing at 0; last-known OOB (DR-12-04/09); general-grade trains (DR-12-07).
-- Soft priority weight — seed (DR-13-15). Phase resource-need reweight —
-  none; money-goal live (DR-16-09). War-desire need live (above).
+- Soft priority weight — seed (DR-13-15). Money-goal live (DR-16-09).
 - Alt victory, difficulty extras, ruleset loaders/borrowing, warehousing,
   loans — out of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
-- Cross-station folds / passenger transfers — out of scope. Further tongues
-  (DR-13-12); 30% floor data-gated (DR-15-18). QB placed figures / per-wing
-  orders — out of scope (DR-17-08).
+- Cross-station folds / passenger transfers; further tongues (DR-13-12);
+  30% floor data-gated (DR-15-18); QB placed figures / per-wing orders
+  (DR-17-08); building-gated recipes (DR-14-12) — out of scope.
 
 ## Wiki drift
 
-`DR-20261111-05` Deferred still names Tribe contact and fleetless crowns;
-both live. `capital-choice-phase` “UI deferred” — stale; chart live. Soft
-weight seed (DR-13-15). Treasury-recovery / domain-dispatch “seed” —
-stale (DR-16-09; `SLOT_MARKET`/`SLOT_NAVAL`). #1400–#1408 — not backlog.
+`DR-20261111-05` still names Tribe contact and fleetless crowns (both live).
+`capital-choice-phase` “UI deferred” — stale. Soft weight / treasury seed
+(DR-13-15 / DR-16-09) — stale. #1444–#1456 not backlog. #1382 / #1422
+closed (riches + Engineer port live). Open defects: #1429, #1383,
+#1432–#1435 (not ranked gaps).

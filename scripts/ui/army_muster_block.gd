@@ -105,7 +105,7 @@ func fill(rows: Array[Dictionary], pick: Dictionary = {}) -> void:
 		)
 		muster.pressed.connect(func() -> void: action_pressed.emit("recruit:%s" % type_id))
 		top.add_child(muster)
-		var detail := UiRowBuilder.line(10, Color(0.74, 0.68, 0.55, 0.75))
+		var detail := UiRowBuilder.line(10, Palette.with_alpha(Palette.TEXT_DIM, 0.75))
 		detail.text = (
 			String(row["cost_text"]) if bool(row["ok"]) else String(row["reason"])
 		)

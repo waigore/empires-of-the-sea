@@ -453,6 +453,61 @@ func test_ground_held_by_deed_and_the_crew_the_voyage_carries() -> void:
 		"one claim at a time: the idle-crew read finds no second Merchant"
 	)
 
+
+## The ground abroad has no port to root its network, so the voyage after the
+## Builder carries the Engineer that raises one (wiki:
+## extraction-and-improvements § Overseas delivery; issue #1422). The port comes
+## second: a crown with no Builder ashore works the ground first.
+func test_the_crew_the_voyage_carries_follows_the_port_abroad() -> void:
+	assert_eq(
+		VoyageRead.voyage_kind(true, {"builder": 1}, true), "engineer",
+		"the Builder is ashore and the ground has no port"
+	)
+	assert_eq(
+		VoyageRead.voyage_kind(true, {}, true), "builder",
+		"nobody works the ground yet: the Builder still goes first"
+	)
+	assert_eq(
+		VoyageRead.voyage_kind(true, {"builder": 1}, false), "builder",
+		"a ported ground carries no port crew"
+	)
+	assert_eq(
+		VoyageRead.voyage_kind(false, {"explorer": 1}, true), "merchant",
+		"no ground, no port: the claim crew answers as published"
+	)
+
+
+## The port reading asks only for ground that could carry one: an owned coastal
+## province with no port anywhere in the region (issue #1422).
+func test_the_port_read_names_the_ground_that_can_carry_one() -> void:
+	var model := MapModel.new()
+	model.setup(3, 2)
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	var tiles: Array[Vector2i] = []
+	for x in 3:
+		model.terrain[model.index_of(x, 1)] = MapModel.Terrain.OCEAN
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(Vector2i(x, 0))
+	model.provinces = [ProvinceState.create(
+		0, "Colony", tiles, Vector2(1.0, 0.5), 3, 0, true
+	)]
+	var works := LandWorks.new()
+	assert_true(
+		VoyageRead.needs_port(model, works, 0),
+		"an owned coastal province with no port asks for one"
+	)
+	works.add_port(model, Vector2i(1, 0))
+	assert_false(VoyageRead.needs_port(model, works, 0), "the port answers the ask")
+	assert_false(VoyageRead.needs_port(model, null, 0), "no works, no reading")
+	assert_false(VoyageRead.needs_port(model, LandWorks.new(), 9), "no ground, no port")
+	for y in 2:
+		for x in 3:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	assert_false(
+		VoyageRead.needs_port(model, LandWorks.new(), 0),
+		"a province with no coast can carry no port"
+	)
+
 # --- test_deed_protection ---
 
 func test_a_deed_inside_the_victims_provinces_counts_for_its_buyer() -> void:
@@ -1858,6 +1913,56 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 	assert_eq((plan["orders"] as Array).size(), 2, "the resource tile and the survey survive")
 	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
 	assert_eq(String((plan["orders"] as Array)[1]["action"]), "prospect")
+
+
+## The one port that roots an overseas region keeps on `earn`: no capital tile
+## seeds connectivity abroad, so an estate there extracts nothing until a port
+## stands — the port is the first extraction work, not a port the purse can wait
+## on (wiki: extraction-and-improvements § Overseas delivery; issue #1422).
+func test_an_earning_court_keeps_the_port_that_roots_an_overseas_region() -> void:
+	var model := MapModel.new()
+	model.setup(3, 2)
+	var home: int = FactionCatalog.region_of(0)
+	model.region_id = WorldMap.NEW_WORLD if home == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	model.resource.fill(MapModel.NO_ID)
+	var tiles: Array[Vector2i] = []
+	for x in 3:
+		model.terrain[model.index_of(x, 1)] = MapModel.Terrain.OCEAN
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(Vector2i(x, 0))
+	model.provinces = [ProvinceState.create(
+		0, "Colony", tiles, Vector2(1.0, 0.5), 3, 0, true
+	)]
+	var plan: Dictionary = {"orders": [
+		{"action": "build_port", "tile": Vector2i(0, 0)},
+		{"action": "build_town", "tile": Vector2i(1, 0)},
+	]}
+	assert_true(
+		MapPlayCivilianPlan.rootless(model, LandWorks.new(), 0),
+		"no capital tile roots the region and no port stands"
+	)
+	MapPlayCivilianPlan.keep_extraction(plan, model, true)
+	assert_eq((plan["orders"] as Array).size(), 1, "the town waits; the root keeps")
+	assert_eq(String((plan["orders"] as Array)[0]["action"]), "build_port")
+	var banked: Dictionary = {"orders": [
+		{"action": "build_port", "tile": Vector2i(0, 0)},
+		{"action": "build_town", "tile": Vector2i(1, 0)},
+	]}
+	MapPlayCivilianPlan.keep_bank_works(banked, model, [], {}, true)
+	assert_eq((banked["orders"] as Array).size(), 1, "the bank keeps the root too")
+	assert_eq(String((banked["orders"] as Array)[0]["action"]), "build_port")
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 0))
+	assert_false(
+		MapPlayCivilianPlan.rootless(model, works, 0),
+		"a standing port roots the region"
+	)
+	model.region_id = home
+	assert_false(
+		MapPlayCivilianPlan.rootless(model, works, 0),
+		"the court's own region is rooted at its capital"
+	)
 
 
 ## The conquest bank's trim (issue #995): a court short of the bar banking

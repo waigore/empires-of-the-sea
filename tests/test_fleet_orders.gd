@@ -2351,6 +2351,32 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 		Palette.HEALTH_LOW,
 		"a losing share reads as a loss"
 	)
+	# A losing zone also reads the way out of the fight: the published retreat
+	# chance, over the court whose line beats her (wiki: ships-and-naval
+	# § Naval Retreat Formula; DR-20261124-06).
+	var ours: Array = []
+	for other: FleetState in _screen.ship_layer.fleets:
+		if other.owner == fleet.owner and other.is_at_sea() and other.sea_zone == fleet.sea_zone:
+			ours.append(other)
+	var way: float = NavalRetreat.chance(ours, [enemy], FleetState.Mission.NONE)
+
+	assert_true(block._zone.text.contains("Beaten here by"), block._zone.text)
+	assert_true(
+		block._zone.text.contains("%d%% to slip into" % int(round(way * 100.0))),
+		block._zone.text
+	)
+	# A crown that holds the edge rolls no retreat, so the line goes.
+	enemy.set_hulls(["ship_77"], {"ship_77": "fluyte"})
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+
+	assert_false(block._zone.text.contains("Beaten here by"), block._zone.text)
+	# No safe water beside the zone: the sheet names the rout instead.
+	assert_true(
+		block._zone_line({
+			"own": 3.0, "foe": 9.0, "retreat": {"ok": false, "court": rival},
+		}).contains("no adjacent water is safe"),
+		"a shut sea road reads as a rout"
+	)
 	_screen.ship_layer.fleets.erase(enemy)
 
 
@@ -4415,6 +4441,9 @@ func _expedition_play(
 	var state := DiplomacyState.new()
 	state.reset(1)
 	state.ensure_relation(MapScreen.PLAYER_FACTION, 9, 1)
+	# The pick reads a war crossing: a Tribal coast is a target only under a
+	# declaration (wiki: diplomacy § War required for hostile actions).
+	state.relation(MapScreen.PLAYER_FACTION, 9).at_war = true
 	var play := PlaySession.new()
 	play.player_faction = MapScreen.PLAYER_FACTION
 	play.map_seed = 1500

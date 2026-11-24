@@ -205,6 +205,32 @@ func test_a_chip_press_is_the_whole_filter_intent() -> void:
 	assert_eq(seen[2], [11, "timber", MarketBookFilter.SORT_STOCK])
 	head.free()
 
+## A book of one offer reads in the singular on the chip's tip and the status
+## line (issue #1435): "1 ton across 1 offer", never "1 tons across 1 offers".
+func test_a_book_of_one_offer_reads_in_the_singular() -> void:
+	var head := MarketOffersHead.new()
+	head.render(
+		[_book()[0]], MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
+	)
+	var chips: Dictionary = head.filter_buttons()
+	assert_eq((chips["seller:9"] as Button).tooltip_text, "3 tons across 1 offer.")
+	assert_eq((chips["good:timber"] as Button).tooltip_text, "3 tons across 1 seller.")
+	assert_eq(head._status.text, "1 offer  ·  Seller A–Z")
+	# One ton takes the singular too.
+	head.render(
+		[{"id": "9:timber", "faction": 9, "commodity": "timber", "quantity": 1,
+			"unit_price": 30}],
+		MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
+	)
+	assert_eq(
+		(head.filter_buttons()["seller:9"] as Button).tooltip_text,
+		"1 ton across 1 offer."
+	)
+	head.free()
+
+
 ## A court that sold out this turn takes its chip with it; the filter falls back
 ## to All and tells the page, so the strip never hides the whole book silently.
 func test_a_selection_the_new_book_lost_falls_back_to_all() -> void:
@@ -2575,6 +2601,27 @@ func test_a_projection_does_not_record_the_phase() -> void:
 		economy, WorldMarket.with_default_prices(), {"grain": 10, "timber": 4}, 0
 	)
 	assert_eq(economy.production.made, {}, "a preview is not a phase")
+
+
+## The ceiling the PRODUCTION tab's "+" is capped by reads the court's studies,
+## so the page can never offer a run the phase would skip for want of a
+## technology (wiki: production-recipes § Technology-gated recipes — the gate is
+## enforced wherever availability is evaluated, order projections included).
+func test_the_ledger_ceiling_reads_the_courts_studies() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.stockpile = {"cotton": 12}
+	var labour: int = economy.workers.labour()
+	assert_eq(
+		ProductionBatch.allowance(economy, "fabric_from_cotton", 0, economy.stockpile, labour, []),
+		0,
+		"a locked row is offered no run"
+	)
+	economy.tech_unlocked["cotton_weaving"] = true
+	assert_eq(
+		ProductionBatch.allowance(economy, "fabric_from_cotton", 0, economy.stockpile, labour, []),
+		1,
+		"two idle points buy one run once the study lands"
+	)
 
 
 ## The record rides the save, and a damaged row drops instead of aborting the

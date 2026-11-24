@@ -239,7 +239,8 @@ static func _target(
 
 
 ## The landing gate's target test, in the form NavalTransport expects: a declared
-## enemy's coast, or a Tribe's, which needs no declaration (wiki: factions § Tribe).
+## enemy's coast, and no other (wiki: diplomacy § War required for hostile
+## actions).
 static func _invadable_query(hostile: Dictionary) -> Callable:
 	return func(a: int, b: int) -> bool:
 		return a != b and _invadable(b, hostile)
@@ -276,13 +277,13 @@ static func _other_region(world: WorldMap, home: int) -> int:
 	return -1
 
 
-## Something worth a fleet: a declared enemy's or a Tribe's coast lies across the
-## water and the court has charted it, and no hostile province touches its own
-## border, so the land army is not needed at home (wiki: factions § Tribe;
-## DR-20261110-21 keeps an uncharted shore out of reach). A court on **earn**
-## still sails into a border war — the gold that ends its impasse is overseas —
-## unless a hostile host already stands on its own soil, in which case the
-## defence comes first (DR-20261113-19).
+## Something worth a fleet: a declared enemy's coast lies across the water and the
+## court has charted it, and no hostile province touches its own border, so the
+## land army is not needed at home (wiki: diplomacy § War required for hostile
+## actions; DR-20261110-21 keeps an uncharted shore out of reach). A court on
+## **earn** still sails into a border war — the gold that ends its impasse is
+## overseas — unless a hostile host already stands on its own soil, in which case
+## the defence comes first (DR-20261113-19).
 static func _has_overseas_war(
 	config: AiConfig, state: DiplomacyState, world: WorldMap, owner: int,
 	charts: CourtCharts = null, armies: Array = [], wants_income: bool = false
@@ -352,9 +353,8 @@ static func _carried_army(armies: Array, fleet: FleetState) -> ArmyState:
 	return null
 
 
-## A coast this court may take: a declared enemy's, or a Tribe's without a
-## declaration (wiki: factions § Tribe).
+## A coast this court may take: a declared enemy's, and no other — Great Power,
+## Minor Nation and Tribe alike, so a peaceful newly contacted Tribe is left to
+## diplomacy and colonisation (wiki: diplomacy § War required for hostile actions).
 static func _invadable(owner: int, hostile: Dictionary) -> bool:
-	if hostile.has(owner):
-		return true
-	return FactionCatalog.type_of(owner) == FactionCatalog.Type.TRIBE
+	return hostile.has(owner)

@@ -34,6 +34,14 @@ static func readings(
 	var readings: Dictionary = _force(play, config, faction, economy, pressure, host)
 	readings.merge(_navy(economy, host))
 	var purse: Dictionary = _purse(config, economy, host, pressure)
+	# The banked split (issue #1384): on `earn` the college leads from the
+	# invest floor — the same cash floor every other claim reads — so the
+	# ledger prices the study on the purse the pass actually spends from,
+	# never against a number the planner would not spend (REQ-P3-01). A
+	# baseline court keeps its published chest reading.
+	if String(purse["goal"]) == AiIncome.GOAL_EARN \
+			and AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE:
+		purse["invest_floor"] = AiResearchPlanner.research_floor(config)
 	readings.merge(purse)
 	readings.merge(_study(config, economy, purse))
 	readings.merge(_court(play, faction, economy, phase))
@@ -178,7 +186,10 @@ static func _purse(
 static func _study(
 	config: AiConfig, economy: PlayerEconomy, purse: Dictionary
 ) -> Dictionary:
-	var reserve: int = int(purse["reserve"])
+	# The banked split (issue #1384): the invest floor — the court's own cash
+	# floor — is what the ladder reads while the court banks, so the study
+	# the ledger prices is the study the college funds.
+	var reserve: int = int(purse.get("invest_floor", purse["reserve"]))
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
 	var standing: String = AiResearchPlanner.standing_funding(config, economy, reserve)
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
@@ -220,12 +231,17 @@ static func _court(
 	)
 	var deed: Dictionary = AiMerchantWork.openable_deed(
 		play.world.region(home), faction,
-		{"diplomacy": play.diplomacy, "visibility": MapPlayCourtFog.view_for(play, faction, home)}
+		{
+			"diplomacy": play.diplomacy,
+			"visibility": MapPlayCourtFog.view_for(play, faction, home),
+			"land_works": _works_for(play, home),
+		}
 	)
 	return {
 		"posture": posture,
-		"colony_target": home == WorldMap.OLD_WORLD and not VoyageRead.owns_land(
-			new_world, faction
+		"colony_target": home == WorldMap.OLD_WORLD and (
+			not VoyageRead.owns_land(new_world, faction)
+			or _crew_to_send(play, faction, home)
 		),
 		"harbour": home >= 0 and AiColonisationPlanner.harbour(
 			play.world.region(home), faction
@@ -247,3 +263,32 @@ static func _court(
 		# the row (DR-20261116-11).
 		"tribe_closed": AiTribeColony.closed_reason(posture),
 	}
+
+
+## The region's own surveys, or null when the session holds no civilian layer
+## (a headless read, a fixture): the deed price never names a deposit the court
+## has not dug (issue #1383).
+static func _works_for(play: PlaySession, region: int) -> LandWorks:
+	if play.civilian_layer == null:
+		return null
+	return play.civilian_layer.works_regions.value(region, null)
+
+
+## True while the crown's voyage still has a crew to carry: the kind its next
+## voyage would board — Explorer, then Merchant, then Builder, then the Engineer
+## a portless ground abroad calls for — is not abroad yet, and a crew of that
+## kind waits at home to sail. The aim follows the published chain to its end
+## instead of closing at the first landing: a colony nobody works and no port
+## roots pays nothing home (wiki: civilian-units § Overseas deployment;
+## extraction-and-improvements § Overseas delivery; issue #1422).
+static func _crew_to_send(play: PlaySession, faction: int, home: int) -> bool:
+	if play.world == null or play.civilian_layer == null or home < 0:
+		return false
+	var kind: String = CivilianMuster.voyage_kind(play, faction, home)
+	if int(CivilianMuster.abroad_counts(play, WorldMap.NEW_WORLD, faction).get(
+		kind, 0
+	)) > 0:
+		return false
+	return VoyageRead.idle_colonist(
+		CivilianMuster.roster(play, home), faction, kind
+	) != null

@@ -26,6 +26,45 @@ func test_feeding_bands_follow_the_published_table() -> void:
 	assert_almost_eq(ArmyModifiers.feeding_multiplier(0.49), 0.5, 0.001)
 
 
+## The dossier's ration row words the ladder the exchange itself reads: the share
+## of the bill the granary fed and the morale every engagement fights at, so a
+## crown learns why a winnable storm came home a draw (wiki: combat § Feeding
+## modifiers, § Auto-resolve ratio bands; DR-20261124-02).
+func test_the_ration_row_words_the_band_the_exchange_reads() -> void:
+	assert_almost_eq(ArmyRationRead.multiplier(0.6), 0.75, 0.001)
+	assert_almost_eq(ArmyRationRead.multiplier(0.4), 0.5, 0.001)
+	assert_eq(
+		ArmyRationRead.line(1.0),
+		"Rations · the whole bill fed · engagements fight at full morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.6),
+		"Rations · 60% of the bill fed · engagements fight at 0.75 morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.4),
+		"Rations · 40% of the bill fed · engagements fight at half morale"
+	)
+	# A short band never claims a whole bill: one mouth unfed drops the ladder, so
+	# the share floors below 100 rather than contradicting the morale beside it.
+	assert_eq(
+		ArmyRationRead.line(0.996),
+		"Rations · 99% of the bill fed · engagements fight at 0.75 morale"
+	)
+	# No reading — another court's standard — prints no row, and answers the full
+	# band the battle itself defaults to when its context carries no figure.
+	assert_eq(ArmyRationRead.line(ArmyRationRead.NO_READING), "")
+	assert_almost_eq(ArmyRationRead.multiplier(ArmyRationRead.NO_READING), 1.0, 0.001)
+	assert_true(
+		ArmyRationRead.tip(0.6).contains("blunted"),
+		"the hungry tip names the blunted band"
+	)
+	assert_true(
+		ArmyRationRead.tip(1.0).contains("full morale"),
+		"a fed tip names full morale"
+	)
+
+
 func test_medal_aura_is_five_percent_per_medal_capped_at_twenty() -> void:
 	assert_almost_eq(ArmyModifiers.medal_aura(0), 1.0, 0.001)
 	assert_almost_eq(ArmyModifiers.medal_aura(2), 1.1, 0.001)
@@ -2539,6 +2578,54 @@ func test_the_wall_read_names_the_figures_the_exchange_reads() -> void:
 	assert_eq(WallRead.line(0), "", "open ground says nothing")
 
 
+## The wall names the storm it sets, in the published ladder's own figure: a host
+## must beat the wall HP plus the standing battery to take an empty walled
+## province, and every whole 10 strength past it costs a regiment. The crown's own
+## ground reads her battery exactly; another court's studies are not hers to
+## read, so her wall prints the envelope — a royal battery to the heaviest
+## (wiki: siege-mechanics § Storming an empty walled province; DR-20261123-20).
+func test_the_wall_names_the_storm_it_sets() -> void:
+	# The page's own anchor: a Wood fort's 40 hp and a royal gun's 11 are 51, and
+	# the heaviest battery any court mounts takes the same wall to 59.
+	assert_eq(WallRead.storm_line(1), "storm needs 51–59 strength")
+	assert_eq(WallRead.storm_line(1, {}, true), "storm needs 51 strength")
+	assert_eq(
+		WallRead.storm_line(1, {"emplaced_siege_guns": true}, true),
+		"storm needs 59 strength"
+	)
+	assert_eq(WallRead.storm_line(0), "", "open ground takes no storm")
+	# Both ends are the fort table's own figures, level by level, so a rung the
+	# ladder gains is read without the words being edited.
+	for level: int in [1, 2, 3, 4, 5]:
+		assert_eq(
+			WallRead.storm_line(level, FortRules.CEILING_TECH, true),
+			"storm needs %d strength" % roundi(FortRules.storm_ceiling(level)),
+			"the heaviest battery reads the ceiling at level %d" % level
+		)
+		assert_eq(
+			WallRead.storm_line(level, {}, true),
+			"storm needs %d strength" % roundi(FortRules.storm_threshold({}, level)),
+			"the lightest battery reads the floor at level %d" % level
+		)
+		assert_true(
+			WallRead.storm_line(level).ends_with(" strength"),
+			"an unread battery reads the envelope at level %d" % level
+		)
+	var row: String = WallRead.line(1, WallRead.storm_line(1))
+	assert_true(row.contains("40 wall hp"), row)
+	assert_true(row.contains("storm needs 51–59 strength"), row)
+	assert_true(
+		WallRead.storm_tip(1).contains("%d strength past it costs one regiment" % 10),
+		"the tip prices what a storm past the wall costs"
+	)
+	assert_true(
+		WallRead.storm_tip(1).contains("not yours to read"),
+		"the tip says why another court's wall prints a range"
+	)
+	assert_false(WallRead.storm_tip(1, true).contains("not yours to read"))
+	assert_eq(WallRead.storm_tip(0), "", "open ground carries no tip")
+
+
 ## A march into another court's walled province reads the wall it will have to
 ## break; open ground keeps the plain line, so no siege is named where none
 ## stands (wiki: siege-mechanics § Wall Protection; REQ-P5-05).
@@ -2556,6 +2643,14 @@ func test_a_march_reads_the_wall_that_stands_there() -> void:
 	assert_true(
 		WallRead.march_line("Badajoz", 5).contains("200 wall hp"),
 		WallRead.march_line("Badajoz", 5)
+	)
+	# The receipt names the storm it would take, in the same words the province
+	# sheet's row prints (DR-20261123-20).
+	assert_eq(
+		WallRead.march_line("Badajoz", 1, WallRead.storm_line(1)),
+		"The army marches on Badajoz — a wood fort stands: "
+		+ "40 wall hp, 1 emplaced gun, 10% off a blow · "
+		+ "storm needs 51–59 strength."
 	)
 
 
@@ -6851,6 +6946,83 @@ func test_a_storm_loses_its_weakest_regiments_first() -> void:
 	)
 
 
+## A storm is a battle, so the men who cross the wall come home with what a won
+## field leaves: a chevron each, the ground on their colours, and the wear the
+## ladder's dead cost them (wiki: siege-mechanics § Storming an empty walled
+## province — "A storm is a **battle**"; combat § Chevrons won, § Battle honours,
+## § Wounds in auto-resolve). The despatch names it, so the cost is never silent
+## (REQ-P2-03, REQ-P5-05).
+func test_a_storm_that_crosses_leaves_its_survivors_a_chevron_and_the_field() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	# Four guards (22 each = 88) cross the 51 ladder by 37: three pay it and one
+	# rides on.
+	var host := army_field_rules_Fixture.army(2, 0, 2, _regiment_types("guards", 4))
+	host.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_true(bool(battle["captured"]))
+	assert_eq(int(battle["attacker_chevrons"]), 1, "the survivor rises a chevron")
+	assert_eq(int(battle["attacker_honours"]), 1, "the field joins its colours")
+	assert_eq(int(battle["attacker_mauled"]), 1, "the ladder's dead wear the survivor")
+	assert_eq(host.count(), 1)
+	var survivor: String = host.regiments[0]
+	var condition: Dictionary = host.condition_of(survivor)
+	assert_eq(int(condition["medals"]), 1)
+	assert_eq(int(condition["hp"]), 75, "0.5 × 3 of 4 lost of a 120 pool is 45")
+	assert_true(
+		(host.regiment_honours.get(survivor, []) as Array).has(2),
+		"the province it took is on its colours"
+	)
+	var line: String = BattleReport.describe_land(battle, "Province 2", FACTIONS)
+	assert_true(line.contains("1 chevron won"), line)
+	assert_true(line.contains("1 regiment mauled"), line)
+
+
+## A repelled storm is no win for anyone: the host loses nobody, rises nobody and
+## takes no wear, and the despatch names the wall alone (wiki: siege-mechanics
+## § Storming an empty walled province — "the host loses nobody").
+func test_a_repelled_storm_leaves_its_host_untouched() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	thin.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [thin])
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(int(battle["attacker_chevrons"]), 0)
+	assert_eq(int(battle["attacker_mauled"]), 0)
+	assert_eq(int(battle["attacker_honours"]), 0)
+	for regiment_id: String in thin.regiments:
+		var condition: Dictionary = thin.condition_of(regiment_id)
+		assert_eq(int(condition["hp"]), int(condition["max"]), "the wall costs no wound")
+		assert_eq(int(condition["medals"]), 0)
+	var line: String = BattleReport.describe_land(battle, "Province 2", FACTIONS)
+	assert_false(line.contains("chevron"), line)
+
+
+## An unopposed walk-in on open ground is no battle: it takes the province and
+## earns no chevron, no honour and no wear (wiki: combat § Unopposed capture;
+## DR-20261112-02 — "an unopposed occupation award[s] none").
+func test_an_unopposed_walk_in_still_earns_nothing() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	var host := army_field_rules_Fixture.army(2, 0, 2, _regiment_types("guards", 3))
+	host.moved = true
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	var battle: Dictionary = reports[0]
+	assert_eq(int(battle["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(model.province_owner(2), 0)
+	assert_false(battle.has("attacker_chevrons"), "an occupation is no battle")
+	for regiment_id: String in host.regiments:
+		var condition: Dictionary = host.condition_of(regiment_id)
+		assert_eq(int(condition["medals"]), 0)
+		assert_eq(int(condition["hp"]), int(condition["max"]))
+
+
 ## The storm prices the wall's own battery (wiki: siege-mechanics § Storming an
 ## empty walled province — "wall HP + the standing battery's strength"), and the
 ## battery's line is the **defender's** studies (wiki: § Emplaced Artillery —
@@ -6926,6 +7098,69 @@ func test_a_repelled_storm_leaves_the_wall_for_the_next_attacker() -> void:
 	assert_eq(horse.count(), 2, "the repulsed host loses nobody")
 
 
+## A storm is a battle context like any other: the attacker pays the land's
+## published price for it, once, whether the wall throws it back or it crosses
+## (wiki: tech-tree-military § Economy modifiers —
+## `kLandBattleAttackTreasuryCostBase`, "per Great Power attacker per battle
+## context"; combat § Resolution). An unopposed walk-in pays nothing because no
+## battle is fought at all (see
+## `test_an_unopposed_capture_costs_no_battle_treasury`).
+func test_a_storm_pays_the_lands_attack_price() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var charged: Array = []
+	var pay := func(owner: int, cost: int) -> int:
+		charged.append([owner, cost])
+		return cost
+
+	# A thin host under the 51 ladder: the wall throws it back, and the attack
+	# it made is still paid for.
+	var thin := army_field_rules_Fixture.army(1, 0, 2, ["pikemen", "squires"])
+	thin.moved = true
+	var repelled: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [thin], {"pay_attack": pay}
+	)
+	assert_eq(int(repelled[0]["outcome"]), ArmyCombat.Outcome.DEFENDER_VICTORY)
+	assert_eq(charged, [[0, 100]], "a repelled storm pays its attacker's price")
+	assert_eq(int(repelled[0]["attack_cost"]), 100)
+	assert_eq(int(repelled[0]["attack_paid"]), 100)
+
+	# The study that cuts the field's price cuts the storm's the same way.
+	charged.clear()
+	_setup_army_field_rules()
+	model = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var host := army_field_rules_Fixture.army(
+		2, 2, 2, _regiment_types("halberdiers", 10)
+	)
+	host.moved = true
+	var crossed: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [host], {"pay_attack": pay, "tech": {2: {"industrial_machinery": true}}}
+	)
+	assert_eq(int(crossed[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	assert_eq(charged, [[2, 75]], "the storm pays what the price techs leave")
+	assert_eq(int(crossed[0]["attack_cost"]), 75)
+	assert_eq(int(crossed[0]["attack_paid"]), 75)
+
+	# Two hosts that fall on one wall are two battle contexts: each pays.
+	charged.clear()
+	_setup_army_field_rules()
+	model = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var horse := army_field_rules_Fixture.army(1, 0, 2, ["cuirassiers", "cuirassiers"])
+	horse.moved = true
+	var great := army_field_rules_Fixture.army(
+		2, 2, 2, _regiment_types("halberdiers", 10)
+	)
+	great.moved = true
+	var chain: Array[Dictionary] = ArmyCombat.resolve_turn(
+		model, [horse, great], {"pay_attack": pay}
+	)
+	assert_eq(chain.size(), 2)
+	assert_eq(charged, [[0, 100], [2, 100]], "one charge per storming court")
+
+
 ## The storm that takes the wall is the province's holder, and an attacker
 ## still on the field meets it from the walls it just took (wiki: combat
 ## § Multi-Attacker Chain — "the next attacker in the chain fights that side
@@ -6971,7 +7206,8 @@ func test_a_storm_despatches_the_wall_and_names_no_zero_dead() -> void:
 	)
 
 	# Three cuirassiers (54) clear the 51 ladder and lose nobody: no "0
-	# regiments" tail. A fresh chart, so the repulsed host is not still there.
+	# regiments" tail, and the survivors rise a chevron each (DR-20261123-24).
+	# A fresh chart, so the repulsed host is not still there.
 	_setup_army_field_rules()
 	var open_model: MapModel = _army_field_rules_model
 	open_model.province_data(2).fort_level = 1
@@ -6981,11 +7217,45 @@ func test_a_storm_despatches_the_wall_and_names_no_zero_dead() -> void:
 	bare.moved = true
 	var taken: Array[Dictionary] = ArmyCombat.resolve_turn(open_model, [bare])
 	assert_true(bool(taken[0]["captured"]))
-	assert_eq(
-		BattleReport.describe_land(taken[0], "Badajoz", FACTIONS),
-		"France storms the walls of Badajoz",
-		"a storm that spends no regiment names no dead"
+	var line: String = BattleReport.describe_land(taken[0], "Badajoz", FACTIONS)
+	assert_true(
+		line.begins_with("France storms the walls of Badajoz"),
+		"the crossing names the walls it took: %s" % line
 	)
+	assert_false(line.contains("lost"), "a storm that spends no regiment names no dead")
+	assert_true(line.contains("3 chevrons won"), "its survivors rise one each: %s" % line)
+
+
+## The storm prices the host its own sheet prices (wiki: combat § Strength —
+## side strength is `Σ (FPN + FPM) × chevrons × health × decoration`; § Citations,
+## DR-20261113-04; siege-mechanics § Storming an empty walled province;
+## REQ-P2-03): a laurelled host the dossier prices over the wall takes it, where
+## a paper sum that dropped the citation weight would be repelled.
+func test_a_decorated_host_storms_the_wall_its_sheet_prices() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var host := army_field_rules_Fixture.army(
+		1, 0, 2, ["guards", "guards", "peasant_levies"]
+	)
+	for regiment_id: String in host.regiments:
+		host.regiment_history[regiment_id] = {
+			"cited": RegimentDecorations.LAUREL_AT, "fields": [],
+		}
+	host.moved = true
+	var paper: float = host.strength()
+	var solo: Array[ArmyState] = [host]
+	var printed: float = ArmyForce.side_strength(solo)
+	var threshold: float = FortRules.storm_threshold({}, 1)
+	assert_true(paper < threshold, "the paper sum alone stands under the wall: %s" % paper)
+	assert_true(printed > threshold, "the sheet prices the host over it: %s" % printed)
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	assert_true(bool(reports[0]["captured"]), "the host the sheet prices takes the wall")
+	assert_almost_eq(
+		float((reports[0]["storm"] as Dictionary)["strength"]), printed, 0.001,
+		"the storm reads the published side strength"
+	)
+	assert_eq(model.province_owner(2), host.owner)
 
 
 ## The calibration anchor (issue #1314): the opening Great Power muster —

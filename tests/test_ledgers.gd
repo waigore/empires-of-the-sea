@@ -2287,6 +2287,195 @@ func test_the_province_sheet_reads_the_host_standing_on_the_seat() -> void:
 	play.visibility = fogless
 
 
+## The seat's province sheet names the squadrons riding its harbour — the hull
+## count the rules publish for a reading crown — read off the session the boot
+## seats, not off the sheet (wiki: fog-and-exploration § Order-of-battle
+## readings; DR-20261123-14).
+func test_the_province_sheet_reads_the_squadrons_in_the_seat_harbour() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	assert_true(panel.play != null, "the boot seats the harbour reading")
+	var seat: int = play.capital_province
+	panel.refresh(screen.model, seat)
+	assert_eq(
+		panel.harbour_text(),
+		MapPlayProvinceHarbour.line(play, screen.model, seat),
+		"the sheet prints the boot's own reading",
+	)
+	# The guards: no province, no chart, no play and no ship layer name nothing.
+	assert_eq(MapPlayProvinceHarbour.line(play, screen.model, -1), "")
+	assert_eq(MapPlayProvinceHarbour.line(null, screen.model, seat), "")
+	assert_eq(MapPlayProvinceHarbour.line(play, null, seat), "")
+	var layer: ShipLayer = play.ship_layer
+	play.ship_layer = null
+	assert_eq(MapPlayProvinceHarbour.line(play, screen.model, seat), "")
+	play.ship_layer = layer
+	# A session that runs no fog reads every harbour, as the fogged session reads
+	# its own hulls alone.
+	var fogless: VisibilityModel = play.visibility
+	play.visibility = null
+	assert_eq(
+		MapPlayProvinceHarbour.line(play, screen.model, seat),
+		ProvinceHarbour.line(
+			layer.regions.value(play.model.region_id, []),
+			seat, play.model.province_data(seat).owner, play.player_faction, true,
+		),
+		"no fog reads every squadron, as the session with no fog model does",
+	)
+	play.visibility = fogless
+	# A squadron the crown keeps in the seat's berth is counted on the sheet, so
+	# the row prints the court and its hulls rather than hiding.
+	var table: MapRegionTable = layer.regions
+	var region: int = play.model.region_id
+	var roster: Array = table.value(region, [])
+	var planted: FleetState = FleetState.in_port(
+		9901, play.player_faction, seat, ["harbour_1", "harbour_2"], {}
+	)
+	table.set_region(region, roster + [planted])
+	panel.refresh(screen.model, seat)
+	assert_true(
+		panel.harbour_text().begins_with("%s " % FactionCatalog.name_of(play.player_faction)),
+		"the seat's row names the crown's own squadron first: %s" % panel.harbour_text(),
+	)
+	assert_true(
+		panel.harbour_text().contains("hull"),
+		"the row counts hulls: %s" % panel.harbour_text(),
+	)
+	# A host aboard the crown's own squadron names its men too, so the sheet
+	# accounts for the regiments the Hosts row leaves to the fleet they sail with
+	# (DR-20261123-18).
+	planted.embarked_army = 9902
+	var aboard: ArmyState = ArmyState.create(
+		9902, play.player_faction, seat, false, ["harbour_r1", "harbour_r2"], {}
+	)
+	aboard.embarked_fleet = planted.id
+	var army_table: MapRegionTable = play.army_layer.regions
+	var army_roster: Array = army_table.value(region, [])
+	army_table.set_region(region, army_roster + [aboard])
+	panel.refresh(screen.model, seat)
+	assert_true(
+		panel.harbour_text().contains("2 regiments aboard"),
+		"the row names the men the squadron carries: %s" % panel.harbour_text(),
+	)
+	army_table.set_region(region, army_roster)
+	planted.embarked_army = -1
+	panel.refresh(screen.model, seat)
+	table.set_region(region, roster)
+	panel.refresh(screen.model, seat)
+
+
+## The seat's province sheet prices its own ground: what the crown's estates in
+## the province clear at today's sell and how many still have room to raise —
+## the realm's Economy reading on the sheet the crown raises from, off the
+## estates ledger's own rows and the market's own price (wiki:
+## extraction-and-improvements § The crown reads its own estates and towns in the
+## realm; DR-20261123-25).
+func test_the_province_sheet_prices_its_harvest() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	var seat: int = play.capital_province
+	panel.refresh(screen.model, seat)
+	assert_eq(
+		panel._resources.harvest_text(),
+		MapPlayProvinceHarvest.line(play, screen.model, seat),
+		"the sheet prints the boot's own reading",
+	)
+	assert_true(
+		panel._resources.harvest_text().begins_with("Harvest · "),
+		"the line names itself: %s" % panel._resources.harvest_text(),
+	)
+	# One read: the province's own rows are the estates ledger's own group for
+	# that province, so the dossier and the realm can never price two harvests
+	# (REQ-P2-03).
+	var blockade: Blockades = MapPlayBlockades.crown(play)
+	var estate: Dictionary = ImprovementLedger.province_estates(
+		screen.model, play.land_works, play.civilian_layer.units, play.stockpile(),
+		play.player_faction, seat, play.capital_tile, play.tech_caps(), blockade
+	)
+	var snapshot: Dictionary = ImprovementLedger.snapshot(
+		screen.model, play.land_works, play.civilian_layer.units, play.stockpile(),
+		play.player_faction, play.capital_tile, play.tech_caps(), blockade
+	)
+	var group: Dictionary = {}
+	for raw: Variant in snapshot["groups"]:
+		if int((raw as Dictionary).get("id", -1)) == seat:
+			group = raw
+	assert_true(not group.is_empty(), "the seat holds an estate the ledger groups")
+	assert_true(
+		int(estate["output"]) > 0,
+		"the seat gathers something to price: %s" % panel._resources.harvest_text(),
+	)
+	assert_true(
+		panel._resources.harvest_text().contains("ducats at today's sell"),
+		"the line prices the harvest: %s" % panel._resources.harvest_text(),
+	)
+	assert_eq(int(estate["estates"]), int(group["count"]), "the same row count")
+	var grouped: int = 0
+	for raw: Variant in group["rows"]:
+		grouped += int((raw as Dictionary)["output"])
+	assert_eq(int(estate["output"]), grouped, "the same gathered units")
+	# The figure is the market's own: Σ output × today's sell, no second sum.
+	var market: WorldMarket = MapPlayEconomyLarder.market(play)
+	var priced: int = 0
+	for raw: Variant in estate["rows"]:
+		var row: Dictionary = raw
+		var output: int = int(row["output"])
+		if output > 0:
+			priced += output * market.sell_price(
+				String(row["commodity"]), play.player_faction
+			)
+	var reading: Dictionary = MapPlayProvinceHarvest.read(play, screen.model, seat)
+	assert_eq(int(reading["value"]), priced, "the harvest at today's sell")
+	assert_eq(
+		panel._resources.harvest_text(), DossierCopy.harvest(reading),
+		"the line is the reading's own words",
+	)
+	# The guards: no session, no chart, no province and no crew layer name nothing.
+	assert_eq(MapPlayProvinceHarvest.line(null, screen.model, seat), "")
+	assert_eq(MapPlayProvinceHarvest.line(play, null, seat), "")
+	assert_eq(MapPlayProvinceHarvest.line(play, screen.model, -1), "")
+	var crews: CivilianLayer = play.civilian_layer
+	play.civilian_layer = null
+	assert_eq(MapPlayProvinceHarvest.line(play, screen.model, seat), "")
+	play.civilian_layer = crews
+	# Another court's ground is not the crown's harvest: no estate of hers, no
+	# line, however worked the land looks.
+	for province: ProvinceState in screen.model.provinces:
+		if province != null and province.owner != play.player_faction:
+			assert_eq(
+				MapPlayProvinceHarvest.line(play, screen.model, province.id), "",
+				"a rival's province prices nothing: %s" % province.name,
+			)
+			break
+
+
+## The harvest line's own words, one home for every case a crown meets: gathered
+## units, the value at today's sell, the ground still to raise, and nothing at
+## all for a province it owns no estate in (DR-20261123-25).
+func test_the_harvest_line_words_every_case() -> void:
+	assert_eq(DossierCopy.harvest({}), "", "an empty reading prints nothing")
+	assert_eq(DossierCopy.harvest({"estates": 0}), "", "no estate of ours, no line")
+	assert_eq(
+		DossierCopy.harvest({"estates": 3, "output": 12, "value": 640, "headroom": 2}),
+		"Harvest · 12 units gathered · 640 ducats at today's sell · 2 to raise",
+	)
+	assert_eq(
+		DossierCopy.harvest({"estates": 1, "output": 0, "value": 0, "headroom": 1}),
+		"Harvest · nothing gathered yet · 1 to raise",
+	)
+	assert_eq(
+		DossierCopy.harvest({"estates": 2, "output": 3, "value": 0, "headroom": 0}),
+		"Harvest · 3 units gathered · 0 ducats at today's sell · no estate to raise",
+	)
+	assert_eq(
+		DossierCopy.harvest({"estates": 4, "output": 8, "value": 1250, "headroom": 0}),
+		"Harvest · 8 units gathered · 1,250 ducats at today's sell · no estate to raise",
+		"the purse groups its thousands",
+	)
+
+
 ## The realm's own reading: the crown's provinces the civilian and land passes
 ## would act in this turn, worded off data alone — one line that names the count
 ## against the realm it holds, then the first places (wiki: world-model § The
@@ -2361,6 +2550,70 @@ func test_a_realm_row_wears_the_courts_mark() -> void:
 		"the mark leads the name"
 	)
 	marked.free()
+
+
+## A count of one reads in the singular on the realm row and the civilians head
+## (issue #1435): "1 unit gathered", "1 farm", "1 gun emplaced", "1 province
+## posted" — the same copy bar the dossiers keep (REQ-P1-07).
+func test_a_count_of_one_reads_in_the_singular() -> void:
+	var one := ProvinceLedgerRow.new()
+	one.setup({
+		"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz",
+		"economy": {
+			"output": 1, "value": 18, "estates": 1, "developed": 1,
+			"headroom": 0, "by_kind": {"wheat": 1},
+		},
+	})
+	assert_eq(
+		one._reading.text,
+		"1 unit gathered · 18 ducats at today's sell · 1 farm",
+		"one unit of one kind reads in the singular"
+	)
+	one.free()
+	var many := ProvinceLedgerRow.new()
+	many.setup({
+		"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz",
+		"economy": {
+			"output": 8, "value": 400, "estates": 8, "developed": 8,
+			"headroom": 0, "by_kind": {"wheat": 8, "tree": 12},
+		},
+	})
+	assert_eq(
+		many._reading.text,
+		"8 units gathered · 400 ducats at today's sell · 12 timber · 8 farms",
+		"a count of many takes the plural, and a mass kind keeps its word"
+	)
+	many.free()
+	# The defence line's guns take the same bar.
+	var walled := ProvinceLedgerRow.new()
+	walled.view = ProvinceLedger.VIEW_DEFENCE
+	walled.setup({
+		"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz",
+		"defence": {"strength": 40.0, "multiplier": 1.0, "emplaced": 1.0, "guns": 1},
+	})
+	assert_true(walled._reading.text.contains("1 gun emplaced"), walled._reading.text)
+	walled.free()
+	# The civilians head counts the provinces its crews stand in.
+	var head := CivilianRosterHead.new()
+	head.render(
+		{
+			"total": 1, "idle": 1, "working": 0, "by_region": {},
+			"groups": [{"region": 0, "province_id": 1}],
+		},
+		LedgerRows.REGION_ALL, CivilianRosterHead.TYPE_ALL
+	)
+	assert_true(head._region_line.text.ends_with("1 province posted"), head._region_line.text)
+	head.render(
+		{
+			"total": 2, "idle": 2, "working": 0, "by_region": {},
+			"groups": [
+				{"region": 0, "province_id": 1}, {"region": 0, "province_id": 2},
+			],
+		},
+		LedgerRows.REGION_ALL, CivilianRosterHead.TYPE_ALL
+	)
+	assert_true(head._region_line.text.ends_with("2 provinces posted"), head._region_line.text)
+	head.free()
 
 
 ## The realm's sheet is the passes' own reading: it prints their line, marks

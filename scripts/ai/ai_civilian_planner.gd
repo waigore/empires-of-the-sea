@@ -133,8 +133,9 @@ static func _best_work(
 
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest
 ## unsurveyed prospectable tile on its own land or the nearest unexplored chart;
-## a Merchant walks toward the nearest deed it could sign; an idle Spy is handled
-## by AiSpyPlanner.
+## a Merchant walks toward the nearest deed it could sign; a Builder or an
+## Engineer the next voyage waits for walks to the harbour that boards it; a Spy
+## is handled by AiSpyPlanner.
 static func _best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, units: Array,
 	context: Dictionary = {}, screened: bool = false
@@ -143,6 +144,10 @@ static func _best_move(
 		return AiSpyPlanner.best_move(model, unit, units, context, screened)
 	if unit.type_id == "merchant":
 		return AiMerchantWork.best_move(model, unit, works, context)
+	if unit.type_id == "engineer":
+		return AiEngineerWork.best_move(model, unit, context)
+	if unit.type_id == "builder":
+		return AiBuilderWork.best_move(model, unit, context)
 	if unit.type_id != "explorer":
 		return {}
 	return AiExplorerWork.best_move(model, unit, works, context)

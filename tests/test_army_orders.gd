@@ -167,6 +167,36 @@ func test_a_muted_hud_leaves_the_crown_view_alone() -> void:
 	assert_false(hud.panels.is_army_panel_open(), "the muted pass painted no dossier")
 
 
+## The dossier's ration row reads the crown's own filed coverage, so a hungry
+## court reads why a winnable storm comes home a draw before it marches, and the
+## next turn's Consumption moves the row (wiki: combat § Feeding modifiers;
+## DR-20261124-02).
+func test_the_dossier_names_the_rations_the_next_storm_reads() -> void:
+	var play: PlaySession = _screen.play
+	var home: ArmyState = _player_home()
+	assert_not_null(home)
+	play.feeding[play.player_faction] = 0.6
+
+	MapPlayArmies.select(play, home)
+
+	var panel: ArmyPanel = play.hud.panels.army_panel
+	assert_true(
+		panel.rations_text().contains("60% of the bill fed"),
+		"the dossier names the share the granary fed: %s" % panel.rations_text()
+	)
+	assert_true(
+		panel.rations_text().contains("0.75 morale"),
+		"and the band the exchange reads: %s" % panel.rations_text()
+	)
+
+	play.feeding[play.player_faction] = 1.0
+	MapPlayArmies.show_panel(play, home)
+	assert_true(
+		play.hud.panels.army_panel.rations_text().contains("full morale"),
+		"a whole bill reads full morale"
+	)
+
+
 func test_detach_all_moves_the_whole_army_in_one_order() -> void:
 	var home: ArmyState = _player_home()
 	var total: int = home.count()
@@ -743,11 +773,14 @@ func test_a_march_into_a_walled_province_names_the_wall() -> void:
 	assert_eq(field.province, target)
 	assert_eq(
 		_last_toast(),
-		WallRead.march_line(_screen.model.province_name(target), 2),
-		"the receipt names the wall it must break"
+		WallRead.march_line(
+			_screen.model.province_name(target), 2, WallRead.storm_line(2)
+		),
+		"the receipt names the wall it must break, and the storm it would take"
 	)
 	assert_true(_last_toast().contains("80 wall hp"), _last_toast())
 	assert_true(_last_toast().contains("2 emplaced guns"), _last_toast())
+	assert_true(_last_toast().contains("storm needs"), _last_toast())
 
 
 func test_enemy_armies_are_observed_not_ordered() -> void:
@@ -2163,11 +2196,18 @@ func test_army_panel_strength_names_one_figure() -> void:
 	model.province_data(1).hospital_level = 1
 	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
 	var line: String = ArmyPanelStrength.line(model, army)
-	assert_true(line.contains("regiments"), line)
+	assert_true(line.begins_with("1 regiment ·"), line)
+	assert_true(line.contains("regiments") == false, "one regiment reads in the singular")
 	assert_true(line.contains("strength"), line)
 	assert_true(line.contains("food"), line)
 	assert_true(line.contains("rest 40%"), line)
 	assert_eq(ArmyPanelStrength.food(army), ArmyRoster.food_upkeep_of([army], army.owner))
+	# A single chevron takes the same bar: "1 chevron", never "1 chevrons".
+	var veteran := ArmyFixture.army(7, 0, 1, ["guards"], false)
+	for regiment_id: String in veteran.regiments:
+		veteran.regiment_medals[regiment_id] = 1
+	var veteran_line: String = ArmyPanelStrength.line(model, veteran)
+	assert_true(veteran_line.contains("1 chevron ·"), veteran_line)
 
 
 ## Order presses and the dismiss arm live on one block; the panel only aliases

@@ -220,7 +220,7 @@ func _raise(text: String, icon_name: String = "") -> void:
 	panel.add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.95),
+			Palette.with_alpha(Palette.PARCHMENT, 0.95),
 			accent,
 			1,
 			3,

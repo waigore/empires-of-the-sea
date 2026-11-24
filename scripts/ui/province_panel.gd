@@ -1,13 +1,16 @@
 class_name ProvincePanel
 extends PanelContainer
-## Slide-in dossier for the selected province. The sheet's title block, its fact
-## grid, the estates it holds and the order rail are sections of their own, so no
-## build method grows into a god method (REQ-P3-01). Every row is a fact the
-## player can act on; the rules decide what an order may do (REQ-P3-02).
+## Slide-in dossier for the selected province. The frame, the title block, the
+## fact grid, the estates it holds and the order rail are sections of their own,
+## so no build method grows into a god method (REQ-P3-01). Every row is a fact
+## the player can act on; the rules decide what an order may do (REQ-P3-02).
 
 signal action_pressed(action: String)
 signal close_pressed
 signal dock_side_pressed
+## The head's realm door, forwarded as the panel's own: the HUD wires one signal
+## instead of searching the sheet for the head it built (REQ-P3-02).
+signal realm_pressed
 
 var _head: ProvinceSheetHead = null
 ## The court's own reading, asked at every refresh: the work its civilian pass
@@ -29,8 +32,9 @@ var _grid: ProvinceFactsGrid = null
 var _orders: ProvinceOrdersSection = null
 var _resources: ProvinceResources = null
 var _rail: ProvinceRailBlock = null
-var _dock: Button = null
-var _column: VBoxContainer = null
+## The frame the sections print into: the scrolling column, the hairlines, the
+## hint and the dock seal (ProvinceSheetShell; REQ-P3-01).
+var _shell: ProvinceSheetShell = null
 var _orders_index: int = -1
 
 ## Live state the dossier reads (set by MapPlaySetup, like the estates ledger).
@@ -54,7 +58,7 @@ var _province_id: int = -1
 func _ready() -> void:
 	add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
 	)
 	_build()
 	get_viewport().size_changed.connect(_fit_to_viewport)
@@ -66,76 +70,40 @@ func _fit_to_viewport() -> void:
 
 
 func _build() -> void:
-	var shell := VBoxContainer.new()
-	shell.add_theme_constant_override("separation", 8)
-	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_child(shell)
-
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	shell.add_child(scroll)
-
-	var column := VBoxContainer.new()
-	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	column.add_theme_constant_override("separation", 10)
-	scroll.add_child(column)
-	_column = column
+	_shell = ProvinceSheetShell.new()
+	_shell.dock_pressed.connect(func() -> void: dock_side_pressed.emit())
+	add_child(_shell)
 
 	_head = ProvinceSheetHead.new()
 	_head.close_pressed.connect(func() -> void: close_pressed.emit())
-	column.add_child(_head)
+	_head.realm_pressed.connect(func() -> void: realm_pressed.emit())
+	_shell.add_block(_head)
 
 	# The court's own reading sits under the head and above the facts it answers:
 	# what its staff would do with this province's ground this turn (CounselLine;
 	# DR-20261121-19). A dossier with no province on show asks nothing.
-	_counsel = CounselLine.make(column)
+	_counsel = CounselLine.make(_shell.column)
 	_counsel.gate = func() -> bool: return _model != null and _province_id >= 0
 
-	column.add_child(_divider())
-
 	_grid = ProvinceFactsGrid.new()
-	column.add_child(_grid)
-
-	column.add_child(_divider())
+	_shell.add_section(_grid)
 
 	_resources = ProvinceResources.new()
 	_resources.road_pressed.connect(_on_road_pressed)
-	column.add_child(_resources)
-
-	column.add_child(_divider())
+	_shell.add_section(_resources)
 
 	# The rail block sits under the estates: a railroad upgrades a road, so the
 	# press that lays one belongs beside the ground it serves (DR-20261117-10).
 	_rail = ProvinceRailBlock.new()
 	_rail.rail_pressed.connect(_on_rail_pressed)
-	column.add_child(_rail)
-
-	column.add_child(_divider())
+	_shell.add_section(_rail)
 
 	_orders = ProvinceOrdersSection.new()
 	_orders.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
-	column.add_child(_orders)
+	_shell.add_section(_orders)
 	_orders_index = _orders.get_index()
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 4)
-	column.add_child(spacer)
-
-	var hint := Label.new()
-	hint.text = "Civilians muster at the capital; estates are managed from the ledger."
-	hint.add_theme_font_size_override("font_size", 11)
-	hint.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.6))
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(hint)
-
-	var footer := HBoxContainer.new()
-	footer.add_theme_constant_override("separation", 8)
-	shell.add_child(footer)
-
-	_dock = _icon_button("◀", "Dock left")
-	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
-	footer.add_child(_dock)
+	_shell.add_hint()
 	_fit_to_viewport()
 
 
@@ -178,23 +146,22 @@ func set_data(
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
-	if _dock == null:
+	if _shell == null:
 		return
-	_dock.text = glyph
-	_dock.tooltip_text = tip
+	_shell.set_dock_affordance(glyph, tip)
 
 
 ## A phone sheet is short, so orders move above the survey table: every action
 ## stays one tap away and only the details scroll. Idempotent.
 func set_compact(compact: bool) -> void:
-	if _orders == null or _grid == null or _column == null:
+	if _orders == null or _grid == null or _shell == null:
 		return
 	# Recruit is a live order now, so it stays on the phone sheet too.
 	var orders_at: int = _orders.get_index()
 	var grid_at: int = _grid.get_index()
 	if compact == (orders_at < grid_at):
 		return
-	_column.move_child(_orders, grid_at if compact else _orders_index)
+	_shell.column.move_child(_orders, grid_at if compact else _orders_index)
 
 
 func set_training_visible(visible: bool) -> void:
@@ -237,8 +204,13 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	if data == null:
 		return
 	_head.show_province(data)
-	_grid.show_province(model, province_id, data)
+	# The grid reads the wall's storm off the crown's own studies, so a rival's
+	# wall prints the published envelope (DR-20261123-20).
+	_grid.show_province(model, province_id, data, _faction, _tech_unlocked)
 	_grid.set_hosts(_hosts_line(model, province_id))
+	# The harbour reads off the same seated session; the module answers "" for a
+	# sheet the boot never seated (DR-20261123-14).
+	_grid.set_harbour(MapPlayProvinceHarbour.line(play, model, province_id))
 	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
 		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
 		_tech_caps, _blockade
@@ -246,7 +218,10 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
 		model, _works, _faction, province_id, _visibility
 	).size()
-	_resources.render(rows, unsurveyed, _road_plans(model, rows))
+	_resources.render(
+		rows, unsurveyed, _road_plans(model, rows),
+		MapPlayProvinceHarvest.line(play, model, province_id)
+	)
 	_rail.render(RailWorks.province_plans(
 		model, _works, _units, _faction, province_id, _tech_unlocked
 	))
@@ -297,6 +272,13 @@ func _hosts_line(model: MapModel, province_id: int) -> String:
 	return MapPlayProvinceHosts.line(play, model, province_id)
 
 
+## The Squadrons row's text for the province on show, for tests and tooling
+## (REQ-P3-02). Empty when no squadron rides its harbour or the boot bound no
+## reading.
+func harbour_text() -> String:
+	return "" if _grid == null or not _grid.harbour.visible else _grid.harbour.text
+
+
 ## The rail's marks: the presses the court's own crew pass would file on this
 ## ground, read off the counsel line's own pick so the line and the marks come
 ## off one read (DR-20261122-23). Exposed so a suite asserts the marks instead of
@@ -314,19 +296,9 @@ func press_text(key: String) -> String:
 ## the crown network is resolved once for the whole province, so a dossier of
 ## five estates costs one BFS (REQ-P4-01).
 func _road_plans(model: MapModel, rows: Array[Dictionary]) -> Dictionary:
-	var plans: Dictionary = {}
-	if _faction < 0 or _works == null:
-		return plans
-	var resolved: Dictionary = LandConnectivity.resolve(
-		model, _works, _faction, _capital_tile
+	return RoadWorks.province_plans(
+		model, _works, _units, _faction, _capital_tile, rows
 	)
-	for row: Dictionary in rows:
-		var plan: Dictionary = RoadWorks.plan(
-			model, _works, _units, _faction, _capital_tile, row["tile"], resolved
-		)
-		if bool(plan["needed"]):
-			plans[row["tile"]] = plan
-	return plans
 
 
 ## The estate block's Build road: the order travels as one intent string, the
@@ -339,30 +311,3 @@ func _on_road_pressed(tile: Vector2i) -> void:
 ## map dispatches and the tile the block names can never drift apart.
 func _on_rail_pressed(tile: Vector2i) -> void:
 	action_pressed.emit("rail:%d,%d" % [tile.x, tile.y])
-
-
-func _divider() -> Control:
-	var line := ColorRect.new()
-	line.color = Color(0.83, 0.69, 0.22, 0.35)
-	line.custom_minimum_size = Vector2(0, 1)
-	return line
-
-
-func _make_button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 40)
-	button.add_theme_font_size_override("font_size", 15)
-	return button
-
-
-## A dock affordance is a glyph in the corner, never a titled bar: the dossier
-## itself is the subject, the side it opens on is housekeeping.
-func _icon_button(text: String, tip: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.tooltip_text = tip
-	button.custom_minimum_size = Vector2(40, 40)
-	button.size_flags_horizontal = Control.SIZE_SHRINK_END
-	button.add_theme_font_size_override("font_size", 18)
-	return button

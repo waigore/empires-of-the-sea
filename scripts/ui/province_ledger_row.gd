@@ -116,7 +116,7 @@ func _standing_text() -> String:
 	var estates: int = int(economy.get("estates", 0))
 	return "%d estate%s · %d developed · %d to raise" % [
 		estates,
-		"" if estates == 1 else "s",
+		MoneyText.plural(estates),
 		int(economy.get("developed", 0)),
 		int(economy.get("headroom", 0)),
 	]
@@ -135,8 +135,9 @@ func _reading_text() -> String:
 ## then the kinds it gathers, so a crown reads its richest province first.
 func _economy_text() -> String:
 	var economy: Dictionary = data.get("economy", {})
+	var units: int = int(economy.get("output", 0))
 	var parts: PackedStringArray = [
-		"%d units gathered" % int(economy.get("output", 0)),
+		"%d unit%s gathered" % [units, MoneyText.plural(units)],
 		"%s at today's sell" % MoneyText.ducats(int(economy.get("value", 0))),
 	]
 	var kinds: String = _kinds_text(economy.get("by_kind", {}) as Dictionary)
@@ -162,7 +163,8 @@ func _defence_text() -> String:
 	if fort > 0:
 		parts.append("Fort %d %s" % [fort, String(defence.get("fort_name", ""))])
 	if float(defence.get("emplaced", 0.0)) > 0.0:
-		parts.append("%d guns emplaced" % int(defence.get("guns", 0)))
+		var guns: int = int(defence.get("guns", 0))
+		parts.append("%d gun%s emplaced" % [guns, MoneyText.plural(guns)])
 	var hospital: int = int(defence.get("hospital", 0))
 	if hospital > 0:
 		parts.append("Hospital %d" % hospital)
@@ -189,13 +191,19 @@ func _hops_text() -> String:
 	return "%d hop%s from the seat" % [hops, "" if hops == 1 else "s"]
 
 
-## "12 timber · 4 ore": the kinds a province gathers, in the published order.
+## "12 timber · 4 ore" / "1 farm" / "8 farms": the kinds a province gathers, in
+## the published order. Timber, ore and riches are mass nouns; only a farm
+## takes a plural (MoneyText.counted).
 func _kinds_text(by_kind: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	for kind: String in ResourceTypes.ORDER:
 		var units: int = int(by_kind.get(kind, 0))
 		if units > 0:
-			parts.append("%d %s" % [units, String(ResourceTypes.NAMES.get(kind, kind))])
+			var word: String = String(ResourceTypes.NAMES.get(kind, kind))
+			if kind == "wheat":
+				parts.append(MoneyText.counted(units, word))
+			else:
+				parts.append("%d %s" % [units, word])
 	return " · ".join(parts)
 
 

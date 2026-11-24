@@ -129,6 +129,12 @@ func gold_next() -> int:
 	return _price.gold
 
 
+## The priced reading this row painted, so a test reads the slot's wait and its
+## warning off the row without walking widgets (REQ-P3-02).
+func price() -> ResearchSlotPrice:
+	return _price
+
+
 func rp_next() -> int:
 	return _price.rp
 

@@ -77,6 +77,14 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	# in the drill yard the crown musters from (DR-20261121-03). A rival
 	# answers to her own court, and the yard draws no rows for her anyway.
 	opening.muster_pick = MapPlayMusterPick.pick(play, army) if is_player else {}
+	# The crown's own ration band: the coverage the next exchange reads
+	# (`ArmyModifiers.morale`'s own key). A rival's larder stays behind her
+	# colours, so her sheet carries no reading (DR-20261124-02).
+	opening.rations = (
+		float(play.feeding.get(play.player_faction, 1.0))
+		if is_player
+		else ArmyRationRead.NO_READING
+	)
 	play.hud.panels.show_army(play.model, opening)
 
 
@@ -148,34 +156,18 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	)
 	if bool(result.get("ok", false)):
 		return true
-	play.hud.toast(refusal(play, province_id, String(result.get("reason", ""))))
+	play.hud.toast(String(result.get("reason", "That march is refused.")))
 	return true
 
 
-## The words a refused march reads. A Tribe's shore another crown has bought land
-## in is barred by that deed, not by peace — and the order can only answer "peace
-## holds" — so the refusal asks the bar itself and names the holders
-## (wiki: factions § Tribe; DR-20261120-05).
-static func refusal(play: PlaySession, province_id: int, fallback: String) -> String:
-	var owner: int = play.model.province_owner(province_id)
-	return DeedBar.refusal(
-		InvasionBar.read(
-			play.diplomacy, play.player_faction, owner, play.model, province_id
-		),
-		play.model, province_id, fallback
-	)
-
-
-## Invading foreign land needs war with its owner, except a Tribe — and a Tribe
-## province another crown has bought land in is no exception (wiki: factions
-## § Tribe; diplomacy § War required). Unowned land is not an attack.
+## Invading foreign land needs war with its owner — Great Power, Minor Nation and
+## Tribe alike (wiki: diplomacy § War required for hostile actions). Unowned land
+## is not an attack.
 static func may_invade(play: PlaySession, province_id: int) -> bool:
 	var owner: int = play.model.province_owner(province_id)
 	if owner == MapModel.NO_ID or owner == play.player_faction:
 		return true
-	return DiplomacyRules.invadable(
-		play.diplomacy, play.player_faction, owner, play.model, province_id
-	)
+	return DiplomacyRules.invadable(play.diplomacy, play.player_faction, owner)
 
 
 static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:
@@ -185,8 +177,13 @@ static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> 
 	refresh_options(play, army)
 	var place: String = play.model.province_name(army.province)
 	if bool(result.get("attacked", false)):
+		var level: int = FortRules.level_at(play.model, army.province)
+		# The storm the wall sets is another court's, so the line prints the
+		# published envelope: the crown cannot read the defender's studies
+		# (wiki: siege-mechanics § Storming an empty walled province;
+		# DR-20261123-20).
 		var wall: String = WallRead.march_line(
-			place, FortRules.level_at(play.model, army.province)
+			place, level, WallRead.storm_line(level)
 		)
 		play.hud.toast(wall if not wall.is_empty() else "The army marches on %s" % place)
 	else:

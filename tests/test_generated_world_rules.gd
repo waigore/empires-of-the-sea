@@ -13,6 +13,7 @@ extends GdToolsTest
 ## front half of the alphabet, never back into `w…`/`x…`/`y…`/`z…`.
 
 const Fixture = preload("res://tests/map_fixture.gd")
+const Census = preload("res://tests/census_fixture.gd")
 
 const SEED: int = Fixture.SEED
 const WIDTH: int = Fixture.WORLD_WIDTH
@@ -27,15 +28,12 @@ func before_all() -> void:
 	_bootstrap_world()
 	_advanced_before_all()
 	_generator_before_all()
-	# Clone the private advanced-live chart now (cheap); MapScreens for each
-	# tier still mount lazily in `_open` so ~250 pure cases never pay two
-	# mounts (~0.5–2 s each under coverage; docs/testing.md § Speed rules).
+	# Advanced-live chart + MapScreens mount lazily in `_open` so ~250 pure
+	# cases never pay a clone or two mounts (~0.5–2 s each under coverage;
+	# docs/testing.md § Speed rules). Census Standard loads from the packed
+	# fixture on first census read — not here — so bootstrap stays the only
+	# heavy before_all generate on this suite's critical path.
 	_advanced_live_host = self
-	_ensure_advanced_live_world()
-	# Warm the published Standard census chart in suite setup so the first
-	# census case is not charged the cold `generate_world` under coverage.
-	_census_world()
-	_census_tile_scan()
 
 
 func test_world_has_two_regions_with_clean_setup() -> void:
@@ -475,19 +473,19 @@ func _zone_touches_edge(model: MapModel, zone_id: int) -> bool:
 ## tile-map-and-generation § Great Power starting grain).
 
 
-## Cases only need one region at a time. 64×48 still seats four grain farms per
-## Great Power and a thin capital (the 44×34 fixture world does not); under
-## coverage that is ~2× fewer tiles than the old 96×64 two-region boot.
-const BOOT_WIDTH: int = 64
-const BOOT_HEIGHT: int = 48
-const NEW_WORLD_SEED: int = Fixture.SEED + 7919
+## Cases only need one region at a time. Seed 42 at 52×40 still seats four grain
+## farms per Great Power and a thin capital (the 44×34 fixture world does not);
+## under coverage that is ~32% fewer tiles than the old 64×48 boot. New World
+## clones the suite fixture — no second `generate_region`.
+const BOOT_SEED: int = 42
+const BOOT_WIDTH: int = 52
+const BOOT_HEIGHT: int = 40
 
 ## Non-underscore so before_all state is copied onto each test instance. The
 ## post-pass is read-only in every case below, so region charts in before_all
 ## keep world generation (the suite's dominant cost under coverage) off the
-## hot path. Old World, its determinism twin, and the New World are each
-## generated once — never via `generate_world`, which would build discarded
-## charts.
+## hot path. Old World and its determinism twin are generated once; the New
+## World rides `Fixture.world()` — never a discarded `generate_world`.
 var model: MapModel = null
 var works: LandWorks = null
 var report: Dictionary = {}
@@ -503,16 +501,15 @@ func _bootstrap_world() -> void:
 	# twin is a deep copy applied separately, so the post-pass still proves it
 	# is stable without regenerating terrain under coverage.
 	model = MapGenerator.new().generate_region(
-		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
+		BOOT_SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	model_twin = _clone_model(model)
 	works = LandWorks.new()
 	report = WorldBootstrap.apply(model, works)
 	works_twin = LandWorks.new()
 	WorldBootstrap.apply(model_twin, works_twin)
-	new_world = MapGenerator.new().generate_region(
-		NEW_WORLD_SEED, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
-	)
+	# Fixture New World already passed fair-split; clone + post-pass only.
+	new_world = _clone_model(world.region(FactionCatalog.NEW_WORLD))
 	new_world_works = LandWorks.new()
 	new_world_report = WorldBootstrap.apply(new_world, new_world_works)
 
@@ -1328,36 +1325,19 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 
 
 ## One Standard chart carries every published census below (placement rate, mean
-## tiles/province, Minor book volume, and the price-weighted draw). `static` is
-## what makes that true: gd-tools runs each case on a fresh instance, so an
-## instance dictionary would redraw the chart per case. Seed 160 passes the
-## fair-split gate on its first attempt, keeps the means in the wiki bands,
-## gold ahead of gems, and every pool inside its three-deviation band — so the
-## suite pays one Standard draw under coverage instead of Standard plus a
-## second Small chart (docs/testing.md § Speed rules).
+## tiles/province, Minor book volume, and the price-weighted draw). Seed 160
+## keeps the means in the wiki bands, gold ahead of gems, and every pool inside
+## its three-deviation band. Coverage multiplies a cold Standard
+## `generate_world` by ~10×, so the suite loads the packed fixture instead
+## (docs/testing.md § Speed rules; regenerate via tests/write_census_fixture.gd).
 ##
 ## A case that only needs two owned towns still builds a pocket world instead of
 ## regenerating Standard.
-static var _drawn_charts: Dictionary = {}
-
-## Seed whose Standard draw satisfies every census assert on the first attempt.
-const CENSUS_SEED: int = 160
-
-
-func _chart(seed_value: int, width: int, height: int) -> WorldMap:
-	var key: String = "%d/%d/%d" % [seed_value, width, height]
-	if not _drawn_charts.has(key):
-		_drawn_charts[key] = MapGenerator.new().generate_world(seed_value, width, height)
-	return _drawn_charts[key]
-
-
-func _standard_world(seed_value: int) -> WorldMap:
-	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
-	return _chart(seed_value, int(preset["width"]), int(preset["height"]))
+const CENSUS_SEED: int = Census.SEED
 
 
 func _census_world() -> WorldMap:
-	return _standard_world(CENSUS_SEED)
+	return Census.world()
 
 
 ## One packed-row pass over the published Standard census chart. Placement rate
@@ -3289,6 +3269,41 @@ func test_allowance_holds_back_the_other_rows_claims() -> void:
 		ProductionPhase.claimed_labour([{"recipe": "bronze", "units": 2}, {"units": 5}, 7]),
 		6
 	)
+
+
+## A row's study is the phase's own gate: a recipe the court has not researched
+## is offered no runs, and its assignment claims neither inputs nor labour from
+## the rows that do run (wiki: production-recipes § Technology-gated recipes —
+## the gate is enforced wherever availability is evaluated, order projections
+## included; § Worker-tier gates — no caller is offered a run the phase refuses).
+func test_a_locked_row_is_offered_no_runs() -> void:
+	var store: Dictionary = {"cotton": 12, "wool": 4}
+	# The ceiling the PRODUCTION tab prints for the cotton row: nothing without
+	# the study, six whole runs once the court has researched it.
+	assert_eq(ProductionPhase.allowance("fabric_from_cotton", store, 20, []), 0)
+	assert_eq(
+		ProductionPhase.allowance(
+			"fabric_from_cotton", store, 20, [], null, {}, 0, {"cotton_weaving": true}
+		),
+		6
+	)
+	# A locked cotton row claims nothing: the wool row keeps every point of
+	# labour its own two runs need.
+	var board: Array = [{"recipe": "fabric_from_cotton", "units": 4}]
+	assert_eq(ProductionPhase.allowance("fabric_from_wool", store, 10, board), 2)
+	# The same board with the study open: the cotton claim eats eight of the ten
+	# points, so the wool row's ceiling reads one run — what the phase starts.
+	assert_eq(
+		ProductionPhase.allowance(
+			"fabric_from_wool", store, 10, board, null, {}, 0, {"cotton_weaving": true}
+		),
+		1
+	)
+	var planned: Dictionary = ProductionPhase.plan(
+		[{"recipe": "fabric_from_cotton", "units": 4}, {"recipe": "fabric_from_wool", "units": 1}],
+		store.duplicate(), 10, {"cotton_weaving": true}
+	)
+	assert_eq(planned["started"], {"fabric_from_cotton": 4, "fabric_from_wool": 1})
 
 
 func test_plan_runs_whole_recipes_and_scales_io() -> void:

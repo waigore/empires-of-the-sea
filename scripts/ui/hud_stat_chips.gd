@@ -1,8 +1,9 @@
 class_name HudStatChips
 extends RefCounted
 ## The cartouche's status plaques: treasury and its net income, ships, civilians
-## and troops. TopBar builds the widgets; this owns their state and the copy they
-## speak, so GameHud only routes (REQ-P1-02, REQ-P1-05).
+## and troops. This binds the widgets the bar mounts and owns their readings —
+## the build, the treasury tip and the motion each keep their own book so this
+## stays the binder (REQ-P1-02, REQ-P1-05, REQ-P3-01, REQ-P3-02).
 
 var host: Control = null
 var treasury_chip: Button = null
@@ -17,13 +18,59 @@ var army_label: Label = null
 
 var _treasury_value: int = 0
 var _income_value: int = 0
-var _treasury_tween: Tween = null
-var _flash_tween: Tween = null
-var _flash_label: Label = null
+## What the per-turn figure leaves out, so the plaque never promises the whole
+## purse movement: the orders staged for the next clearing, the ducats the last
+## clearing moved, and how far the purse actually went over the turn just
+## closed (REQ-P5-05).
+var _staged_orders: int = 0
+var _clearing_value: int = 0
+var _purse_moved: int = 0
+## False until a close books its movement, so a fresh bar names no last turn.
+var _moved_known: bool = false
+## True when the closed turn's move beat the label it promised.
+var _moved_wider: bool = false
+var _motion: HudStatChipMotion = HudStatChipMotion.new()
+## One record per plaque: the parts the compact bar narrows, kept from the build
+## so the fit never walks the tree for a caption or a value column.
+var _parts: Array[Dictionary] = []
 
 
-## TopBar hands over one chip per plaque: {"root", "value", "delta"}.
-func bind(
+## Builds the four plaques on the bar's row and binds them: the treasury and its
+## net income, the ships, the crews and the troops. Each plaque is the target of
+## its own door, so the display doubles as a shortcut (REQ-P1-02, REQ-P5-01).
+func build(hud: GameHud, row: HBoxContainer) -> void:
+	var treasury := HudStatChipBuild.make("TreasuryChip", "coin", "TREASURY", true)
+	treasury["root"].pressed.connect(func() -> void: hud.economy_pressed.emit())
+	_mount(hud, row, treasury)
+
+	var fleets := HudStatChipBuild.make("FleetChip", "ship", "SHIPS", false)
+	fleets["root"].pressed.connect(func() -> void: hud.fleet_status_pressed.emit())
+	_mount(hud, row, fleets)
+
+	var civilians := HudStatChipBuild.make("CivilianChip", "people", "CREW ›", false)
+	civilians["root"].pressed.connect(
+		func() -> void: hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	)
+	civilians["root"].tooltip_text = "Every civilian in the realm (C)"
+	_mount(hud, row, civilians)
+
+	var troops := HudStatChipBuild.make("ArmyChip", "swords", "TROOPS", false)
+	troops["root"].pressed.connect(func() -> void: hud.army_status_pressed.emit())
+	_mount(hud, row, troops)
+
+	_bind(hud, treasury, fleets, civilians, troops)
+
+
+## One plaque on the bar: the HUD keeps the chip for its layout, and this keeps
+## the parts the compact fit narrows.
+func _mount(hud: GameHud, row: HBoxContainer, chip: Dictionary) -> void:
+	hud.chips.append(chip["root"])
+	row.add_child(chip["root"])
+	_parts.append(chip)
+
+
+## The four plaques' readings, bound once the widgets exist.
+func _bind(
 	hud: Control,
 	treasury: Dictionary,
 	fleets: Dictionary,
@@ -31,6 +78,7 @@ func bind(
 	troops: Dictionary
 ) -> void:
 	host = hud
+	_motion.bind(hud)
 	treasury_chip = treasury["root"]
 	treasury_label = treasury["value"]
 	income_label = treasury["delta"]
@@ -40,6 +88,27 @@ func bind(
 	civilian_label = civilians["value"]
 	army_chip = troops["root"]
 	army_label = troops["value"]
+
+
+## The compact cartouche keeps each plaque's medallion and value and drops its
+## caption, narrowing the value column to the room a phone has (REQ-P1-05,
+## REQ-P1-07). The parts come from the build, never a tree search.
+func apply_compact(compact: bool) -> void:
+	for part: Dictionary in _parts:
+		var root: Button = part["root"]
+		if not is_instance_valid(root):
+			continue
+		var caption: Label = part["caption"]
+		if caption != null:
+			caption.visible = not compact
+		root.custom_minimum_size.x = float(
+			part["compact_width"] if compact else part["wide_width"]
+		)
+		var column: Control = part["column"]
+		if column != null:
+			column.custom_minimum_size.x = float(
+				part["compact_column"] if compact else part["wide_column"]
+			)
 
 
 func set_treasury(value: int, animate: bool = true) -> void:
@@ -54,17 +123,7 @@ func set_treasury(value: int, animate: bool = true) -> void:
 	treasury_label.add_theme_color_override(
 		"font_color", Palette.CRIMSON if value < 0 else Palette.TEXT
 	)
-	_kill_treasury_tween()
-	if not animate or host == null:
-		treasury_label.text = TextFormat.thousands(value)
-		return
-	_treasury_tween = host.create_tween()
-	_treasury_tween.tween_method(
-		func(step: float) -> void:
-			if is_instance_valid(treasury_label):
-				treasury_label.text = TextFormat.thousands(int(round(step))),
-		float(from), float(value), 0.6
-	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_motion.count_treasury(treasury_label, from, value, animate)
 
 
 ## Net treasury movement per turn, shown beside the treasury count so the player
@@ -80,6 +139,27 @@ func set_income(value: int) -> void:
 			Palette.GOLD_PALE if value > 0 else Palette.CRIMSON.lerp(Color.WHITE, 0.35)
 		)
 	)
+	_refresh_treasury_tooltip()
+
+
+## What the per-turn figure does not include: the orders the court has staged for
+## the next clearing and the ducats the last clearing moved. The label is the
+## phases alone, so the plaque names the two passes that settle after them
+## (wiki: world-market § Trade orders; REQ-P5-05).
+func set_income_scope(staged_orders: int, clearing: int) -> void:
+	_staged_orders = maxi(staged_orders, 0)
+	_clearing_value = clearing
+	_refresh_treasury_tooltip()
+
+
+## How far the purse actually moved over the turn just closed. Called before the
+## new turn's label lands, so the move is judged against the figure the player
+## read during that turn; a turn wider than it promised is named on the bar,
+## never left for the ledger to explain (REQ-P5-05).
+func set_purse_moved(amount: int) -> void:
+	_purse_moved = amount
+	_moved_known = true
+	_moved_wider = amount != _income_value
 	_refresh_treasury_tooltip()
 
 
@@ -112,54 +192,29 @@ func set_armies(value: int) -> void:
 ## The turn's coin movement lifts off the treasury plaque, so a gain reads as an
 ## event and not a silent repaint (REQ-P5-05).
 func flash_income(amount: int) -> void:
-	if host == null or treasury_chip == null:
-		return
-	_kill_flash_tween()
-	_flash_label = Label.new()
-	_flash_label.text = "+%s" % TextFormat.thousands(amount)
-	_flash_label.add_theme_font_size_override("font_size", 18)
-	_flash_label.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_flash_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.add_child(_flash_label)
-	_flash_label.position = treasury_chip.get_global_rect().position + Vector2(0, 4)
-	_flash_tween = host.create_tween().set_parallel(true)
-	_flash_tween.tween_property(_flash_label, "position:y", _flash_label.position.y - 46.0, 1.1)
-	_flash_tween.tween_property(_flash_label, "modulate:a", 0.0, 1.1).set_delay(0.25)
-	_flash_tween.chain().tween_callback(_flash_label.queue_free)
+	_motion.flash_income(amount, treasury_chip)
 
 
 ## Suite re-seat and a fresh count-up must not leave a prior plaque tween
 ## writing into a label mid-reset (gd-tools reports freed lambda captures).
 func clear_animations() -> void:
-	_kill_treasury_tween()
-	_kill_flash_tween()
+	_motion.clear_all()
 	if treasury_label != null:
 		treasury_label.text = TextFormat.thousands(_treasury_value)
 
 
-func _kill_treasury_tween() -> void:
-	if _treasury_tween != null:
-		_treasury_tween.kill()
-		_treasury_tween = null
-
-
-func _kill_flash_tween() -> void:
-	if _flash_tween != null:
-		_flash_tween.kill()
-		_flash_tween = null
-	if is_instance_valid(_flash_label):
-		_flash_label.queue_free()
-	_flash_label = null
-
-
-## Estates and college only — the world market clears after them (world-market).
-## A negative purse is named as debt, so a crown in the lending floor's shadow
-## reads why it cannot fund a study (REQ-P5-05).
+## Estates and college only — the world market clears after them
+## (world-market). A negative purse is named as debt, so a crown in the
+## lending floor's shadow reads why it cannot fund a study (REQ-P5-05).
 func _refresh_treasury_tooltip() -> void:
 	if treasury_chip == null:
 		return
-	treasury_chip.tooltip_text = "Treasury %s ducats%s · %s per turn before the auction — open the ledger" % [
-		TextFormat.thousands(_treasury_value),
-		" (in debt)" if _treasury_value < 0 else "",
-		TextFormat.delta(_income_value),
-	]
+	treasury_chip.tooltip_text = HudTreasuryTooltip.text(
+		_treasury_value,
+		_income_value,
+		_staged_orders,
+		_clearing_value,
+		_moved_known,
+		_moved_wider,
+		_purse_moved,
+	)

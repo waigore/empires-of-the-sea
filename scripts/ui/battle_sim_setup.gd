@@ -48,7 +48,7 @@ var _defender_slots: Array[Dictionary] = []
 func _ready() -> void:
 	custom_minimum_size = Vector2(320, 0)
 	add_theme_stylebox_override(
-		"panel", UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(10, 8, 10, 8))
+		"panel", UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(10, 8, 10, 8))
 	)
 	_types = BattleScenario.catalog_types()
 	_build()

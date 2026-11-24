@@ -57,7 +57,9 @@ func set_data(strength: Dictionary) -> void:
 
 ## The zone's arithmetic in one line, and nothing when the water is empty: a
 ## dossier that says "no enemy here" three times is noise, not evidence. An
-## unread rival leaves the odds unknown, so no share is printed against her.
+## unread rival leaves the odds unknown, so no share is printed against her. A
+## zone the crown would lose also reads the way out of the fight (§ Naval Retreat
+## Formula), so the sheet answers both halves of one decision.
 func _zone_line(zone: Dictionary) -> String:
 	if bool(zone.get("unread", false)):
 		return "This zone: %.1f of ours against a strength not yet read." % [
@@ -65,10 +67,29 @@ func _zone_line(zone: Dictionary) -> String:
 		]
 	if float(zone.get("foe", 0.0)) <= 0.0:
 		return ""
-	return "This zone: %.1f against %.1f — you hold %s." % [
+	return "This zone: %.1f against %.1f — you hold %s.%s" % [
 		float(zone.get("own", 0.0)),
 		float(zone.get("foe", 0.0)),
 		NavalStrength.share_text(zone),
+		_way_out(zone),
+	]
+
+
+## The published retreat the beaten side would take (wiki: ships-and-naval
+## § Naval Retreat Formula), read over the court whose side would beat the crown
+## and the haven the rules would steer her into — or the refusal when no adjacent
+## water is safe, because then every hull goes down. Nothing when the crown holds
+## the edge: no retreat is rolled for the side that wins.
+func _way_out(zone: Dictionary) -> String:
+	var offer: Dictionary = zone.get("retreat", {})
+	if offer.is_empty():
+		return ""
+	var court: String = FactionCatalog.name_of(int(offer.get("court", -1)))
+	if not bool(offer.get("ok", false)):
+		return " Beaten here by %s: no adjacent water is safe — every hull goes down." % court
+	var chance: int = int(round(float(offer.get("chance", 0.0)) * 100.0))
+	return " Beaten here by %s: %d%% to slip into the %s." % [
+		court, chance, String(offer.get("zone_name", "")),
 	]
 
 
