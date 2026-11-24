@@ -11589,6 +11589,51 @@ func test_a_waiting_muster_keeps_the_squadron_for_the_voyage() -> void:
 	)
 	assert_eq(String(cross.get("kind", "")), AiInvasionPlanner.KIND_CROSS)
 
+## The adapter reads the muster's own gate and the voyage-slot posture before
+## it yields the hull (issue #1429): a baseline keeps its published crossing, a
+## waiting muster at peace yields, a war footing keeps its hulls for the fleet
+## unless the funded parent claim or the earn posture opens the slot.
+func test_the_adapter_yields_the_hull_only_for_a_voyage_that_can_sail() -> void:
+	var world: WorldMap = campaign__world()
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.turn = 0
+	play.world = world
+	play.model = world.region(0)
+	play.diplomacy = _peace()
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = world.region(0)
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [campaign__squadron()])
+	play.ship_layer.regions.set_region(1, [])
+	play.ai = AiState.new()
+	var config: AiConfig = campaign__config()
+	assert_false(MapPlayInvasionAi._voyage_waits(
+		play, campaign_OWNER, AiControl.KIND_BASELINE, config, false
+	), "a baseline never yields the hull")
+	assert_true(MapPlayInvasionAi._voyage_waits(
+		play, campaign_OWNER, AiControl.KIND_SUBJECT, config, false
+	), "the muster waits at peace, the hull stays with the voyage")
+	play.diplomacy = _war()
+	assert_false(MapPlayInvasionAi._voyage_waits(
+		play, campaign_OWNER, AiControl.KIND_SUBJECT, config, false
+	), "a war footing keeps its hulls for the fleet")
+	play.ai.objective_claims[campaign_OWNER] = {"funded_ids": ["colonise.new_world"]}
+	assert_true(MapPlayInvasionAi._voyage_waits(
+		play, campaign_OWNER, AiControl.KIND_SUBJECT, config, false
+	), "the funded claim opens the voyage the war footing shut")
+	play.ai.objective_claims.erase(campaign_OWNER)
+	assert_true(MapPlayInvasionAi._voyage_waits(
+		play, campaign_OWNER, AiControl.KIND_SUBJECT, config, true
+	), "an earning court sails for the far coast")
+	play.ship_layer.regions.set_region(0, [])
+	assert_false(MapPlayInvasionAi._voyage_waits(
+		play, campaign_OWNER, AiControl.KIND_SUBJECT, config, false
+	), "no free hull and no claim, no wait")
+	play.ship_layer.free()
+
 func test_an_expedition_crosses_then_marks_the_enemy_coast() -> void:
 	var world: WorldMap = campaign__world()
 	var old_world: MapModel = world.region(0)
