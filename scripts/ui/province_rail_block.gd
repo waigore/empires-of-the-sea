@@ -10,7 +10,10 @@ extends VBoxContainer
 ## ahead of the crew, so the province dossier carries the press that follows it
 ## (REQ-P5-06). Rows come from [RailWorks], so the block, the pick's line and
 ## the crew's own order list never disagree about what can be railed
-## (REQ-P3-02). The block only prints the plan and emits the intent.
+## (REQ-P3-02). The block only prints the plan and emits the intent, and the
+## press prints its own step under the row — the price, the wait and the
+## transport it buys, or the plan's refusal — so a phone reads what the tap costs
+## (DR-20261125-08).
 
 signal rail_pressed(tile: Vector2i)
 
@@ -20,6 +23,9 @@ const RAIL: String = "Lay railroad"
 var _rows: Array[Dictionary] = []
 var _body: VBoxContainer = null
 var _caption: Label = null
+## The note under each row's press, keyed by tile, so a suite reads what the sheet
+## prints where a hover would say it (DR-20261125-08).
+var _notes: Dictionary = {}
 
 
 func _ready() -> void:
@@ -54,12 +60,19 @@ func render(rows: Array[Dictionary]) -> void:
 	for child: Node in _body.get_children():
 		_body.remove_child(child)
 		child.queue_free()
+	# A repaint drops every press's note with the row it hung under (DR-20261125-08).
+	_notes.clear()
 	for row: Dictionary in rows:
 		_body.add_child(_line(row))
 	visible = not rows.is_empty()
 
 
-func _line(row: Dictionary) -> HBoxContainer:
+## One road tile's row: the ground it serves, the transport it carries, then the
+## press and the note under it — one child per tile, so `rows()` and the body stay
+## read in step (DR-20261125-08).
+func _line(row: Dictionary) -> Control:
+	var entry := VBoxContainer.new()
+	entry.add_theme_constant_override("separation", 1)
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", 8)
 	var plan: Dictionary = row.get("plan", {})
@@ -68,14 +81,26 @@ func _line(row: Dictionary) -> HBoxContainer:
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	line.add_child(title)
 	line.add_child(_text("transport %d" % int(row.get("transport", 0)), 12, Palette.GOLD_PALE))
-	line.add_child(_button(row, plan))
-	return line
+	var note: Label = PressNote.line()
+	line.add_child(_button(row, plan, note))
+	entry.add_child(line)
+	entry.add_child(note)
+	return entry
+
+
+## The note under one tile's press as the sheet prints it, or "" when the tile is
+## not offered (DR-20261125-08).
+func rail_note(tile: Vector2i) -> String:
+	var note: Label = _notes.get(tile)
+	return note.text if note != null and note.visible else ""
 
 
 ## The one-tap dispatch: disabled with the reason when no idle Rail Builder
 ## musters, so the control never offers an order the rules would refuse
-## (REQ-P2-03).
-func _button(row: Dictionary, plan: Dictionary) -> Button:
+## (REQ-P2-03). The note under the row prices the step and names the transport it
+## buys while the press is open, and carries the plan's own refusal while it is
+## shut — printed, never a hover (REQ-P1-05, REQ-P5-07; DR-20261125-08).
+func _button(row: Dictionary, plan: Dictionary, note: Label) -> Button:
 	var button := Button.new()
 	button.text = RAIL
 	button.custom_minimum_size = Vector2(0, 40 if _compact() else 30)
@@ -87,6 +112,16 @@ func _button(row: Dictionary, plan: Dictionary) -> Button:
 		if ready else String(plan.get("reason", ""))
 	)
 	button.pressed.connect(func() -> void: rail_pressed.emit(row["tile"]))
+	_notes[row["tile"]] = note
+	PressNote.paint(
+		note,
+		PressNote.step(
+			CivilianWorkPlan.cost_text(plan.get("cost", {})),
+			int(plan.get("turns", 0)),
+			"a Rail Builder lifts this road to transport %d" % LandWorks.TRANSPORT_RAIL
+		) if ready else String(plan.get("reason", "")),
+		ready
+	)
 	return button
 
 

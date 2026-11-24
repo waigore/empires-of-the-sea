@@ -2759,6 +2759,13 @@ domain = "province_sheet"
 match = "scripts/rules/road_works.gd*"
 domain = "province_sheet"
 
+# The note a crew press prints under its row (DR-20261125-08): the one shape the
+# dossier's Build road and Lay railroad presses share, read by the same suite that
+# proves the rows it sits under.
+[[rules]]
+match = "scripts/ui/press_note.gd*"
+domain = "province_sheet"
+
 # The rail block and the works it dispatches (DR-20261117-10): the same sheet,
 # the same suites — a railroad is the road control's sibling, so it rides the
 # province sheet's slice instead of the prospect fan-out.
