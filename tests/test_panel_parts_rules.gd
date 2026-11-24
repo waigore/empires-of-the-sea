@@ -3565,6 +3565,68 @@ func test_a_prompt_names_the_courts_in_english() -> void:
 	assert_eq(ConsentCopy.button("join"), "Join the war")
 
 
+## Every answer on the intervention banner names what it costs before the crown
+## takes it — the war a join starts, the relation a protest spends and the
+## embassy standing aside loses (wiki: diplomacy § Intervention; REQ-P5-06).
+func test_an_intervention_names_each_answer_and_its_price() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "embassy", "deeds": 0}
+	var line: String = ConsentCopy.intervention_body(offer)
+	assert_true(line.begins_with("France has declared war on "), line)
+	assert_true(line.contains("go to war with France"), line)
+	assert_true(line.contains("protest for −10 with the aggressor"), line)
+	assert_true(line.contains("−5 if she holds Propaganda"), line)
+	assert_true(line.contains("lose the embassy"), line)
+
+
+## The banner's figures are the rule's own, so a retuned protest price moves the
+## prompt with the penalty the answer pays (REQ-P2-03).
+func test_the_prompt_prices_the_protest_the_rule_charges() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "embassy", "deeds": 0}
+	var line: String = ConsentCopy.intervention_stake(offer)
+	var full: int = int(DiplomacyCatalog.PROTEST_PENALTY)
+	var soft: int = int(DiplomacyCatalog.PROTEST_PENALTY_PROPAGANDA)
+	assert_true(line.contains("−%d with the aggressor" % full), line)
+	assert_true(line.contains("−%d if she holds Propaganda" % soft), line)
+	assert_eq(full, int(Intervention.protest_penalty({})), "the banner reads the rule's figure")
+	assert_eq(
+		soft, int(Intervention.protest_penalty({"propaganda": true})), "and the softened one"
+	)
+
+
+## A court offered only through its deed has no embassy to lose: the banner
+## names the war and the price, and never a loss that is not at stake.
+func test_a_deed_only_intervention_names_the_war_and_no_embassy() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "deed", "deeds": 1}
+	var line: String = ConsentCopy.intervention_stake(offer)
+	assert_true(line.begins_with("Our deed there is at stake"), line)
+	assert_true(line.contains("join the war against France"), line)
+	assert_true(line.contains("−10 with the aggressor"), line)
+	assert_false(line.contains("embassy"), line)
+
+
+func test_two_deeds_read_in_the_plural() -> void:
+	var offer: Dictionary = {"aggressor": 2, "target": 6, "basis": "deed", "deeds": 2}
+	var line: String = ConsentCopy.intervention_stake(offer)
+	assert_true(line.begins_with("Our 2 deeds there are at stake"), line)
+	assert_true(line.contains("−10 with the aggressor"), line)
+
+
+## A court that holds both claims reads both stakes, and an offer that carries a
+## deed count with no deed basis still reads in the plural.
+func test_an_embassy_and_deeds_name_both_stakes() -> void:
+	var both: Dictionary = {"aggressor": 2, "target": 6, "basis": "both", "deeds": 2}
+	var line: String = ConsentCopy.intervention_stake(both)
+	assert_true(line.begins_with("Our embassy stands and our 2 deeds there are at stake"), line)
+	assert_true(line.contains("go to war with France"), line)
+	assert_true(line.contains("lose the embassy"), line)
+	var one: Dictionary = {"aggressor": 2, "target": 6, "basis": "both", "deeds": 1}
+	var single: String = ConsentCopy.intervention_stake(one)
+	assert_true(single.begins_with("Our embassy stands and our deed there is at stake"), single)
+	var counted: Dictionary = {"aggressor": 2, "target": 6, "basis": "embassy", "deeds": 2}
+	var counted_line: String = ConsentCopy.intervention_stake(counted)
+	assert_true(counted_line.begins_with("Our 2 deeds there are at stake"), counted_line)
+
+
 func test_a_prompt_keeps_the_authored_source() -> void:
 	DialogueLocale.set_locale("de")
 	var line: String = ConsentCopy.say("call/toast", ["England", "France"])
