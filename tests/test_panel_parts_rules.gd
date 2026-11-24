@@ -406,6 +406,16 @@ func test_the_head_names_the_kind_of_court_that_holds_the_land() -> void:
 		assert_eq(head.owner_label.text, String(spec[1]))
 	head.free()
 
+
+## The head's realm door is the sheet's own signal: the HUD wires one door on
+## the panel instead of searching the sheet for the head it built (REQ-P3-02).
+func test_the_province_sheet_forwards_its_head_realm_door() -> void:
+	_setup_province_panel()
+	var heard: Array[bool] = []
+	_province_panel_panel.realm_pressed.connect(func() -> void: heard.append(true))
+	_province_panel_panel._head.realm_button.pressed.emit()
+	assert_eq(heard.size(), 1, "the panel forwards the head's realm press")
+
 func test_the_dossier_lists_every_estate_not_just_the_headline() -> void:
 	_setup_province_panel()
 	_show()
