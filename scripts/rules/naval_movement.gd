@@ -25,6 +25,31 @@ static func province_sea_zones(model: MapModel, province_id: int) -> Array[int]:
 	return zones
 
 
+## Sea zones the province's **harbour** faces: the water its port tile touches,
+## which is where a blockade must stand — "the blockading fleet must be in a sea
+## zone adjacent to that province's port" (wiki: ships-and-naval § Missions and
+## Movement; capital-and-connectivity § Blockade). A coast that runs along two
+## waters is no help here: the port gates the province, so a squadron in the
+## other water holds no blockade of it. A province that keeps no port tile falls
+## back to every zone its coast touches, the read a map with no harbours makes.
+static func port_sea_zones(model: MapModel, province_id: int) -> Array[int]:
+	if model == null:
+		return []
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
+		return []
+	var port: Vector2i = data.port_tile
+	if port.x < 0 or port.y < 0:
+		return province_sea_zones(model, province_id)
+	var zones: Array[int] = []
+	for offset: Vector2i in ORTHOGONAL:
+		var zone: int = model.sea_zone_at(port.x + offset.x, port.y + offset.y)
+		if zone != MapModel.NO_ID and not zones.has(zone):
+			zones.append(zone)
+	zones.sort()
+	return zones
+
+
 ## Provinces of `owner` that share a P-S edge with the sea zone.
 static func owned_provinces_by_zone(
 	model: MapModel, zone_id: int, owner: int

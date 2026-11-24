@@ -22,7 +22,7 @@ Costs name resources plus any commodity a reservation claims.
 pass: readings (footing, desire, muster, hulls, purse, research, tribe) become
 objectives, ranked (`utility × modifier / 1000`, id breaks ties) then allocated
 over the pools. Each aim ends `funded`, `deferred` with shortfall
-(`hull 0/1`), or `blocked`. `AiState.note_objectives` keeps the rows by
+(`hull 0/1`), or `blocked`. `AiState.note_objectives` keeps rows by
 status; the save carries them.
 
 ## The expedition
@@ -31,9 +31,9 @@ status; the save carries them.
 `expedition.explorer` (Explorer train slot) and a `requires` link to
 `peace.window` at war; afloat or landed it adds `expedition.voyage`. The
 colony muster gate reads the funded hull claim
-(`CivilianMuster.hull_claimed`); a starved child prints
+(`CivilianMuster.hull_claimed`), or an idle squadron; a starved child prints
 `expedition.hull hull 0/1 deferred`. Ashore, the parent prices
-`expedition.voyage`, not `no Explorer free`.
+`expedition.voyage`; the aim follows the crew chain.
 
 ## Posture and weights
 

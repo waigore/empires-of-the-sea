@@ -407,17 +407,12 @@ func _open(advanced: String) -> bool:
 
 ## One turn through the seal, answering whatever the courts raise and clearing
 ## whatever plate a battle raises. True when the calendar moved or the campaign
-## ended.
+## ended. The shared closer presses once per turn: answering a consent runs the
+## suspended turn to its end, so that answer is never followed by a second press.
 func _take_turn() -> bool:
-	for _attempt in SaveDrive.MAX_TURN_ATTEMPTS:
-		var before: int = _play.turn
-		MapPlayTurn.end_turn(_play)
-		_release_plate()
-		if _play.turn != before or _play.campaign_over():
-			return true
-		if not SaveDrive.answer_pending(_play):
-			return false
-	return false
+	if SaveDrive.advance(_play, _release_plate):
+		return true
+	return _play.campaign_over()
 
 
 func _release_plate() -> void:

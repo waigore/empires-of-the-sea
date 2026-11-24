@@ -743,11 +743,14 @@ func test_a_march_into_a_walled_province_names_the_wall() -> void:
 	assert_eq(field.province, target)
 	assert_eq(
 		_last_toast(),
-		WallRead.march_line(_screen.model.province_name(target), 2),
-		"the receipt names the wall it must break"
+		WallRead.march_line(
+			_screen.model.province_name(target), 2, WallRead.storm_line(2)
+		),
+		"the receipt names the wall it must break, and the storm it would take"
 	)
 	assert_true(_last_toast().contains("80 wall hp"), _last_toast())
 	assert_true(_last_toast().contains("2 emplaced guns"), _last_toast())
+	assert_true(_last_toast().contains("storm needs"), _last_toast())
 
 
 func test_enemy_armies_are_observed_not_ordered() -> void:
@@ -2163,11 +2166,18 @@ func test_army_panel_strength_names_one_figure() -> void:
 	model.province_data(1).hospital_level = 1
 	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
 	var line: String = ArmyPanelStrength.line(model, army)
-	assert_true(line.contains("regiments"), line)
+	assert_true(line.begins_with("1 regiment ·"), line)
+	assert_true(line.contains("regiments") == false, "one regiment reads in the singular")
 	assert_true(line.contains("strength"), line)
 	assert_true(line.contains("food"), line)
 	assert_true(line.contains("rest 40%"), line)
 	assert_eq(ArmyPanelStrength.food(army), ArmyRoster.food_upkeep_of([army], army.owner))
+	# A single chevron takes the same bar: "1 chevron", never "1 chevrons".
+	var veteran := ArmyFixture.army(7, 0, 1, ["guards"], false)
+	for regiment_id: String in veteran.regiments:
+		veteran.regiment_medals[regiment_id] = 1
+	var veteran_line: String = ArmyPanelStrength.line(model, veteran)
+	assert_true(veteran_line.contains("1 chevron ·"), veteran_line)
 
 
 ## Order presses and the dismiss arm live on one block; the panel only aliases
@@ -2499,3 +2509,73 @@ func test_the_muster_words_name_a_line_or_say_nothing() -> void:
 		MapPlayMusterPickWords.stores_line("peasant_levies", {"fabric": 2}),
 		"the court is saving for Peasant Levies — it lacks 2 Fabric"
 	)
+
+
+## A march needs a destination the crown has glimpsed at least once (wiki:
+## fog-and-exploration § Order Visibility Requirements). A host on the beach may
+## not step into a province no tile of which its chart holds — and the offer the
+## map draws is the same list, so nothing invites the march either.
+func test_a_march_into_uncharted_land_is_refused() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards"], false)
+	var chart := VisibilityModel.new()
+	chart.setup(model, FactionCatalog.PLAYER_FACTION)
+	_set_province_chart(model, chart, 1, VisibilityModel.Level.FOGGED)
+	_set_province_chart(model, chart, 6, VisibilityModel.Level.FOGGED)
+	_set_province_chart(model, chart, 3, VisibilityModel.Level.UNKNOWN)
+
+	assert_false(chart.is_province_known(3), "the neutral province starts uncharted")
+	assert_false(
+		ArmyMovement.destinations(model, army, chart).has(3),
+		"the rules offer no march onto ground the chart has never reached"
+	)
+	assert_false(
+		ArmyMovement.can_move(model, army, 3, true, chart).get("ok", false),
+		"the order is refused"
+	)
+	assert_eq(
+		String(ArmyMovement.can_move(model, army, 3, true, chart).get("reason", "")),
+		"That province has never been charted.",
+		"the words are the crew's own, one sentence for one rule"
+	)
+	var moved: Dictionary = ArmyMovement.apply_move(model, army, 3, true, chart)
+	assert_false(bool(moved.get("ok", false)), "the host does not march")
+	assert_eq(army.province, 1, "and it stands where it stood")
+
+
+## The gate is a glimpse, not a survey: a province the crown has charted at
+## `fogged` is a legal march, and a caller that keeps no chart reads every road
+## as before (wiki: fog-and-exploration § Order Visibility Requirements).
+func test_a_fogged_province_is_a_legal_march() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(4, 0, 1, ["guards"], false)
+	var chart := VisibilityModel.new()
+	chart.setup(model, FactionCatalog.PLAYER_FACTION)
+	_set_province_chart(model, chart, 1, VisibilityModel.Level.FOGGED)
+	_set_province_chart(model, chart, 3, VisibilityModel.Level.FOGGED)
+
+	assert_eq(
+		chart.province_visibility(3), VisibilityModel.Level.FOGGED,
+		"one tile at fogged is the whole gate"
+	)
+	assert_true(ArmyMovement.destinations(model, army, chart).has(3), "the march is offered")
+	assert_true(
+		bool(ArmyMovement.can_move(model, army, 3, true, chart).get("ok", false)),
+		"and the order is kept"
+	)
+	assert_true(
+		bool(ArmyMovement.can_move(model, army, 3, true).get("ok", false)),
+		"a chartless caller reads the full road, as every rules fixture does"
+	)
+
+
+## Sets one province's every tile to `level` on the test's own chart.
+func _set_province_chart(
+	model: MapModel, chart: VisibilityModel, province_id: int, level: int
+) -> void:
+	for tile: Vector2i in model.province_tiles(province_id):
+		var index: int = model.index_of(tile.x, tile.y)
+		if level > chart.level_at_index(index):
+			chart.raise_to(index, level)
+		else:
+			chart.lower_to(index, level)

@@ -316,6 +316,10 @@ static func standing_refusal(
 	var keep: int = maxi(floor / 2, 0)
 	if economy.treasury < keep + price:
 		return "purse under half the cash floor"
+	# The banked split (issue #1384): the banked college leads from the invest
+	# floor — the reserve it hands in is the cash floor's own — so a purse
+	# above the floor is the bank's own income investments at work, not a
+	# study burning a fill the bank is holding for.
 	if reserve > floor and economy.treasury >= reserve - price:
 		return "saving for its reserve"
 	return ""

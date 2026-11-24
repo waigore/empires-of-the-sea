@@ -27,11 +27,12 @@ func before_all() -> void:
 	_bootstrap_world()
 	_advanced_before_all()
 	_generator_before_all()
-	_mount_advanced_tiers()
-	# Warm the published Standard census chart in suite setup so the first
-	# census case is not charged the cold `generate_world` under coverage.
-	_census_world()
-	_census_tile_scan()
+	# Advanced-live chart + MapScreens mount lazily in `_open` so ~250 pure
+	# cases never pay a clone or two mounts (~0.5–2 s each under coverage;
+	# docs/testing.md § Speed rules). Census Standard chart warms on first
+	# census read — not here — so bootstrap stays the only heavy before_all
+	# generate on this suite's critical path.
+	_advanced_live_host = self
 
 
 func test_world_has_two_regions_with_clean_setup() -> void:
@@ -471,19 +472,19 @@ func _zone_touches_edge(model: MapModel, zone_id: int) -> bool:
 ## tile-map-and-generation § Great Power starting grain).
 
 
-## Cases only need one region at a time. 64×48 still seats four grain farms per
-## Great Power and a thin capital (the 44×34 fixture world does not); under
-## coverage that is ~2× fewer tiles than the old 96×64 two-region boot.
-const BOOT_WIDTH: int = 64
-const BOOT_HEIGHT: int = 48
-const NEW_WORLD_SEED: int = Fixture.SEED + 7919
+## Cases only need one region at a time. Seed 42 at 52×40 still seats four grain
+## farms per Great Power and a thin capital (the 44×34 fixture world does not);
+## under coverage that is ~32% fewer tiles than the old 64×48 boot. New World
+## clones the suite fixture — no second `generate_region`.
+const BOOT_SEED: int = 42
+const BOOT_WIDTH: int = 52
+const BOOT_HEIGHT: int = 40
 
 ## Non-underscore so before_all state is copied onto each test instance. The
 ## post-pass is read-only in every case below, so region charts in before_all
 ## keep world generation (the suite's dominant cost under coverage) off the
-## hot path. Old World, its determinism twin, and the New World are each
-## generated once — never via `generate_world`, which would build discarded
-## charts.
+## hot path. Old World and its determinism twin are generated once; the New
+## World rides `Fixture.world()` — never a discarded `generate_world`.
 var model: MapModel = null
 var works: LandWorks = null
 var report: Dictionary = {}
@@ -499,16 +500,15 @@ func _bootstrap_world() -> void:
 	# twin is a deep copy applied separately, so the post-pass still proves it
 	# is stable without regenerating terrain under coverage.
 	model = MapGenerator.new().generate_region(
-		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
+		BOOT_SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
 	model_twin = _clone_model(model)
 	works = LandWorks.new()
 	report = WorldBootstrap.apply(model, works)
 	works_twin = LandWorks.new()
 	WorldBootstrap.apply(model_twin, works_twin)
-	new_world = MapGenerator.new().generate_region(
-		NEW_WORLD_SEED, FactionCatalog.NEW_WORLD, BOOT_WIDTH, BOOT_HEIGHT
-	)
+	# Fixture New World already passed fair-split; clone + post-pass only.
+	new_world = _clone_model(world.region(FactionCatalog.NEW_WORLD))
 	new_world_works = LandWorks.new()
 	new_world_report = WorldBootstrap.apply(new_world, new_world_works)
 
@@ -3802,44 +3802,61 @@ func test_rows_lead_with_what_the_crown_can_muster_today() -> void:
 			assert_true(false, "buildable rows must come before locked rows")
 
 
-# --- folded: the live advanced start (one mount per tier) ---
+# --- folded: the live advanced start (one mount per tier, lazy) ---
 ## The live setup path of an advanced start (wiki: advanced-starts;
 ## DR-20261111-01): a real map screen opening at a mid-age tier, with the
 ## treasury, the muster, the chart and the roster the tier promises (merged
 ## from test_advanced_start_live). One mount per tier: under coverage a mount
-## costs ~0.5–2 s, so the five live cases re-seat from a pristine save
-## (`Fixture.suite_reset`, ~0.15 s) instead of remounting each time.
+## costs ~0.5–2 s, so the seven live cases re-seat from a pristine save
+## (`Fixture.suite_reset`, ~0.15 s) instead of remounting each time. Mounts are
+## `static` and built on the first `_open` for that tier — pure generation /
+## census cases never pay either MapScreen (docs/testing.md § Speed rules).
 
-## Non-underscore so before_all state is copied onto each test instance.
+## Static: gd-tools clones each case; the before_all host owns the mounts.
 ## Live mounts use a private chart so idle screens cannot rewrite `Fixture.world`
 ## under later cases (`test_same_seed_reproduces_the_world` reads that chart).
-var advanced_live_world: WorldMap = null
-var advanced_live_saved: Array = []
-var tier50_screen: MapScreen = null
-var tier50_pristine: Dictionary = {}
-var tier100_screen: MapScreen = null
-var tier100_pristine: Dictionary = {}
+static var _advanced_live_host: Node = null
+static var advanced_live_world: WorldMap = null
+static var advanced_live_saved: Array = []
+static var tier50_screen: MapScreen = null
+static var tier50_pristine: Dictionary = {}
+static var tier100_screen: MapScreen = null
+static var tier100_pristine: Dictionary = {}
 
 
-func _mount_advanced_tiers() -> void:
-	# Private chart so idle screens cannot rewrite `Fixture.world` under later
-	# cases — clone the suite's already-generated world instead of paying a
-	# second `generate_world` under coverage.
+## Private chart + SaveWorld half once: a shallow ownership snapshot cannot
+## rewind town levels / resources the tier writes before suite_reset reseats.
+func _ensure_advanced_live_world() -> void:
+	if advanced_live_world != null:
+		return
+	# Clone the suite's already-generated world instead of paying a second
+	# `generate_world` under coverage.
 	advanced_live_world = _clone_world(world)
-	# Full SaveWorld half: a shallow ownership snapshot cannot rewind town
-	# levels / resources the tier writes before suite_reset reseats a case.
 	advanced_live_saved = []
 	for entry: Dictionary in SaveWorld.capture(advanced_live_world):
 		advanced_live_saved.append(entry)
-	tier50_screen = _instantiate_tier(AdvancedStart.TURNS50)
-	tier50_pristine = Fixture.suite_capture(tier50_screen)
+
+
+## Mounts only the tier a live case asked for; the other tier stays unbuilt
+## until its own `_open` (or never, if a shard somehow skipped those cases).
+func _ensure_tier(tier: String) -> void:
+	_ensure_advanced_live_world()
+	var fifty: bool = tier == AdvancedStart.TURNS50
+	if fifty and is_instance_valid(tier50_screen):
+		return
+	if not fifty and is_instance_valid(tier100_screen):
+		return
 	SaveWorld.apply(advanced_live_world, advanced_live_saved)
-	tier100_screen = _instantiate_tier(AdvancedStart.TURNS100)
-	tier100_pristine = Fixture.suite_capture(tier100_screen)
+	var screen: MapScreen = _instantiate_tier(tier)
+	var pristine: Dictionary = Fixture.suite_capture(screen)
 	SaveWorld.apply(advanced_live_world, advanced_live_saved)
-	# Idle mounts must not keep processing under every later case (coverage).
-	Fixture.park_screen(tier50_screen)
-	Fixture.park_screen(tier100_screen)
+	Fixture.park_screen(screen)
+	if fifty:
+		tier50_screen = screen
+		tier50_pristine = pristine
+	else:
+		tier100_screen = screen
+		tier100_pristine = pristine
 
 
 func _instantiate_tier(tier: String) -> MapScreen:
@@ -3848,7 +3865,7 @@ func _instantiate_tier(tier: String) -> MapScreen:
 	screen.map_height = Fixture.WORLD_HEIGHT
 	screen.preset_world = advanced_live_world
 	screen.advanced_start = tier
-	add_child(screen)
+	_advanced_live_host.add_child(screen)
 	return screen
 
 
@@ -3863,6 +3880,7 @@ func after_all() -> void:
 	tier100_pristine = {}
 	advanced_live_world = null
 	advanced_live_saved = []
+	_advanced_live_host = null
 
 
 func test_a_new_campaign_opens_on_the_preset() -> void:
@@ -4029,6 +4047,7 @@ func test_the_tier_musters_unique_hull_ids() -> void:
 
 
 func _open(tier: String) -> MapScreen:
+	_ensure_tier(tier)
 	var screen: MapScreen = tier50_screen if tier == AdvancedStart.TURNS50 else tier100_screen
 	var pristine: Dictionary = (
 		tier50_pristine if tier == AdvancedStart.TURNS50 else tier100_pristine

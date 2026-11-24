@@ -22,15 +22,21 @@ extends RefCounted
 ## the compass order breaks ties, and a caller that reads no appetite keeps the
 ## published order tile for tile.
 ##
-## **Riches are ground, not a mineral** (issue #1382): a court on **earn** sails
-## for cash, and the one New World ground that clears straight to the treasury is
-## a deposit no chart shows until an Explorer digs it (fog-and-exploration
-## § Prospect-Required Resources; DR-20261111-26). So while that court wants
-## income, an Explorer's landing prefers a prospectable tile — swamp, hills, peak
-## or desert — over bare ground its workshop has no use for, and a raw the
-## workshop is short of still leads it. The deposit is never named: every
-## prospectable tile weighs the same until its survey lands (REQ-P2-03).
-
+## **The treasury is read beside the workshop** (issue #1382): the appetite may
+## also carry a `riches` weight (`economy.riches_route_weight`, set by
+## `AiEconomyPlanner.ground_appetite` once the court charts the New World), which
+## `_ground_weight` puts on mineral-bearing terrain — the ground an Explorer can
+## survey — without ever naming a mineral.
+##
+## **Riches are ground, not a mineral** (issue #1382 / #1386): a court on **earn**
+## sails for cash, and the one New World ground that clears straight to the
+## treasury is a deposit no chart shows until an Explorer digs it
+## (fog-and-exploration § Prospect-Required Resources; DR-20261111-26). So while
+## that court wants income, an Explorer's landing prefers a prospectable tile —
+## swamp, hills, peak or desert — over bare ground its workshop has no use for,
+## and a raw the workshop is short of still leads it. The deposit is never named:
+## every prospectable tile weighs the same until its survey lands (REQ-P2-03).
+const RICHES_KEY: String = "riches"
 
 ## The one crew that may read ground: only an Explorer digs a deposit out of the
 ## chart, so only an Explorer's landing is worth aiming at hills (issue #1382).
@@ -40,14 +46,19 @@ const EXPLORER: String = "explorer"
 ## to outrank bare ground and a crop nobody is short of, never a raw the
 ## workshop wants (a wanted raw counts its own shortfall, one point a unit).
 const RICHES_GROUND: int = 1
+## The shift that puts a wanted raw's shortfall above every riches weight: the
+## richest configured bet (1000) still loses to one unit of workshop need, so the
+## treasury read never starves a recipe the court feeds (issue #1382).
+const WANTED_SHIFT: int = 1001
 
 
 ## One order for this court in this region, or an empty dictionary.
 ## `abroad` counts this court's civilians already in the target region, by type,
 ## so a court sends one Explorer to chart it and, once it holds land there, one
-## Builder to work it. `charts` is the court's own fog: it lands only on coast it
-## has seen and walks only water it charts, with one blind step into the unknown
-## to extend the chart (DR-20261110-21). A null chart is the fixture reading —
+## Builder to work it — then one Engineer while that ground has no port to root
+## its network (`needs_port`, issue #1422). `charts` is the court's own fog: it
+## lands only on coast it has seen and walks only water it charts, with one blind
+## step into the unknown to extend the chart (DR-20261110-21). A null chart is the fixture reading —
 ## every tile charted — and production always hands the court's charts in
 ## (MapPlayColonisationAi). `posture` is the court's war footing: a court
 ## fighting a Great Power opens no new voyage, while an expedition already afloat
@@ -65,7 +76,8 @@ static func plan(
 	charts: CourtCharts = null,
 	posture: String = AiPhasePlanner.PHASE_UNKNOWN,
 	wants_income: bool = false,
-	appetite: Dictionary = {}
+	appetite: Dictionary = {},
+	needs_port: bool = false
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -94,7 +106,7 @@ static func plan(
 		return {}
 	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE) and not wants_income:
 		return {}
-	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad)
+	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad, needs_port)
 	if unit == null:
 		return {}
 	fleet = VoyageRead.free_squadron(fleets, owner)
@@ -125,23 +137,25 @@ static func _target_region(world: WorldMap, home: int, owner: int) -> int:
 
 
 ## First idle civilian the court should send, or null. A crown that holds ground
-## overseas sends its Builder to work it; a crown whose Explorer is already
-## ashore sends the Merchant, whose deeds found the colony; otherwise it charts
-## with an Explorer (wiki: civilian-units § Overseas deployment; #497, #602,
-## #1127). One colonist of each kind at a time, so the expedition is not
-## duplicated, and the kind is `VoyageRead.voyage_kind` — the same reading the
+## overseas sends its Builder to work it; a crown whose ground abroad has no port
+## sends the Engineer that roots its network once the Builder stands there; a
+## crown whose Explorer is already ashore sends the Merchant, whose deeds found
+## the colony; otherwise it charts with an Explorer (wiki: civilian-units
+## § Overseas deployment; extraction-and-improvements § Overseas delivery; #497,
+## #602, #1127, #1422). One colonist of each kind at a time, so the expedition is
+## not duplicated, and the kind is `VoyageRead.voyage_kind` — the same reading the
 ## muster holds the crew behind at the harbour.
 static func _voyage_unit(
-	civilians: Array, owner: int, world: WorldMap, target: int, abroad: Dictionary
+	civilians: Array, owner: int, world: WorldMap, target: int, abroad: Dictionary,
+	needs_port: bool = false
 ) -> CivilianState:
-	var kind: String = VoyageRead.voyage_kind(
-		VoyageRead.holds_ground_in(world, target, owner), abroad
-	)
+	var holds: bool = VoyageRead.holds_ground_in(world, target, owner)
+	var kind: String = VoyageRead.voyage_kind(holds, abroad, needs_port)
 	var unit: CivilianState = _idle_of(civilians, owner, kind, abroad)
-	if unit != null or kind != "builder":
+	if unit != null or not holds:
 		return unit
-	# No Builder free to work the crown's ground: the Explorer charts instead,
-	# as published.
+	# No crew of the kind the ground asks for is free: the published read stands
+	# (the Explorer charts), and the port waits for the next Engineer.
 	return _idle_of(civilians, owner, VoyageRead.voyage_kind(false, abroad), abroad)
 
 
@@ -305,7 +319,7 @@ static func _landing_zones(
 					var view: VisibilityModel = charts.model_for(owner, model.region_id)
 					if view != null and view.level_at(land.x, land.y) < VisibilityModel.Level.FOGGED:
 						continue
-				var weight: int = _ground_weight(model, land, appetite)
+				var weight: int = _ground_weight(model, land, appetite, riches)
 				if not weights.has(zone.id) or weight > int(weights[zone.id]):
 					weights[zone.id] = weight
 	var zones: Array[int] = []
@@ -323,23 +337,35 @@ static func _zone_borders_province(model: MapModel, zone: int, province: int) ->
 	return NavalMovement.province_sea_zones(model, province).has(zone)
 
 
-## How much this ground is worth to the court on its water: the appetite weight
-## of the raw the tile carries, else the weight of the bet that a prospectable
-## tile hides a deposit (`riches`), else zero. A mineral is never read before its
-## survey — the bet is on the ground, identical for every prospectable tile, so
-## no chart can name a deposit the court has not dug (DR-20261111-26; issue
-## #1382). A caller with no appetite and no bet keeps the compass order.
+## How much this ground is worth to the court on its water: the appetite weight of
+## the commodity the tile carries, else the bet on ground an Explorer can survey,
+## else zero (DR-20261119-05).
+##
+## The treasury is read beside the workshop (issue #1382): on prospectable ground
+## (swamp, hills, mountain, desert) a tile nobody's workshop wants carries the
+## appetite's `riches` weight — `economy.riches_route_weight`, set once the court
+## charts the New World — and the earn-posture Explorer bet (`riches` arg), the
+## bigger read winning. A raw the workshop is short of always leads: its shortfall
+## is shifted above every bet, so the riches read outranks bare ground and a crop
+## nobody is short of and never starves a recipe the workshop feeds. No mineral is
+## named, priced or planned on: the weight rides the terrain, not a deposit, so the
+## fog rule holds (DR-20261111-26) and the appetite's own mineral exclusion stands.
+## A caller with no appetite and no bet keeps the compass order.
 static func _ground_weight(
 	model: MapModel, tile: Vector2i, appetite: Dictionary, riches: int = 0
 ) -> int:
 	var resource: int = model.resource_at(tile.x, tile.y)
 	if resource >= 0 and not appetite.is_empty():
 		var commodity: String = ImprovementCatalog.commodity(resource)
-		var wanted: int = maxi(int(appetite.get(commodity, 0)), 0)
-		if wanted > 0:
-			return wanted
-	if riches > 0 and MineralSurvey.prospectable(model, tile):
-		return riches
+		if not commodity.is_empty():
+			var wanted: int = maxi(int(appetite.get(commodity, 0)), 0)
+			if wanted > 0:
+				return wanted * WANTED_SHIFT
+	if MineralSurvey.prospectable(model, tile):
+		return mini(
+			maxi(int(appetite.get(RICHES_KEY, 0)), maxi(riches, 0)),
+			WANTED_SHIFT - 1
+		)
 	return 0
 
 

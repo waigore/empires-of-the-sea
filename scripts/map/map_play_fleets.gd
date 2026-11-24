@@ -74,10 +74,13 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	# § Sighted strength).
 	var strength: Dictionary = NavalStrength.fogged()
 	if MapPlayFleetIntel.strength_read(play, fleet):
+		# The zone's way out of a lost fight is the crown's own reading, so a
+		# rival's sheet prices her water but never her retreat (DR-20261124-06).
+		var chart: MapModel = play.model if fleet.owner == play.player_faction else null
 		strength = NavalStrength.dossier(
 			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
 			MapPlayNavalTurn.strength_multipliers(play), play.leaders,
-			MapPlayFleetIntel.intel_filter(play)
+			MapPlayFleetIntel.intel_filter(play), chart
 		)
 	var opening := FleetDossierOpening.new()
 	opening.fleet = fleet

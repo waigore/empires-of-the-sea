@@ -205,6 +205,32 @@ func test_a_chip_press_is_the_whole_filter_intent() -> void:
 	assert_eq(seen[2], [11, "timber", MarketBookFilter.SORT_STOCK])
 	head.free()
 
+## A book of one offer reads in the singular on the chip's tip and the status
+## line (issue #1435): "1 ton across 1 offer", never "1 tons across 1 offers".
+func test_a_book_of_one_offer_reads_in_the_singular() -> void:
+	var head := MarketOffersHead.new()
+	head.render(
+		[_book()[0]], MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
+	)
+	var chips: Dictionary = head.filter_buttons()
+	assert_eq((chips["seller:9"] as Button).tooltip_text, "3 tons across 1 offer.")
+	assert_eq((chips["good:timber"] as Button).tooltip_text, "3 tons across 1 seller.")
+	assert_eq(head._status.text, "1 offer  ·  Seller A–Z")
+	# One ton takes the singular too.
+	head.render(
+		[{"id": "9:timber", "faction": 9, "commodity": "timber", "quantity": 1,
+			"unit_price": 30}],
+		MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
+	)
+	assert_eq(
+		(head.filter_buttons()["seller:9"] as Button).tooltip_text,
+		"1 ton across 1 offer."
+	)
+	head.free()
+
+
 ## A court that sold out this turn takes its chip with it; the filter falls back
 ## to All and tells the page, so the strip never hides the whole book silently.
 func test_a_selection_the_new_book_lost_falls_back_to_all() -> void:

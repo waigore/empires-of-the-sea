@@ -291,6 +291,31 @@ func test_diplomacy_key_fits_a_phone() -> void:
 	)
 
 
+## The bar keeps the parts it dressed: every command door hands over its caption
+## and the plaques hand over their value columns, so the compact fit narrows what
+## it built instead of searching the row by node name (REQ-P3-02).
+func test_the_bar_keeps_the_door_parts_it_dressed() -> void:
+	await _open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	assert_false(hud.bar_doors.is_empty(), "the bar registers its dressed doors")
+	for door: Dictionary in hud.bar_doors:
+		var button: Button = door["button"]
+		var caption: Label = door["caption"]
+		assert_not_null(button, "a registered door is a button on the bar")
+		assert_not_null(caption, "a registered door keeps the caption it dressed")
+		assert_false(caption.visible, "the compact bar hides that caption")
+		assert_true(button.has_meta("compact_icon_only"), "the door collapses to its medallion")
+		assert_true(hud.top_row.is_ancestor_of(button), "the door rides the bar's row")
+	var menu: Button = hud.top_row.find_child("MenuSeal", true, false) as Button
+	assert_not_null(menu, "the pause crest mounts on the bar")
+	var registered: bool = false
+	for door: Dictionary in hud.bar_doors:
+		registered = registered or door["button"] == menu
+	assert_true(registered, "the pause crest registers with the bar")
+	assert_eq(hud.stats._parts.size(), hud.chips.size(), "the plaques keep their own parts")
+
+
 ## Rotating a phone back to a tablet width restores the caption words that the
 ## compact cartouche dropped (the medallions stay put).
 func test_resize_restores_the_wide_cartouche() -> void:
@@ -729,14 +754,14 @@ func test_phone_dossier_keeps_its_orders_reachable() -> void:
 		if button == null or not button.is_visible_in_tree():
 			continue
 		# Every live order is reachable by scrolling inside the sheet...
-		_fits(button.get_global_rect(), panel._column.get_global_rect(), "order %s" % button.text)
+		_fits(button.get_global_rect(), panel._shell.column.get_global_rect(), "order %s" % button.text)
 		_tappable(button, "order %s" % button.text)
 		if _contains(scroll.get_global_rect(), button.get_global_rect()):
 			immediate += 1
 	# ...and the build order plus one muster are there without scrolling.
 	assert_gt(immediate, 1, "primary orders visible on a phone without scrolling")
-	_fits(panel._dock.get_global_rect(), panel.get_global_rect(), "dock button")
-	_tappable(panel._dock, "dock button")
+	_fits(panel._shell.dock.get_global_rect(), panel.get_global_rect(), "dock button")
+	_tappable(panel._shell.dock, "dock button")
 
 
 func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:

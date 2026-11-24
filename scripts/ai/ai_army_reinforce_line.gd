@@ -6,8 +6,10 @@ extends RefCounted
 ## Owns the infantry catalog reading: which categories field a line, which
 ## patterns the court's techs and fields open, which one it is saving for, and
 ## the cheapest price it must bank. `AiArmyReinforce` owns the turn plan and the
-## food/purse gates; this owner answers every line question, so the muster and
-## the war chest never drift from one catalog (REQ-P2-03, REQ-P3-01, REQ-P3-03).
+## food gates; host size and the war chest live on [AiArmyReinforceHost] and
+## [AiArmyReinforceChest]. This owner answers every line question, so the muster
+## and the war chest never drift from one catalog (REQ-P2-03, REQ-P3-01,
+## REQ-P3-03).
 
 ## Categories that field a line: a mustered regiment is infantry, never the
 ## army's whole battery or horse (the opening roster keeps its own mix).
@@ -167,6 +169,33 @@ static func strongest_line(tech_unlocked: Dictionary) -> String:
 			best = type_id
 			best_strength = value
 	return best
+
+
+## The line the storm host is sized and raised with (issue #1381): the cheapest
+## line its techs open, because the wall counts strength and the cheapest line
+## carries the most strength per ducat (a levy's 3 for 2,000 against an
+## arquebusier's 6 for 5,000). Sized on the strongest line instead, a court
+## filled its target with twelve men carrying levies' strength and still stood
+## under the wall (measured 48 against a Wood ceiling of 59). A court with no
+## line open falls back to the strongest it can name, and to none at all when
+## its techs open nothing.
+static func storm_line(config: AiConfig, economy: PlayerEconomy) -> String:
+	if economy == null:
+		return ""
+	var type_id: String = cheapest_line_type(economy)
+	if not type_id.is_empty():
+		return type_id
+	return strongest_line(economy.tech_unlocked)
+
+
+## Price of the line the storm host is sized and raised with (issue #1381):
+## one man of [method storm_line], so the bank the court fills buys exactly the
+## men the wall's host counts. 0 when its techs open no line at all.
+static func storm_price(config: AiConfig, economy: PlayerEconomy) -> int:
+	var type_id: String = storm_line(config, economy)
+	if type_id.is_empty():
+		return 0
+	return RegimentCatalog.treasury_cost(type_id)
 
 
 ## Strongest first, then the newer pattern, then the lowest id — one stable

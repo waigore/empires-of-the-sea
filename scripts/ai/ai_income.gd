@@ -11,9 +11,11 @@ extends RefCounted
 ## raise, or its own cash floor once it stands at target.
 ##
 ## A court short of that reads `earn`. Its income planners lead (voyages, sales,
-## extraction works, prizes) and every spender that can wait stands down: no
-## studies, no hires, no imports, no new war. A court that can pay reads
-## `spend` and plays as published. The commitment can be the hull it means to
+## extraction works, prizes); purchases that can wait stand down — no imports
+## above the works floor, no new war, no new bid the chest could not spare.
+## Studies and hires lead from the purse above the chest (issue #1384): the
+## investments the bank's own engines refill the chest with. A court that can
+## pay reads `spend` and plays as published. The commitment can be the hull it means to
 ## lay as readily as the next regiment (issue #484) — but only once the court can
 ## already fill that chest: a yard price it is still short of waits behind the
 ## army, because a reserve no planner can pay out starves the regiment the court
@@ -296,6 +298,25 @@ static func banking(
 		int(income.get("bank_chest", income.get("reserve", 0))), 0
 	) + maxi(AiArmyReinforce.cheapest_line_price(economy), 0)
 	return int(income.get("treasury", 0)) < shortfall
+
+
+## True while this court leads its income investments (issue #1384): the money
+## goal reads `earn` — the purse stands under the chest it is saving for — and
+## the readers that priced the whole stand-down off that goal held the college
+## and the hire shut while the chest filled. The goal keeps naming the court's
+## money first; this read is the split the investments follow: the chest keeps
+## its claim on the deferrable purchases, and the studies and the region's own
+## crews lead from the purse the same floors every other claim reads. A caller
+## with no ledger keeps the published behaviour.
+static func invests(config: AiConfig, ai_state: AiState, income: Dictionary) -> bool:
+	if config == null:
+		return false
+	var economy: PlayerEconomy = (
+		ai_state.economy_for(config.faction) if ai_state != null else null
+	)
+	if economy == null:
+		return false
+	return String(income.get("goal", GOAL_SPEND)) == GOAL_EARN
 
 
 ## The army aim the bank's purse is held for, in the trace's words (issue

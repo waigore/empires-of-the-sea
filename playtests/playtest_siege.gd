@@ -629,17 +629,11 @@ func _clear_toasts() -> void:
 		child.queue_free()
 
 
+## One calendar turn through the shared closer, reading the battle plate the
+## turn raises and answering whatever consent decision it stops on. A decision
+## that runs the suspended turn to its end is not pressed a second time.
 func _take_turn() -> void:
-	var guardian: int = 0
-	var was: int = _play.turn
-	while guardian < 8:
-		MapPlayTurn.end_turn(_play)
-		_release_plate()
-		if _play.turn != was or _play.campaign_over():
-			return
-		if not SaveDrive.answer_pending(_play):
-			return
-		guardian += 1
+	SaveDrive.advance(_play, _release_plate)
 
 
 func _say(line: String) -> void:

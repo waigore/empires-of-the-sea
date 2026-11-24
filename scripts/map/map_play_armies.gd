@@ -121,7 +121,11 @@ static func refresh_options(play: PlaySession, army: ArmyState) -> void:
 	play.overlay.clear_move_options()
 	if army == null or army.owner != play.player_faction:
 		return
-	var provinces: Array[int] = ArmyMovement.destinations(play.model, army)
+	# Ground the crown has never charted is no march target, so the map draws no
+	# offer over it (wiki: fog-and-exploration § Order Visibility Requirements).
+	var provinces: Array[int] = ArmyMovement.destinations(
+		play.model, army, play.visibility
+	)
 	if provinces.is_empty():
 		return
 	var no_zones: Array[int] = []
@@ -137,9 +141,11 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	var province_id: int = play.model.province_at(tile.x, tile.y)
 	if province_id == MapModel.NO_ID:
 		return false
-	if not ArmyMovement.destinations(play.model, army).has(province_id):
+	if not ArmyMovement.destinations(play.model, army, play.visibility).has(province_id):
 		return false
-	var result: Dictionary = play.army_layer.order(army, province_id, may_invade(play, province_id))
+	var result: Dictionary = play.army_layer.order(
+		army, province_id, may_invade(play, province_id), play.visibility
+	)
 	if bool(result.get("ok", false)):
 		return true
 	play.hud.toast(refusal(play, province_id, String(result.get("reason", ""))))
@@ -179,8 +185,13 @@ static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> 
 	refresh_options(play, army)
 	var place: String = play.model.province_name(army.province)
 	if bool(result.get("attacked", false)):
+		var level: int = FortRules.level_at(play.model, army.province)
+		# The storm the wall sets is another court's, so the line prints the
+		# published envelope: the crown cannot read the defender's studies
+		# (wiki: siege-mechanics § Storming an empty walled province;
+		# DR-20261123-20).
 		var wall: String = WallRead.march_line(
-			place, FortRules.level_at(play.model, army.province)
+			place, level, WallRead.storm_line(level)
 		)
 		play.hud.toast(wall if not wall.is_empty() else "The army marches on %s" % place)
 	else:

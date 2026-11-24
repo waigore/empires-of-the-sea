@@ -196,11 +196,11 @@ func test_a_driven_run_lands_its_bed_while_the_knobs_are_read() -> void:
 	assert_almost_eq(
 		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
 	)
-	assert_true(_director._fades.is_empty(), "no fade waits behind the bed")
+	assert_true(_director._fader.pending().is_empty(), "no fade waits behind the bed")
 	_director.set_muted(true)
 	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
 	_director.set_muted(false)
-	assert_true(_director._fades.is_empty(), "nor behind the mute")
+	assert_true(_director._fader.pending().is_empty(), "nor behind the mute")
 
 func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> void:
 	_setup_audio_director()
@@ -210,7 +210,7 @@ func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> voi
 	assert_true(_director.play_stinger(MusicPlaylist.SPANISH_MAIN), "a stinger still lands")
 	_director.set_muted(false)
 	_director.land_fades()
-	assert_true(_director._fades.is_empty(), "every fade is ended")
+	assert_true(_director._fader.pending().is_empty(), "every fade is ended")
 	assert_almost_eq(
 		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
 	)
@@ -221,9 +221,9 @@ func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> voi
 func test_land_fades_steps_pending_bed_tweens() -> void:
 	_setup_audio_director()
 	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
-	assert_false(_director._fades.is_empty(), "a live crossfade waits")
+	assert_false(_director._fader.pending().is_empty(), "a live crossfade waits")
 	_director.land_fades()
-	assert_true(_director._fades.is_empty(), "every fade is stepped out")
+	assert_true(_director._fader.pending().is_empty(), "every fade is stepped out")
 	assert_almost_eq(
 		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
 	)
@@ -246,7 +246,7 @@ func test_land_fades_skips_restore_when_no_bed() -> void:
 	assert_eq(_director.current_track_id(), "")
 	_director.land_fades()
 	assert_eq(_director.current_track_id(), "")
-	assert_true(_director._fades.is_empty())
+	assert_true(_director._fader.pending().is_empty())
 
 func test_volume_changes_are_clamped_and_broadcast() -> void:
 	_setup_audio_director()

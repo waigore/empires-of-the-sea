@@ -21,7 +21,7 @@ const LAYER: int = 6
 ## competing with the sheet. A soft plate used to leave the map readable, and the
 ## door's information was the worse for it (REQ-P1-05, REQ-P1-07).
 const DIM: Color = Color(0.05, 0.04, 0.03, 0.80)
-const FILL: Color = Color(0.10, 0.08, 0.06, 0.99)
+const FILL: Color = Color(Palette.PARCHMENT, 0.99)
 const PADDING: Vector4 = Vector4(20, 16, 20, 16)
 const PADDING_COMPACT: Vector4 = Vector4(12, 10, 12, 10)
 

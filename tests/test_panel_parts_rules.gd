@@ -406,6 +406,16 @@ func test_the_head_names_the_kind_of_court_that_holds_the_land() -> void:
 		assert_eq(head.owner_label.text, String(spec[1]))
 	head.free()
 
+
+## The head's realm door is the sheet's own signal: the HUD wires one door on
+## the panel instead of searching the sheet for the head it built (REQ-P3-02).
+func test_the_province_sheet_forwards_its_head_realm_door() -> void:
+	_setup_province_panel()
+	var heard: Array[bool] = []
+	_province_panel_panel.realm_pressed.connect(func() -> void: heard.append(true))
+	_province_panel_panel._head.realm_button.pressed.emit()
+	assert_eq(heard.size(), 1, "the panel forwards the head's realm press")
+
 func test_the_dossier_lists_every_estate_not_just_the_headline() -> void:
 	_setup_province_panel()
 	_show()
@@ -438,10 +448,56 @@ func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	assert_eq(grid.deeds.text, "%s 1 tile" % FactionCatalog.name_of(1))
 
 
-## The province sheet names what the wall soaks and what it spares the garrison
-## — the fort table's own figures, so a plan is made against the wall a battle
-## would fight — and leaves the row out on open ground (wiki: siege-mechanics
-## § Wall Protection; DR-20261120-06).
+## The province sheet names the hosts that stand on its ground — the count a
+## crown may read of any court — and leaves the row out for ground nobody holds
+## (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-13).
+func test_the_province_sheet_names_the_hosts_that_stand_on_its_ground() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_false(grid.hosts.visible, "a sheet with no session invents no host")
+	assert_eq(_province_panel_panel.hosts_text(), "")
+	grid.set_hosts("England 3 regiments · Aztec 1 regiment")
+	assert_true(grid.hosts.visible, "the row arrives with the reading")
+	assert_eq(_province_panel_panel.hosts_text(), "England 3 regiments · Aztec 1 regiment")
+	grid.set_hosts("")
+	assert_false(grid.hosts.visible, "the row leaves with the host")
+
+
+## The province sheet names the squadrons riding its harbour — the hull count a
+## crown may read of any court in a charted port — and leaves the row out for a
+## harbour no squadron rides (wiki: fog-and-exploration § Order-of-battle
+## readings; DR-20261123-14).
+func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_false(grid.harbour.visible, "a sheet with no session invents no squadron")
+	assert_eq(_province_panel_panel.harbour_text(), "")
+	grid.set_harbour("England 3 hulls · Spain 1 hull")
+	assert_true(grid.harbour.visible, "the row arrives with the reading")
+	assert_eq(_province_panel_panel.harbour_text(), "England 3 hulls · Spain 1 hull")
+	grid.set_harbour("")
+	assert_false(grid.harbour.visible, "the row leaves with the squadron")
+	# The observatory's province sheet fills the same grid from its own reading,
+	# so the row rides that path too.
+	grid.fill({"harbour": "England 2 hulls"})
+	assert_eq(grid.harbour.text, "England 2 hulls")
+	grid.fill({})
+	assert_false(grid.harbour.visible, "a reading with no harbour prints no row")
+
+
+## The province sheet names what the wall soaks, what it spares the garrison and
+## the storm it sets — the fort table's own figures, so a plan is made against
+## the wall a battle would fight — and leaves the row out on open ground (wiki:
+## siege-mechanics § Wall Protection, § Storming an empty walled province;
+## DR-20261120-06, DR-20261123-20).
 func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_setup_province_panel()
 	_province_panel_panel.set_data(
@@ -453,10 +509,30 @@ func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 1
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	assert_true(grid.wall.visible, "the row arrives with the wall")
-	assert_eq(grid.wall.text, "40 wall hp · 10% off a blow")
+	assert_eq(
+		grid.wall.text,
+		"40 wall hp · 10% off a blow · storm needs 51–59 strength",
+		"another court's guns are not the crown's to read, so her wall prints the envelope"
+	)
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 3
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
-	assert_eq(grid.wall.text, "120 wall hp · 30% off a blow", "a modern wall")
+	assert_eq(
+		grid.wall.text,
+		"120 wall hp · 30% off a blow · storm needs 153–177 strength",
+		"a modern wall's storm, both ends the fort table's own"
+	)
+	assert_true(
+		grid.wall.tooltip_text.contains("costs one regiment"),
+		"the tip prices what a storm past the wall costs: %s" % grid.wall.tooltip_text
+	)
+	# The crown's own battery is her own ledger, so her wall names one figure.
+	_model.province_data(Fixture.PLAYER_PROVINCE).fort_level = 1
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(
+		grid.wall.text,
+		"40 wall hp · 10% off a blow · storm needs 51 strength",
+		"the crown's own guns read exactly"
+	)
 
 
 ## The province sheet prints the court's own reading and hides it when the
@@ -879,10 +955,9 @@ func test_every_dock_button_is_a_bare_glyph() -> void:
 	for i in range(1, panels.size()):
 		add_child(panels[i])
 	for panel: Variant in panels:
-		# Force dossiers keep the seal on their shared header; the sheets that
-		# still own it expose `_dock` directly.
-		var header: DossierHeader = panel.get("_header") as DossierHeader
-		var dock: Button = header.dock if header != null else panel.get("_dock") as Button
+		# Force dossiers keep the seal on their shared header, the province
+		# dossier on its shell, and the sheets that still own it expose `_dock`.
+		var dock: Button = _dock_of(panel)
 		assert_true(dock != null, "%s has a dock button" % panel.get_class())
 		panel.set_dock_affordance("▶", "Dock right")
 		assert_eq(dock.text, "▶", "the glyph and nothing else")
@@ -893,6 +968,44 @@ func test_every_dock_button_is_a_bare_glyph() -> void:
 		)
 	for i in range(1, panels.size()):
 		(panels[i] as Node).free()
+
+
+## The one dock seal a dossier wears, wherever its chrome keeps it.
+func _dock_of(panel: Variant) -> Button:
+	var header: DossierHeader = panel.get("_header") as DossierHeader
+	if header != null:
+		return header.dock
+	var shell: ProvinceSheetShell = panel.get("_shell") as ProvinceSheetShell
+	if shell != null:
+		return shell.dock
+	return panel.get("_dock") as Button
+
+
+## The dossier's frame prints its sections in reading order — head, the court's
+## line, the facts, the estates, the rail, the orders — and the dock seal under
+## them asks the panel to change sides (REQ-P3-01, REQ-P3-02).
+func test_the_dossier_shell_prints_its_sections_in_reading_order() -> void:
+	_setup_province_panel()
+	var shell: ProvinceSheetShell = _province_panel_panel._shell
+	assert_true(shell != null, "the dossier wears its own frame")
+	var order: Array[Node] = shell.column.get_children()
+	var wanted: Array[Node] = [
+		_province_panel_panel._head,
+		_province_panel_panel._counsel,
+		_province_panel_panel._grid,
+		_province_panel_panel._resources,
+		_province_panel_panel._rail,
+		_province_panel_panel._orders,
+	]
+	var at: int = 0
+	for node: Node in order:
+		if at < wanted.size() and node == wanted[at]:
+			at += 1
+	assert_eq(at, wanted.size(), "every section stands in reading order")
+	var heard: Array[bool] = []
+	_province_panel_panel.dock_side_pressed.connect(func() -> void: heard.append(true))
+	shell.dock.pressed.emit()
+	assert_eq(heard.size(), 1, "the shell's seal asks the panel to change sides")
 
 func _show(tech: Dictionary = {}) -> void:
 	_province_panel_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, tech)
@@ -2545,6 +2658,43 @@ func test_the_plan_reads_the_network_the_dossier_handed_in() -> void:
 	assert_eq(
 		(handed["route"] as Array).size(), (fresh["route"] as Array).size(),
 		"same route either way"
+	)
+
+
+## The whole province's Build road plans, keyed by tile: only the estates that
+## still need a road, so the dossier prints one press per row it can act on. The
+## network is resolved once for the sheet, not once per estate (REQ-P4-01).
+func test_the_province_plans_name_only_the_estates_that_need_a_road() -> void:
+	_setup_road_works()
+	var rows: Array[Dictionary] = [
+		{"tile": OFF_ROAD_TILE},
+		{"tile": LINKED_TILE},
+		{"tile": Fixture.BARE_TILE},
+	]
+	var plans: Dictionary = RoadWorks.province_plans(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, rows
+	)
+	assert_eq(plans.size(), 1, "one cut-off estate, one press")
+	assert_true(plans.has(OFF_ROAD_TILE), "the plan is keyed by the row's own tile")
+	assert_eq(int((plans[OFF_ROAD_TILE] as Dictionary)["gap"]), 1, "one road tile to lay")
+	assert_false(plans.has(LINKED_TILE), "a linked estate needs no press")
+	assert_false(plans.has(Fixture.BARE_TILE), "a bare estate needs no press")
+
+
+func test_the_province_plans_read_nothing_without_a_chart_or_a_crown() -> void:
+	_setup_road_works()
+	var rows: Array[Dictionary] = [{"tile": OFF_ROAD_TILE}]
+	assert_true(
+		RoadWorks.province_plans(null, _works, _roads_units, 0, Fixture.BARE_TILE, rows).is_empty(),
+		"no chart, no plan"
+	)
+	assert_true(
+		RoadWorks.province_plans(_model, _works, _roads_units, -1, Fixture.BARE_TILE, rows).is_empty(),
+		"no crown, no estate of ours"
+	)
+	assert_true(
+		RoadWorks.province_plans(_model, _works, _roads_units, 0, Fixture.BARE_TILE, []).is_empty(),
+		"no estate rows, no press"
 	)
 
 
@@ -5171,6 +5321,29 @@ func test_a_sale_and_an_overseas_share_are_named() -> void:
 	)
 	assert_eq(LedgerMarketText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
 
+
+## One clearing's move is priced for one crown: its own fills and the share its
+## deeds drew, never a rival's trade (wiki: world-market § Trade orders,
+## § First right of refusal; REQ-P5-05).
+func test_a_clearing_is_priced_for_one_crown() -> void:
+	var report: Dictionary = {
+		"fills": {
+			0: {"bought": 3, "sold": 1, "spent": 120, "earned": 50},
+			1: {"bought": 1, "sold": 0, "spent": 40, "earned": 0},
+		},
+		"credits": {"by_gp": {0: 89.4}},
+	}
+	assert_eq(LedgerMarketText.clearing_net(report, 0), 19, "earned less spent, plus the share")
+	assert_eq(LedgerMarketText.clearing_net(report, 1), -40, "a rival's fills are not ours")
+	assert_eq(LedgerMarketText.clearing_net({}, 0), 0, "no clearing, no move")
+	# A report whose `fills` is not a per-court map is read as no fills, never a
+	# cast failure: the panels' own fixtures clear with an empty array here.
+	assert_eq(
+		LedgerMarketText.clearing_net({"fills": [], "credits": {}}, 0), 0,
+		"a fills list that names no court is no move",
+	)
+
+
 ## The "Next turn" promise names the orders that settle after it, so a staged
 ## order is never read as already counted (wiki: stockpiles-and-production
 ## § Production flow — the auction clears after Production).
@@ -5428,6 +5601,31 @@ func test_row_builder_builds_themed_widgets() -> void:
 	caption.free()
 	button.free()
 
+
+## The dossier hairline carries the sheet's gold at a third strength and never
+## eats a scroll drag, so every sheet divides its blocks off one builder
+## (REQ-P1-05, REQ-P3-01).
+func test_row_builder_rule_reads_the_sheet_gold() -> void:
+	var rule: Control = UiRowBuilder.rule()
+	assert_eq(rule.custom_minimum_size.y, 1.0)
+	assert_eq(rule.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	var swatch: ColorRect = rule as ColorRect
+	assert_almost_eq(swatch.color.a, 0.35, 0.001)
+	assert_almost_eq(swatch.color.r, Palette.GOLD_RULE.r, 0.001)
+	assert_almost_eq(swatch.color.g, Palette.GOLD_RULE.g, 0.001)
+	rule.free()
+
+
+## The sheet ink keeps its tone and takes whatever strength a layer asks for, so
+## one parchment serves a fill, a hint's fade and a plaque (REQ-P1-02).
+func test_palette_alpha_keeps_the_ink() -> void:
+	var faded: Color = Palette.with_alpha(Palette.PARCHMENT, 0.96)
+	assert_almost_eq(faded.r, Palette.PARCHMENT.r, 0.0001)
+	assert_almost_eq(faded.g, Palette.PARCHMENT.g, 0.0001)
+	assert_almost_eq(faded.b, Palette.PARCHMENT.b, 0.0001)
+	assert_almost_eq(faded.a, 0.96, 0.0001)
+
+
 func test_clear_empties_a_container() -> void:
 	var box := VBoxContainer.new()
 	add_child(box)
@@ -5572,6 +5770,60 @@ func test_the_chips_hold_the_plaques_and_the_hud_only_mounts_them() -> void:
 	assert_false(_has_property(_hud, "_treasury_label"), "the HUD keeps no plaque copy")
 	assert_false(_has_property(_hud, "_army_chip"), "nor a chip copy")
 	assert_false(_has_property(_hud, "_toast_box"), "nor a despatch lane copy")
+
+
+## The plaque's per-turn figure is the phases' alone. The staged book and the
+## last clearing settle after it, so the bar names them, and a purse that moved
+## wider than the label is named too — never left for the ledger to explain
+## (wiki: world-market § Trade orders; REQ-P5-05).
+func test_the_treasury_plaque_names_what_the_label_leaves_out() -> void:
+	_setup_hud_toast()
+	var chips: HudStatChips = _hud.stats
+	chips.set_treasury(744, false)
+	chips.set_income(0)
+	var text: String = chips.treasury_chip.tooltip_text
+	assert_true(text.contains("+0 per turn from the phases"), text)
+	assert_true(text.contains("nothing is staged for the auction after them"), text)
+	assert_false(text.contains("before the auction"), "the auction is no longer the excuse")
+	chips.set_income_scope(2, -450)
+	chips.set_purse_moved(-1_413)
+	text = chips.treasury_chip.tooltip_text
+	assert_true(text.contains("2 staged orders and the last clearing (-450)"), text)
+	assert_true(text.contains("last turn the purse moved -1,413"), text)
+	# One standing order reads as one, and a clearing alone still speaks.
+	chips.set_income_scope(1, 0)
+	assert_true(
+		chips.treasury_chip.tooltip_text.contains("1 staged order moves the purse after the phases"),
+		chips.treasury_chip.tooltip_text,
+	)
+	chips.set_income_scope(0, 60)
+	assert_true(
+		chips.treasury_chip.tooltip_text.contains(
+			"the last clearing (+60) moves the purse after the phases"
+		),
+		chips.treasury_chip.tooltip_text,
+	)
+	# A turn that paid what the label promised says nothing about last turn.
+	chips.set_purse_moved(0)
+	text = chips.treasury_chip.tooltip_text
+	assert_false(text.contains("last turn the purse moved"), text)
+	assert_true(text.contains("the last clearing (+60)"), text)
+	# The verdict belongs to the closed turn: the next turn's label landing
+	# afterwards neither hides nor invents it.
+	chips.set_income(-450)
+	chips.set_purse_moved(-450)
+	assert_false(chips.treasury_chip.tooltip_text.contains("last turn the purse moved"))
+	chips.set_income(0)
+	assert_false(
+		chips.treasury_chip.tooltip_text.contains("last turn the purse moved"),
+		"a new label does not re-judge the turn that closed",
+	)
+	chips.set_purse_moved(-1_413)
+	chips.set_income(0)
+	assert_true(
+		chips.treasury_chip.tooltip_text.contains("last turn the purse moved -1,413"),
+		"a wider close stays named after the new label lands",
+	)
 
 
 ## Whether an object still declares a property by that name.
