@@ -57,10 +57,31 @@ func lands() -> int:
 	return maxi(mini(progress + rp, cost), 0)
 
 
-## The line under the slot: what the next phase adds and where it leaves the
-## study. An unpaid slot says so rather than promising points the phase cannot
-## pay (wiki: tech-tree § Research Model — no partial funding), and an idle or
-## unfunded slot names the rule rather than a gain (REQ-P5-05).
+## Turns the study still needs at this slot's own preset: the points left over
+## the points the next phase buys, rounded up, so a slot that meets its cost in
+## the coming phase reads one. Zero when the slot cannot promise — idle, a phase
+## that cannot pay it, a preset that buys nothing, or a cost no catalogue prices
+## (wiki: tech-tree § Research Model — the catalogue prices 6–12 turns at
+## Medium, and a preset only moves that pace).
+func turns_left() -> int:
+	if is_idle() or not paid or rp <= 0 or cost <= 0:
+		return 0
+	return maxi(int(ceil(float(maxi(cost - progress, 0)) / float(rp))), 1)
+
+
+## "3 turns" / "1 turn" — the wait a study still owes, in the raise ledger's own
+## words (wiki: technology, [DR-20261124-01]).
+func turns_text() -> String:
+	if turns_left() <= 1:
+		return "1 turn"
+	return "%d turns" % turns_left()
+
+
+## The line under the slot: what the next phase adds, where it leaves the study
+## and the turns it still owes at that pace. An unpaid slot says so rather than
+## promising points the phase cannot pay (wiki: tech-tree § Research Model — no
+## partial funding), and an idle or unfunded slot names the rule rather than a
+## gain (REQ-P5-05).
 func next_text() -> String:
 	if is_idle():
 		return ""
@@ -70,7 +91,10 @@ func next_text() -> String:
 		return "earns nothing"
 	if cost <= 0:
 		return "+%s" % TextFormat.thousands(rp)
-	return "+%s → %s" % [TextFormat.thousands(rp), TextFormat.thousands(lands())]
+	var text: String = "+%s → %s" % [TextFormat.thousands(rp), TextFormat.thousands(lands())]
+	if turns_left() > 0:
+		text += " · %s left" % turns_text()
+	return text
 
 
 ## Whether `next_text` reads as a warning, so the row paints it crimson.
@@ -91,10 +115,13 @@ func next_tip() -> String:
 		return "No funding buys no research points."
 	if cost <= 0:
 		return "%s research points next turn." % TextFormat.thousands(rp)
-	return "%s research points next turn, %s of %s met" % [
+	var tip: String = "%s research points next turn, %s of %s met" % [
 		TextFormat.thousands(rp), TextFormat.thousands(lands()),
 		TextFormat.thousands(cost),
 	]
+	if turns_left() > 0:
+		tip += " — it meets the cost in %s at this preset" % turns_text()
+	return tip
 
 
 ## What the gold buys here, for the spend line's tooltip.

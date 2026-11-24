@@ -56,4 +56,4 @@
 
 ## Tests
 
-`test_battle_rules`.
+`test_a_battle_rules`.

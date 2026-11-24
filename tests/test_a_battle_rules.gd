@@ -26,6 +26,45 @@ func test_feeding_bands_follow_the_published_table() -> void:
 	assert_almost_eq(ArmyModifiers.feeding_multiplier(0.49), 0.5, 0.001)
 
 
+## The dossier's ration row words the ladder the exchange itself reads: the share
+## of the bill the granary fed and the morale every engagement fights at, so a
+## crown learns why a winnable storm came home a draw (wiki: combat § Feeding
+## modifiers, § Auto-resolve ratio bands; DR-20261124-02).
+func test_the_ration_row_words_the_band_the_exchange_reads() -> void:
+	assert_almost_eq(ArmyRationRead.multiplier(0.6), 0.75, 0.001)
+	assert_almost_eq(ArmyRationRead.multiplier(0.4), 0.5, 0.001)
+	assert_eq(
+		ArmyRationRead.line(1.0),
+		"Rations · the whole bill fed · engagements fight at full morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.6),
+		"Rations · 60% of the bill fed · engagements fight at 0.75 morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.4),
+		"Rations · 40% of the bill fed · engagements fight at half morale"
+	)
+	# A short band never claims a whole bill: one mouth unfed drops the ladder, so
+	# the share floors below 100 rather than contradicting the morale beside it.
+	assert_eq(
+		ArmyRationRead.line(0.996),
+		"Rations · 99% of the bill fed · engagements fight at 0.75 morale"
+	)
+	# No reading — another court's standard — prints no row, and answers the full
+	# band the battle itself defaults to when its context carries no figure.
+	assert_eq(ArmyRationRead.line(ArmyRationRead.NO_READING), "")
+	assert_almost_eq(ArmyRationRead.multiplier(ArmyRationRead.NO_READING), 1.0, 0.001)
+	assert_true(
+		ArmyRationRead.tip(0.6).contains("blunted"),
+		"the hungry tip names the blunted band"
+	)
+	assert_true(
+		ArmyRationRead.tip(1.0).contains("full morale"),
+		"a fed tip names full morale"
+	)
+
+
 func test_medal_aura_is_five_percent_per_medal_capped_at_twenty() -> void:
 	assert_almost_eq(ArmyModifiers.medal_aura(0), 1.0, 0.001)
 	assert_almost_eq(ArmyModifiers.medal_aura(2), 1.1, 0.001)
@@ -10378,6 +10417,27 @@ func test_the_sea_plate_stands_one_medallion_per_hull_type() -> void:
 	for line: HBoxContainer in plate.side_lines():
 		chips += line.get_child_count() - 1
 	assert_eq(chips, 3, "one medallion per type, the name aside")
+	plate.free()
+
+
+## A hand-built report states a count and carries no types: the line under the
+## name reads the count, and a single hull reads in the singular (REQ-P1-07).
+func test_a_typedless_sea_line_counts_its_hull_in_the_singular() -> void:
+	var battle: Dictionary = _sea_battle()
+	battle["attacker_hulls"] = []
+	battle["attacker_before"] = 1
+	var plate := NavalPlate.new()
+	add_child(plate)
+	plate.show_engagement(battle, "Mar Caribe", NAMES)
+	plate.skip()
+	var lines: Array[HBoxContainer] = plate.side_lines()
+	var told: PackedStringArray = PackedStringArray()
+	for line: HBoxContainer in lines:
+		for child: Node in line.get_children():
+			if child is Label:
+				told.append((child as Label).text)
+	assert_true(" ".join(told).contains("1 hull"), " ".join(told))
+	assert_false(" ".join(told).contains("1 hulls"), "one hull, one noun")
 	plate.free()
 
 

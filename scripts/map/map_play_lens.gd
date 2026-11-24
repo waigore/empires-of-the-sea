@@ -4,9 +4,9 @@ extends RefCounted
 ## and lowering them, the bar seal's walk, the one key cartouche and the unit
 ## fade that keeps a reading legible (REQ-P5-03, REQ-P1-07). Operates on
 ## PlaySession — the screen stays the Node host (REQ-P3-02). Kept out of
-## MapPlayInput so the tap, selection and hover module stays under the 400-line
-## soft bar (REQ-P3-01); kept out of MapPlaySetup so the screen's boot owns no
-## reading of its own (REQ-P3-01).
+## MapPlayInput so the tap and selection door stays under the soft bar
+## (REQ-P3-01); hover lives in MapPlayHover. Kept out of MapPlaySetup so the
+## screen's boot owns no reading of its own (REQ-P3-01).
 
 ## The readings in the order the bar's seal walks them (REQ-P5-03).
 const ORDER: Array = [

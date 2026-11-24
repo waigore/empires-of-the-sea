@@ -91,7 +91,30 @@ static func crown_roads(province: ProvinceState, crown: Dictionary) -> String:
 	var planned: int = 0
 	for path: Array in province.road_paths:
 		planned += path.size()
-	return "%d tiles" % planned if planned > 0 else "—"
+	return MoneyText.counted(planned, "tile") if planned > 0 else "—"
+
+
+## What the province's own estates clear at today's sell, in the realm's own
+## terms (DR-20261120-12): the units gathered, the money they are worth at the
+## market's today's sell and how many estates still have room to raise, so a
+## crown prices a raise on the sheet it raises from instead of hunting the realm
+## sheet (DR-20261123-25). A province the crown owns no estate in prints nothing:
+## a rival's ground is not the crown's harvest.
+static func harvest(economy: Dictionary) -> String:
+	if int(economy.get("estates", 0)) <= 0:
+		return ""
+	var parts: PackedStringArray = PackedStringArray()
+	var output: int = int(economy.get("output", 0))
+	if output > 0:
+		parts.append("%s gathered" % MoneyText.counted(output, "unit"))
+		parts.append("%s at today's sell" % MoneyText.ducats(
+			int(economy.get("value", 0))
+		))
+	else:
+		parts.append("nothing gathered yet")
+	var headroom: int = int(economy.get("headroom", 0))
+	parts.append("%d to raise" % headroom if headroom > 0 else "no estate to raise")
+	return "Harvest · " + " · ".join(parts)
 
 
 ## What the province's own estates clear at today's sell, in the realm's own

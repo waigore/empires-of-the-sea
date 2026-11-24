@@ -170,7 +170,7 @@ static func _land(
 	var province: int = int(order.get("province", -1))
 	var owner: int = model.province_owner(province)
 	var result: Dictionary = NavalTransport.disembark(
-		model, army, fleet, province, play.turn, _hostile(play), play.diplomacy
+		model, army, fleet, province, play.turn, _hostile(play)
 	)
 	if not bool(result.get("ok", false)):
 		return {}

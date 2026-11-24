@@ -122,6 +122,9 @@ static func _base(
 func plan_turn() -> void:
 	cargo = MapPlayCargoAi.run(play, faction, economy, overseas)
 	MapPlayEconomyLarder.note(self)
+	# The strike streak the famine order reads: one thin turn is a pantry, two
+	# is a famine (wiki: workers-and-population § Strike workers; issue #1433).
+	MapPlayLarderRecovery.note(self)
 	rehearse()
 	# The college's book is the pass's own: the research planner writes the
 	# research state (its slots, the revealed set, a refund), so a sheet that
@@ -181,8 +184,12 @@ func rehearse() -> void:
 	)
 	muster_row = chest["muster_row"] as Dictionary
 	navy_row = chest["navy_row"] as Dictionary
+	# The hands the Production phase will really have: a pool of two strikers
+	# reads `labour 2` but turns no wheel, so the plan books its runs against the
+	# idle labour the phase's own larder reads (issue #1433).
 	production = AiBindEconomy.production_orders(
-		kind, config, economy, town_level, chest["held"] as Dictionary
+		kind, config, economy, town_level, chest["held"] as Dictionary,
+		MapPlayEconomyLarder.idle_labour(play, faction, economy)
 	)
 	floor = int(income["reserve"])
 	# The conquest bank (issue #995): the canonical read — the gap, the host

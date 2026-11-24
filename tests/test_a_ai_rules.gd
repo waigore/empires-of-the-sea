@@ -2424,6 +2424,41 @@ func test_ai_economy_respects_labour_and_inputs() -> void:
 	assert_eq(recipes, ["fabric_from_wool", "lumber", "paper"] as Array[String])
 
 
+## A pool of strikers counts its hands but turns no wheel: the plan books its
+## runs against the idle labour the phase will really have, so the crown's seat
+## stops logging a run the Production phase refuses (issue #1433). The −1
+## sentinel keeps the published reading for a caller with no larder to read.
+func test_the_production_plan_spends_only_the_hands_the_phase_will_have() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"timber": 10, "wool": 4}
+	economy.workers = WorkerPool.make(2)
+	var config: AiConfig = AiConfig.build(1, 1500)
+
+	var paid: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+	assert_false(
+		(paid["assignments"] as Array).is_empty(),
+		"a pool of two fed hands books a run"
+	)
+	var striking: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {}, 0
+	)
+	assert_true(
+		(striking["assignments"] as Array).is_empty(),
+		"the same two hands on strike book nothing: the phase would refuse the run"
+	)
+	assert_false(
+		(striking["candidates"] as Array).is_empty(),
+		"and the rows still stand, so the ledger can name the hands that are missing"
+	)
+	var published: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {}, -1
+	)
+	assert_eq(
+		published["assignments"], paid["assignments"],
+		"the −1 sentinel keeps the roster's whole labour"
+	)
+
+
 func test_ai_economy_spreads_the_labour_across_the_build_inputs() -> void:
 	# Iron and wool both in store, castIron's deficit as deep as fabric's: a
 	# greedy plan wove no cloth at all, because castIron (which works spend
@@ -11163,11 +11198,19 @@ func campaign__world(own_colony: bool = true) -> WorldMap:
 func campaign__config() -> AiConfig:
 	return AiConfig.build(campaign_OWNER, 1500)
 
-func _war(target: int = RIVAL) -> DiplomacyState:
+## A war state. By default the court is at war with the rival and with the Tribe
+## whose New World coast the campaign fixture puts in reach; `target` narrows it
+## to that one court.
+func _war(target: int = -1) -> DiplomacyState:
 	var state := DiplomacyState.new()
 	state.reset(1)
-	state.ensure_relation(campaign_OWNER, target, 1)
-	state.relation(campaign_OWNER, target).at_war = true
+	var owners: Array[int] = []
+	owners.append(target if target >= 0 else RIVAL)
+	if target < 0:
+		owners.append(TRIBE)
+	for owner: int in owners:
+		state.ensure_relation(campaign_OWNER, owner, 1)
+		state.relation(campaign_OWNER, owner).at_war = true
 	return state
 
 func _peace(target: int = RIVAL) -> DiplomacyState:
@@ -11290,17 +11333,24 @@ func test_a_hostile_host_on_the_court_s_soil_keeps_the_army_home() -> void:
 		[_home_army(), invader], null, true
 	).is_empty(), "a war on its own soil comes before a voyage")
 
-func test_only_a_declared_enemy_or_a_tribe_may_be_invaded() -> void:
-	assert_true(DiplomacyRules.invadable(_peace(), campaign_OWNER, TRIBE), "tribes need no declaration")
+func test_only_a_declared_enemy_may_be_invaded() -> void:
+	assert_false(DiplomacyRules.invadable(_peace(), campaign_OWNER, TRIBE), "a Tribe at peace is no invasion")
+	assert_true(DiplomacyRules.invadable(_war(TRIBE), campaign_OWNER, TRIBE), "a declared Tribe is")
 	assert_false(DiplomacyRules.invadable(_peace(), campaign_OWNER, RIVAL), "peace holds with a crown")
-	assert_true(DiplomacyRules.invadable(_war(), campaign_OWNER, RIVAL))
+	assert_true(DiplomacyRules.invadable(_war(RIVAL), campaign_OWNER, RIVAL))
 
-func test_a_tribe_coast_is_a_lawful_target_without_a_declaration() -> void:
+## A newly contacted Tribe at peace is left to diplomacy and colonisation: the
+## court's only squadron is not hijacked for an undeclared landing (issues #1429,
+## #1454).
+func test_a_peaceful_tribe_coast_is_no_expedition() -> void:
 	var world: WorldMap = campaign__world()
-	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+	assert_true(AiInvasionPlanner.split_orders(
 		campaign__config(), _peace(), world, world.region(0), [campaign__squadron()], [_home_army()]
+	).is_empty(), "a Tribe at peace draws no crossing force")
+	var declared: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _war(TRIBE), world, world.region(0), [campaign__squadron()], [_home_army()]
 	)
-	assert_eq(actions.size(), 1, "the New World is open to a crown at peace")
+	assert_eq(declared.size(), 1, "a declared Tribe coast is a lawful target")
 
 func test_no_detachment_without_a_shore_across_the_water() -> void:
 	# A war with a crown holding no New World coast, and no tribe, is a land war.
@@ -11314,7 +11364,7 @@ func test_no_detachment_without_a_shore_across_the_water() -> void:
 		campaign__config(), _war(), home_only, home_only.region(0), [campaign__squadron()], [_home_army()]
 	).is_empty())
 
-func test_the_landing_targets_a_tribe_coast_without_a_war() -> void:
+func test_the_landing_targets_a_declared_tribe_coast() -> void:
 	var world: WorldMap = campaign__world()
 	var new_world: MapModel = world.region(1)
 	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
@@ -11323,8 +11373,15 @@ func test_the_landing_targets_a_tribe_coast_without_a_war() -> void:
 	fleet.location = FleetState.Location.AT_SEA
 	fleet.sea_zone = 0
 	fleet.province = MapModel.NO_ID
-	var order: Dictionary = AiInvasionPlanner.plan(
+	var peace: Dictionary = AiInvasionPlanner.plan(
 		campaign__config(), _peace(), world, 1, new_world, [fleet], [army]
+	)
+	assert_ne(
+		String(peace.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD,
+		"a peaceful shore is no landing site"
+	)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army]
 	)
 	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
 	assert_eq(int(order.get("province", -1)), 0)
@@ -11520,7 +11577,7 @@ func test_a_lapsed_beachhead_is_replaced_by_a_fresh_coast() -> void:
 	extra.coastal = true
 	new_world.provinces.append(extra)
 	var order: Dictionary = AiInvasionPlanner.plan(
-		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 2
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army], 2
 	)
 	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
 	assert_eq(int(order.get("province", -1)), 2, "a fresh coast is marked this turn")
@@ -11742,7 +11799,7 @@ func test_a_charted_coast_is_the_only_landing_target() -> void:
 	fleet.sea_zone = 0
 	fleet.province = MapModel.NO_ID
 	var blind: Dictionary = AiInvasionPlanner.plan(
-		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army], 0, charts
 	)
 	assert_true(
 		String(blind.get("kind", "")) != AiInvasionPlanner.KIND_BEACHHEAD,
@@ -11750,7 +11807,7 @@ func test_a_charted_coast_is_the_only_landing_target() -> void:
 	)
 	charts.reveal_sea_zone(campaign_OWNER, 1, 0)
 	var ready: Dictionary = AiInvasionPlanner.plan(
-		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army], 0, charts
 	)
 	assert_eq(String(ready.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
 	assert_eq(int(ready.get("province", -1)), 0)
@@ -13294,10 +13351,11 @@ func test_a_banking_court_waits_its_funded_chain_behind_the_army() -> void:
 	)
 
 
-## The deed's chain waits behind the army too: a court that is short of the bar
-## and one line-cycle short of its chest buys the line first, the paid rung
-## after. The chain walks the turn the host stands, so the Merchant's purchase
-## still finds its embassy.
+## The deed's chain waits behind the army too while the purse cannot pay the rung
+## and keep its own cash floor: a court short of the bar with 600 ducats buys the
+## line first, the paid rung after (issue #1383 keeps that floor bar, so the rung
+## leads only from the purse the studies read). The chain walks the turn the host
+## stands, so the Merchant's purchase still finds its embassy.
 func test_a_banking_court_waits_a_minor_deeds_chain() -> void:
 	_setup_ai_diplomacy_offers()
 	var minor: int = FactionCatalog.minor_ids()[0]
@@ -13359,6 +13417,86 @@ func test_a_banking_court_waits_a_minor_deeds_chain() -> void:
 			"the court is banking for its army"
 		),
 		"no priced deed, no deed chain: the bank's face stands"
+	)
+
+
+## The deed's rung is an income investment (issue #1383): the embassy it lands
+## opens ground that clears to the treasury, so it leads from the purse above the
+## court's cash floor while the army banks — the split the studies and the crews
+## already read (#1384). The bypass names the court's own deed partner alone (the
+## published nudge walks that seller, wiki: civilian-units § Merchant), and the
+## colony chain keeps the bank's face on the same purse (#1271), because its rung
+## buys territory and not the income the chest fills with.
+func test_a_funded_deed_rung_leads_over_the_armys_bank() -> void:
+	_setup_ai_diplomacy_offers()
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var other: int = FactionCatalog.minor_ids()[1]
+	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
+	ai_diplomacy_offers_state.relation(2, minor).score = 60.0
+	ai_diplomacy_offers_state.ensure_relation(2, other, 1)
+	ai_diplomacy_offers_state.relation(2, other).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([2, minor, other])
+	var model: MapModel = world.region(0)
+	for index in [1, 2]:
+		model.resource[model.index_of(index, 0)] = 0
+		var sold: ProvinceState = model.provinces[index]
+		sold.resource = 0
+		sold.resource_tile = Vector2i(index, 0)
+	var context: Dictionary = campaign__context({2: 100, 3: 100})
+	context["treasury"] = {2: 4000, 3: 100}
+	# The purse stands under the storm chest, so the court still banks — and it
+	# can pay the deed's 500-ducat rung and keep the 500-ducat cash floor.
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 9000, "bank_chest": 9000,
+		"treasury": 4000, "regiments": 1, "conquest_gap": true,
+	}
+	context["regiments"] = {2: 1}
+	context["deed_seller"] = minor
+	assert_true(
+		AiIncome.banking(
+			ai_diplomacy_offers_config, ai_diplomacy_offers_ai_state,
+			context["income"]
+		),
+		"the purse stands under the chest, so the court still banks"
+	)
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, minor, 20, context
+	)
+	assert_true(
+		_utility_of(entries, AiDiplomacyOffers.KIND_OVERTURE) >= 0,
+		"a funded deed rung leads while the army banks"
+	)
+	# The second seller is no partner of this court's ledger, so the bank's face
+	# stands for its rung: one chain, not every charted Minor.
+	var other_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, other, 20, context
+	)
+	assert_true(
+		_offer_blocked_kind(other_entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a seller the ledger does not fund keeps the bank's face"
+	)
+	# The colony chain on the same purse keeps the bank's face (#1271).
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 60.0
+	var tribe_world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var tribe_context: Dictionary = campaign__context({2: 100, 3: 100})
+	tribe_context["treasury"] = {2: 4000, 3: 100}
+	tribe_context["income"] = context["income"]
+	tribe_context["regiments"] = {2: 1}
+	var tribe_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, tribe_world, 1, tribe, 20, tribe_context
+	)
+	assert_true(
+		_offer_blocked_kind(tribe_entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"the colony chain buys territory, so the bank still holds it"
 	)
 
 

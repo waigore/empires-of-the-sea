@@ -1350,6 +1350,21 @@ func test_a_blockaded_colony_reads_cut_in_the_crown_road_lens() -> void:
 	)
 
 
+## A province whose road is still only planned counts its tiles in the singular
+## when there is one, the bar the dossier's other count lines keep (REQ-P1-07).
+func test_the_planned_road_counts_its_tiles_in_the_singular() -> void:
+	var province := ProvinceState.new()
+	province.road_paths = [[Vector2i(1, 1)]]
+	assert_eq(
+		DossierCopy.crown_roads(province, {}), "1 tile",
+		"one planned tile, one noun"
+	)
+	province.road_paths = [[Vector2i(1, 1), Vector2i(2, 2)]]
+	assert_eq(DossierCopy.crown_roads(province, {}), "2 tiles")
+	province.road_paths = []
+	assert_eq(DossierCopy.crown_roads(province, {}), "—", "no plan, no count")
+
+
 ## The province dossier names the rule that cut it: a sealed harbour is not a
 ## missing road (wiki: capital-and-connectivity § Blockade; REQ-P2-03).
 func test_a_blockaded_crown_link_says_which_rule_cut_it() -> void:

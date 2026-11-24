@@ -13,6 +13,7 @@ extends GdToolsTest
 ## front half of the alphabet, never back into `w…`/`x…`/`y…`/`z…`.
 
 const Fixture = preload("res://tests/map_fixture.gd")
+const Census = preload("res://tests/census_fixture.gd")
 
 const SEED: int = Fixture.SEED
 const WIDTH: int = Fixture.WORLD_WIDTH
@@ -29,9 +30,9 @@ func before_all() -> void:
 	_generator_before_all()
 	# Advanced-live chart + MapScreens mount lazily in `_open` so ~250 pure
 	# cases never pay a clone or two mounts (~0.5–2 s each under coverage;
-	# docs/testing.md § Speed rules). Census Standard chart warms on first
-	# census read — not here — so bootstrap stays the only heavy before_all
-	# generate on this suite's critical path.
+	# docs/testing.md § Speed rules). Census Standard loads from the packed
+	# fixture on first census read — not here — so bootstrap stays the only
+	# heavy before_all generate on this suite's critical path.
 	_advanced_live_host = self
 
 
@@ -1324,36 +1325,19 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 
 
 ## One Standard chart carries every published census below (placement rate, mean
-## tiles/province, Minor book volume, and the price-weighted draw). `static` is
-## what makes that true: gd-tools runs each case on a fresh instance, so an
-## instance dictionary would redraw the chart per case. Seed 160 passes the
-## fair-split gate on its first attempt, keeps the means in the wiki bands,
-## gold ahead of gems, and every pool inside its three-deviation band — so the
-## suite pays one Standard draw under coverage instead of Standard plus a
-## second Small chart (docs/testing.md § Speed rules).
+## tiles/province, Minor book volume, and the price-weighted draw). Seed 160
+## keeps the means in the wiki bands, gold ahead of gems, and every pool inside
+## its three-deviation band. Coverage multiplies a cold Standard
+## `generate_world` by ~10×, so the suite loads the packed fixture instead
+## (docs/testing.md § Speed rules; regenerate via tests/write_census_fixture.gd).
 ##
 ## A case that only needs two owned towns still builds a pocket world instead of
 ## regenerating Standard.
-static var _drawn_charts: Dictionary = {}
-
-## Seed whose Standard draw satisfies every census assert on the first attempt.
-const CENSUS_SEED: int = 160
-
-
-func _chart(seed_value: int, width: int, height: int) -> WorldMap:
-	var key: String = "%d/%d/%d" % [seed_value, width, height]
-	if not _drawn_charts.has(key):
-		_drawn_charts[key] = MapGenerator.new().generate_world(seed_value, width, height)
-	return _drawn_charts[key]
-
-
-func _standard_world(seed_value: int) -> WorldMap:
-	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
-	return _chart(seed_value, int(preset["width"]), int(preset["height"]))
+const CENSUS_SEED: int = Census.SEED
 
 
 func _census_world() -> WorldMap:
-	return _standard_world(CENSUS_SEED)
+	return Census.world()
 
 
 ## One packed-row pass over the published Standard census chart. Placement rate
@@ -3285,6 +3269,41 @@ func test_allowance_holds_back_the_other_rows_claims() -> void:
 		ProductionPhase.claimed_labour([{"recipe": "bronze", "units": 2}, {"units": 5}, 7]),
 		6
 	)
+
+
+## A row's study is the phase's own gate: a recipe the court has not researched
+## is offered no runs, and its assignment claims neither inputs nor labour from
+## the rows that do run (wiki: production-recipes § Technology-gated recipes —
+## the gate is enforced wherever availability is evaluated, order projections
+## included; § Worker-tier gates — no caller is offered a run the phase refuses).
+func test_a_locked_row_is_offered_no_runs() -> void:
+	var store: Dictionary = {"cotton": 12, "wool": 4}
+	# The ceiling the PRODUCTION tab prints for the cotton row: nothing without
+	# the study, six whole runs once the court has researched it.
+	assert_eq(ProductionPhase.allowance("fabric_from_cotton", store, 20, []), 0)
+	assert_eq(
+		ProductionPhase.allowance(
+			"fabric_from_cotton", store, 20, [], null, {}, 0, {"cotton_weaving": true}
+		),
+		6
+	)
+	# A locked cotton row claims nothing: the wool row keeps every point of
+	# labour its own two runs need.
+	var board: Array = [{"recipe": "fabric_from_cotton", "units": 4}]
+	assert_eq(ProductionPhase.allowance("fabric_from_wool", store, 10, board), 2)
+	# The same board with the study open: the cotton claim eats eight of the ten
+	# points, so the wool row's ceiling reads one run — what the phase starts.
+	assert_eq(
+		ProductionPhase.allowance(
+			"fabric_from_wool", store, 10, board, null, {}, 0, {"cotton_weaving": true}
+		),
+		1
+	)
+	var planned: Dictionary = ProductionPhase.plan(
+		[{"recipe": "fabric_from_cotton", "units": 4}, {"recipe": "fabric_from_wool", "units": 1}],
+		store.duplicate(), 10, {"cotton_weaving": true}
+	)
+	assert_eq(planned["started"], {"fabric_from_cotton": 4, "fabric_from_wool": 1})
 
 
 func test_plan_runs_whole_recipes_and_scales_io() -> void:

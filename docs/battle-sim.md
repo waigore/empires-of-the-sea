@@ -72,5 +72,5 @@ the screen is a thin view (`REQ-P3-01`, `REQ-P3-03`).
 | `scripts/ui/battle_plate*.gd` | facade + ground, wall, figure painters |
 | `scenes/battle_sim.tscn` | the launchable scene |
 
-`test_battle_rules` proves the sandbox resolves the same battle as a direct
+`test_a_battle_rules` proves the sandbox resolves the same battle as a direct
 `QuickBattle.resolve_exchange` call and that the scene fights, steps and resets.

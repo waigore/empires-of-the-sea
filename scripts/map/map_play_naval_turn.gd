@@ -39,8 +39,11 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	for army: ArmyState in lost:
 		if army.owner != play.human_faction_id():
 			continue
+		# One host, one sentence: a single drowned regiment reads in the singular
+		# (the counting bar the dossiers use — MoneyText.counted).
 		play.hud.toast(
-			"%d regiments went down with a sunken squadron" % army.count()
+			"%s went down with a sunken squadron"
+			% MoneyText.counted(army.count(), "regiment")
 		)
 	for unit: CivilianState in CivilianVoyageMap.drop_lost(
 		play.civilian_layer, FleetRosters.carried_civilians(play.ship_layer.regions)
