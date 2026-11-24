@@ -879,7 +879,7 @@ func test_the_town_press_names_its_price_and_what_the_level_pays() -> void:
 		"the tip behind the price still says what a town does: %s" % press.tooltip_text
 	)
 	# The note under it prices the level: the bonus and the works it opens.
-	var note: Label = _province_panel_panel._orders.town_order()["note"]
+	var note: Label = _province_panel_panel.town_order()["note"]
 	assert_true(note.visible, "an open town step prints what the level pays")
 	assert_true(note.text.contains("L2 pays 1 manufacture per 4 raw"), note.text)
 	assert_true(note.text.contains("the Garments works need a level-2 town"), note.text)

@@ -156,6 +156,13 @@ func hire_line_text() -> String:
 	return _orders.hire_line_text() if _orders != null else ""
 
 
+## The town press and the note under it — what the level pays while the order is
+## open, the order's own refusal while it is shut — so a suite and the smoke read
+## the printed reading rather than a hover (REQ-P3-02, REQ-P5-07).
+func town_order() -> Dictionary:
+	return _orders.town_order() if _orders != null else {}
+
+
 ## The craft the rail marks, so a suite asserts the mark (REQ-P3-02).
 func hire_mark_crew() -> String:
 	return _orders.hire_mark_crew() if _orders != null else ""
