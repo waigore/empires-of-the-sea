@@ -9,6 +9,9 @@ extends VBoxContainer
 ## The ledger names its keys and the words of its reading; the bar builds the
 ## chips once, paints the chosen pair and reports the press. It owns no rules
 ## state and never reads a snapshot (REQ-P3-02).
+##
+## A chip's key is read by its place in the row it was built in, beside the one
+## caption the row opens with — so no chip needs a key tag on the node.
 
 ## A chip was pressed: which row it sits in, and the key it carries.
 signal chosen(key: String, region_row: bool)
@@ -18,12 +21,17 @@ signal sort_chosen(key: String)
 const CAPTION_WIDTH: float = 58.0
 const CHIP_HEIGHT: float = 34.0
 const SEPARATION: int = 6
+## The caption is the row's first child; the first chip sits one past it.
+const CAPTION_CHIPS: int = 1
 
 var _chart_row: HBoxContainer = null
 var _reading_row: HBoxContainer = null
 ## The optional third row: the order the sheet prints its rows in. A sheet that
 ## offers no order leaves it unmounted.
 var _sort_row: HBoxContainer = null
+var _chart_keys: Array = FactionCatalog.REGION_KEYS
+## The reading and order keys, each in the order its row built them.
+var _reading_keys: Array = []
 var _sort_keys: Array = []
 
 
@@ -46,12 +54,14 @@ func fill(
 	reading_word: Callable
 ) -> void:
 	add_theme_constant_override("separation", 4)
+	_chart_keys = chart_keys.duplicate()
+	_reading_keys = reading_keys.duplicate()
 	_chart_row = _chip_row(
-		chart_caption, chart_keys, true, Callable(),
+		chart_caption, _chart_keys, true, Callable(),
 		func(key: String) -> void: chosen.emit(key, true)
 	)
 	_reading_row = _chip_row(
-		reading_caption, reading_keys, false, reading_word,
+		reading_caption, _reading_keys, false, reading_word,
 		func(key: String) -> void: chosen.emit(key, false)
 	)
 	add_child(_chart_row)
@@ -60,13 +70,13 @@ func fill(
 
 ## Paints the chosen pair: one gold chip per row, the rest plain.
 func render(chart_key: String, reading_key: String) -> void:
-	_paint(_chart_row, chart_key)
-	_paint(_reading_row, reading_key)
+	_paint(_chart_row, _chart_keys, chart_key)
+	_paint(_reading_row, _reading_keys, reading_key)
 
 
 ## Paints the chosen sort chip; a sheet without a sort row asks nothing of it.
 func render_sort(sort_key: String) -> void:
-	_paint(_sort_row, sort_key)
+	_paint(_sort_row, _sort_keys, sort_key)
 
 
 ## The order row: which figure the sheet sorts by. The keys change with the
@@ -74,17 +84,17 @@ func render_sort(sort_key: String) -> void:
 ## so the row is rebuilt only when the key list itself changes.
 func fill_sort(caption: String, keys: Array, word: Callable, active_key: String) -> void:
 	if keys == _sort_keys and _sort_row != null:
-		_paint(_sort_row, active_key)
+		_paint(_sort_row, _sort_keys, active_key)
 		return
 	_sort_keys = keys.duplicate()
 	if _sort_row != null:
 		remove_child(_sort_row)
 		_sort_row.queue_free()
 	_sort_row = _chip_row(
-		caption, keys, false, word, func(key: String) -> void: sort_chosen.emit(key)
+		caption, _sort_keys, false, word, func(key: String) -> void: sort_chosen.emit(key)
 	)
 	add_child(_sort_row)
-	_paint(_sort_row, active_key)
+	_paint(_sort_row, _sort_keys, active_key)
 
 
 ## One chip row: the caption, one chip per key, and the `sink` that a press
@@ -104,20 +114,23 @@ func _chip_row(
 		chip.custom_minimum_size = Vector2(0, CHIP_HEIGHT)
 		chip.focus_mode = Control.FOCUS_ALL
 		chip.add_theme_font_size_override("font_size", 12)
-		chip.set_meta("key", key)
 		chip.pressed.connect(func() -> void: sink.call(key))
 		row.add_child(chip)
 	return row
 
 
-func _paint(row: HBoxContainer, active_key: String) -> void:
+func _paint(row: HBoxContainer, keys: Array, active_key: String) -> void:
 	if row == null:
 		return
-	for child: Node in row.get_children():
-		var chip := child as Button
+	for index in row.get_child_count():
+		var chip := row.get_child(index) as Button
 		if chip == null:
 			continue
-		_style(chip, String(chip.get_meta("key")) == active_key)
+		var key_at: int = index - CAPTION_CHIPS
+		var active: bool = (
+			key_at >= 0 and key_at < keys.size() and String(keys[key_at]) == active_key
+		)
+		_style(chip, active)
 
 
 func _style(chip: Button, active: bool) -> void:

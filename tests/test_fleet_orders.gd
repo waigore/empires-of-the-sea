@@ -3588,9 +3588,22 @@ func test_the_combine_gates_that_never_move_a_hull() -> void:
 func _combine_press(block: FleetCombineBlock, fleet_id: int) -> Button:
 	for entry: Node in block._box.get_children():
 		for press: Button in entry.find_children("*", "Button", true, false):
-			if int(press.get_meta("combine_id", -1)) == fleet_id:
+			if int(FleetDrawer.row_of(press).get("fleet", -1)) == fleet_id:
 				return press
 	return null
+
+
+## A press carries the whole row it answers for under one key, so a drive reads
+## the row's fields; a press from outside the drawer carries none (REQ-P3-02).
+func test_a_press_carries_its_row_and_a_stranger_carries_none() -> void:
+	assert_eq(FleetDrawer.row_of(null), {}, "no press, no row")
+	var stranger := Button.new()
+	assert_eq(FleetDrawer.row_of(stranger), {}, "a press with no row carries none")
+	stranger.set_meta(FleetDrawer.ROW_KEY, "a plain tag is not a row")
+	assert_eq(FleetDrawer.row_of(stranger), {}, "a tag that is no dictionary carries none")
+	stranger.set_meta(FleetDrawer.ROW_KEY, {"fleet": 7})
+	assert_eq(int(FleetDrawer.row_of(stranger).get("fleet", -1)), 7, "the row rides the press")
+	stranger.free()
 
 
 # --- the opening muster and shared-water markers (issue #1043) ---------------

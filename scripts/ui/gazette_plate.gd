@@ -37,6 +37,9 @@ var _stamp: Label = null
 var _body: VBoxContainer = null
 var _scroll: ScrollContainer = null
 var _tabs: HBoxContainer = null
+## Every tab button with the mode it opens, so a press and the paint read the
+## same pair without a tag on the node (REQ-P3-02).
+var _tab_buttons: Array[Dictionary] = []
 var _nav: HBoxContainer = null
 var _watchlist: GazetteWatchlist = null
 var _age_room: AgeRoom = null
@@ -46,20 +49,29 @@ var _nav_label: Label = null
 var _header_row: HBoxContainer = null
 
 
-## Raises the sheet the turn just produced; `age_line` is its standing column and
-## `age` the whole race its own tab prints (MapPlayGazette.age_payload).
-func open_sheet(
-	sheet: Dictionary, p_state: GazetteState, p_diplomacy: DiplomacyState, who: int,
-	age_line: String = "", age: Dictionary = {}
+func _open_tab(
+	next: Mode, p_state: GazetteState, p_diplomacy: DiplomacyState, who: int,
+	sheet: Dictionary, age_line: String, age: Dictionary
 ) -> void:
+	# One door for all three tabs: the state each prints, then the tab, then the
+	# shell, so a fourth door cannot ship open with the tab it forgot to name.
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
 	_sheet = sheet
 	_age = age_line
 	_age_data = age
-	_mode = Mode.SHEET
+	_mode = next
 	open()
+
+
+## Raises the sheet the turn just produced; `age_line` is its standing column and
+## `age` the whole race its own tab prints (MapPlayGazette.age_payload).
+func open_sheet(
+	sheet: Dictionary, p_state: GazetteState, p_diplomacy: DiplomacyState, who: int,
+	age_line: String = "", age: Dictionary = {}
+) -> void:
+	_open_tab(Mode.SHEET, p_state, p_diplomacy, who, sheet, age_line, age)
 
 
 ## Raises the history screen with the live sheet one tab back: that tab keeps
@@ -68,25 +80,17 @@ func open_archive(
 	p_state: GazetteState, p_diplomacy: DiplomacyState, who: int, age_line: String = "",
 	age: Dictionary = {}
 ) -> void:
-	state = p_state
-	diplomacy = p_diplomacy
-	viewer = who
 	if _archive_room != null:
 		_archive_room.at = 0
-	_sheet = p_state.newest() if p_state != null else {}
-	_age = age_line
-	_age_data = age
-	_mode = Mode.ARCHIVE
-	open()
+	_open_tab(
+		Mode.ARCHIVE, p_state, p_diplomacy, who,
+		p_state.newest() if p_state != null else {}, age_line, age
+	)
 
 
 ## Raises the watchlist editor on its own (reachable from the cartouche seal).
 func open_watchlist(p_state: GazetteState, p_diplomacy: DiplomacyState, who: int) -> void:
-	state = p_state
-	diplomacy = p_diplomacy
-	viewer = who
-	_mode = Mode.WATCHLIST
-	open()
+	_open_tab(Mode.WATCHLIST, p_state, p_diplomacy, who, _sheet, _age, _age_data)
 
 
 func is_shown() -> bool:
@@ -191,9 +195,9 @@ func _tabs_row() -> HBoxContainer:
 	]:
 		var button := Button.new()
 		button.text = String(entry[1])
-		button.set_meta("mode", int(entry[0]))
 		button.pressed.connect(_go.bind(int(entry[0])))
 		row.add_child(button)
+		_tab_buttons.append({"button": button, "mode": int(entry[0])})
 	return row
 
 
@@ -242,12 +246,11 @@ func _render() -> void:
 	_watchlist.visible = _mode == Mode.WATCHLIST
 	_age_room.visible = _mode == Mode.AGE
 	_archive_room.visible = _mode == Mode.ARCHIVE
-	for child: Node in _tabs.get_children():
-		var button: Button = child as Button
+	for tab: Dictionary in _tab_buttons:
+		var button: Button = tab["button"]
 		if button == null:
 			continue
-		var mode: int = int(button.get_meta("mode", Mode.SHEET))
-		var current: bool = mode == int(_mode)
+		var current: bool = int(tab["mode"]) == int(_mode)
 		button.add_theme_color_override("font_color", Palette.INK if current else INK_SOFT)
 		button.add_theme_stylebox_override(
 			"normal",

@@ -3070,6 +3070,26 @@ func test_empire_counters_survive_a_region_switch() -> void:
 	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)
 
 
+## The realm sheet's order row is built from the view it serves: a press on a
+## kind chip reorders the same view and repaints the row in place, and a view
+## that offers one figure falls back to it (REQ-P3-02, REQ-P5-03).
+func test_the_realm_order_chip_reorders_the_view_it_serves() -> void:
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	var panel: ProvinceLedgerPanel = _screen.hud.province_ledger
+	assert_true(panel.is_open(), "the realm opens")
+	assert_eq(panel._reading, ProvinceLedger.VIEW_ECONOMY, "the economy view leads")
+	panel._on_sort("wheat")
+	assert_eq(panel._sort, "wheat", "a kind chip sets the order")
+	panel._on_sort(ProvinceLedger.SORT_VALUE)
+	assert_eq(panel._sort, ProvinceLedger.SORT_VALUE, "the total chip sets it back")
+	panel._on_filter(ProvinceLedger.VIEW_DEFENCE, false)
+	assert_eq(
+		panel._sort, ProvinceLedger.SORT_DEFENCE,
+		"a view that offers one figure falls back to it"
+	)
+	panel.close()
+
+
 func test_the_civilian_chip_opens_the_whole_empire_roster() -> void:
 	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster

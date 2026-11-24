@@ -13,6 +13,10 @@ extends VBoxContainer
 
 signal action_pressed(action: String)
 
+## The press carries the whole row it answers for under this one key: a drive
+## reads the row's fields instead of each tag the drawer copied (REQ-P3-02).
+const ROW_KEY: String = "drawer_row"
+
 ## The words the toggle wears: shut and open, in the drawer's own domain.
 var toggle_text: String = ""
 var close_text: String = ""
@@ -124,6 +128,15 @@ func _fill() -> void:
 		_box.add_child(_build_row(row))
 
 
+## The row a press answers for, carried on the press as one value: a drive or a
+## suite reads the row's fields rather than each tag the drawer copied here.
+static func row_of(press: Node) -> Dictionary:
+	if press == null or not press.has_meta(ROW_KEY):
+		return {}
+	var held: Variant = press.get_meta(ROW_KEY)
+	return held if held is Dictionary else {}
+
+
 ## One row of the list: the medallion, the reading, the one press and the gate's
 ## own reason under a press it holds back, so every drawer's rows read alike
 ## (REQ-P1-07). A drawer hands over the words its own domain prints.
@@ -141,9 +154,7 @@ func _build_row(row: Dictionary) -> Control:
 		String(row.get("action", "")),
 		float(row.get("width", 84.0))
 	)
-	var meta: Dictionary = row.get("meta", {})
-	for key: String in meta:
-		press.set_meta(key, meta[key])
+	press.set_meta(ROW_KEY, row)
 	var detail: String = String(row.get("detail", ""))
 	if not detail.is_empty():
 		_row_detail(entry, detail)
