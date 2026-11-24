@@ -1203,20 +1203,29 @@ func test_the_observer_reads_one_province_in_its_owners_terms() -> void:
 		"the ward"
 	)
 	assert_false(String(reading["terrain"]).is_empty(), "the ground the battle would fight on")
-	# The harbour names the water its quay faces — the same read the province
-	# dossier and the realm row print — so the row never ends on a bare
-	# separator (wiki: capital-and-connectivity § Blockade; DR-20261124-05).
-	if data.port_tile.x >= 0:
-		var water: String = ProvinceLedger.harbour_name(play.model, data)
-		assert_eq(
-			String(reading["port"]),
-			("Harbour · %s" % water) if not water.is_empty() else "Harbour",
-			"the observatory names the harbour's water"
-		)
-		assert_false(
-			String(reading["port"]).strip_edges().ends_with("·"),
-			"a harbour row never ends on a separator"
-		)
+	# The Port row reads the harbour that stands on the quay's water, what it
+	# carries — or what the port order would bring a bare coast — through the one
+	# home the province dossier reads, so the two sheets cannot name two harbours
+	# (wiki: extraction-and-improvements § Transport Level;
+	# capital-and-connectivity § Blockade; DR-20261124-05, DR-20261125-06).
+	assert_eq(
+		String(reading["port"]),
+		HarbourRead.line(
+			play.model, play.land_works, data, MapPlayBlockades.of(play, data.owner)
+		),
+		"the observatory reads the harbour the province sheet prints"
+	)
+	assert_eq(
+		String(reading["port_tip"]),
+		HarbourRead.tip(
+			play.model, play.land_works, data, MapPlayBlockades.of(play, data.owner)
+		),
+		"the observatory carries the row's rule with it"
+	)
+	assert_false(
+		String(reading["port"]).strip_edges().ends_with("·"),
+		"a harbour row never ends on a separator"
+	)
 	assert_eq(
 		String(reading["band"]),
 		DefenceSurvey.band_for(data.fort_level, int(reading["strength"])),

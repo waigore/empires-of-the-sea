@@ -66,13 +66,15 @@ func _setup_province_panel() -> void:
 ## differ only in the studies and the purse they name, so the seat is one named
 ## opening instead of ten positional tables (ProvinceDossierOpening; REQ-P3-02).
 func _seat_province_sheet(
-	tech_unlocked: Dictionary = {}, stockpile: Variant = null
+	tech_unlocked: Dictionary = {}, stockpile: Variant = null,
+	blockade: Blockades = null
 ) -> void:
 	var seat := ProvinceDossierOpening.of(_model, _works, _units)
 	seat.capital_tile = Vector2i(0, 0)
 	seat.faction = 0
 	seat.tech_unlocked = tech_unlocked
 	seat.stockpile = stockpile
+	seat.blockade = blockade
 	_province_panel_panel.set_opening(seat)
 
 
@@ -501,28 +503,78 @@ func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
 	assert_false(grid.harbour.visible, "a reading with no harbour prints no row")
 
 
-## The province sheet names the water its harbour opens on — the zone the quay
-## faces, the same reading the realm row and the observatory print — and never
-## ends the row on a bare separator (wiki: capital-and-connectivity § Blockade;
-## ships-and-naval § Missions and Movement; DR-20261124-05). A chart that keeps
-## the sea zone on the water rather than the quay used to read "Harbour ·" with
-## nothing after it, because the row asked the port tile's own zone.
-func test_the_province_sheet_names_the_water_its_harbour_opens_on() -> void:
+## The province sheet's Port row reads the harbour that actually stands on the
+## water the quay faces: a coast with only a quay site says so and prices the
+## port order, a built harbour carries its Transport 4, and a sealed one keeps
+## that grant to itself (wiki: extraction-and-improvements § Transport Level,
+## § Overseas delivery; civilian-units § Work Order Summary;
+## capital-and-connectivity § Blockade; DR-20261125-06). The row never ends on a
+## bare separator (DR-20261124-05), and a chart with no seated works names only
+## the water, as it always did.
+func test_the_province_sheet_reads_the_harbour_that_stands() -> void:
 	_setup_province_panel()
 	_seat_province_sheet()
 	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
 	var grid: ProvinceFactsGrid = _province_panel_panel._grid
 	assert_eq(_model.sea_zone_at(Fixture.COAST_TILE.x, Fixture.COAST_TILE.y), MapModel.NO_ID,
 		"the quay sits on land, one tile off the water")
-	assert_eq(grid.port.text, "Harbour · Mar Caribe", "the water beside the quay")
-	# A quay that touches no water prints the plain word, not a dangling row.
-	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Fixture.BARE_TILE
+	# A quay site is not a harbour: the row names the water, says no port stands
+	# on it and prices the order that would.
+	assert_eq(
+		grid.port.text,
+		"No harbour on the Mar Caribe · a port brings Transport 4 — 5 lumber + 5 cast iron",
+		"a bare quay prices the port it waits for"
+	)
+	assert_true(grid.port.tooltip_text.contains("2 turns"), "the tip names the wait")
+	# A harbour standing on that coast carries the transport grant.
+	_works.add_port(_model, Fixture.COAST_TILE)
 	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
-	assert_eq(grid.port.text, "Harbour")
+	assert_eq(
+		grid.port.text,
+		"Harbour · Mar Caribe · Transport 4 — the quay and the estates beside it",
+		"the built harbour carries its grant"
+	)
+	# A hostile station seals it: no landfall, and the grant goes with it.
+	var seals := Blockades.new()
+	seals.sealed = {_model.region_id: {Fixture.PLAYER_PROVINCE: true}}
+	_seat_province_sheet({}, null, seals)
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(
+		grid.port.text,
+		"Harbour · Mar Caribe · sealed — no landfall, and its estates gather by road",
+		"a sealed harbour prices no grant"
+	)
+	# The reading's own guards: a sheet with no session and a court with no seal
+	# claim nothing, so no branch of the read can invent a harbour either.
+	assert_eq(HarbourRead.line(null, _works, _model.province_data(Fixture.PLAYER_PROVINCE)), "")
+	assert_eq(HarbourRead.tip(null, _works, _model.province_data(Fixture.PLAYER_PROVINCE)), "")
+	assert_false(HarbourRead.sealed(_model, _model.province_data(Fixture.PLAYER_PROVINCE), null))
+	assert_eq(HarbourRead.turns_left(null, null), 1, "no chart, no wait to promise")
+	assert_true(HarbourRead.stands(_model, _works, _model.province_data(Fixture.PLAYER_PROVINCE)))
+	assert_true(
+		HarbourRead.sealed(_model, _model.province_data(Fixture.PLAYER_PROVINCE), seals),
+		"the province's own harbour is the seal the estate rows read"
+	)
+	# A quay that touches no water names no water and still says what stands.
+	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Fixture.BARE_TILE
+	_seat_province_sheet()
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(grid.port.text, "Harbour · Transport 4 — the quay and the estates beside it")
 	# No port tile at all keeps the sheet's own word for inland ground.
 	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Vector2i(-1, -1)
+	_works.ports.clear()
 	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
 	assert_eq(grid.port.text, "Landlocked")
+	# A sheet the boot never seated cannot say whether a harbour stands, so it
+	# names only the water and claims nothing else.
+	var bare := ProvinceFactsGrid.new()
+	add_child(bare)
+	var data: ProvinceState = _model.province_data(Fixture.PLAYER_PROVINCE)
+	data.port_tile = Fixture.COAST_TILE
+	bare.show_province(_model, Fixture.PLAYER_PROVINCE, data)
+	assert_eq(bare.port.text, "Harbour · Mar Caribe", "a bare grid names the water only")
+	assert_eq(bare.port.tooltip_text, "", "a bare grid promises no grant")
+	bare.free()
 
 
 ## The province sheet names what the wall soaks, what it spares the garrison and

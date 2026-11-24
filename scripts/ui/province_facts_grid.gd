@@ -5,6 +5,9 @@ extends GridContainer
 ## each row may say (REQ-P3-02).
 
 var terrain: Label = null
+## `terrain`, then the Port row: the water the quay faces, whether a harbour
+## stands on it and what it carries — or what the port order would bring a bare
+## coast (wiki: extraction-and-improvements § Transport Level; DR-20261125-06).
 var port: Label = null
 var town: Label = null
 var road: Label = null
@@ -60,21 +63,24 @@ func _ready() -> void:
 ## published envelope, because a rival's studies are not hers to read (wiki:
 ## siege-mechanics § Storming an empty walled province; DR-20261123-20). A grid
 ## with no viewer reads no battery, so it prints the envelope.
+##
+## `works` and `blockade` are the seated session's tables: the Port row reads
+## whether a harbour actually stands on the water the quay faces and what it
+## carries (wiki: extraction-and-improvements § Transport Level; DR-20261125-06).
+## A grid handed neither prints only the water, as it always did.
 func show_province(
 	model: MapModel,
 	province_id: int,
 	data: ProvinceState,
 	viewer: int = -1,
-	tech: Dictionary = {}
+	tech: Dictionary = {},
+	works: LandWorks = null,
+	blockade: Blockades = null
 ) -> void:
 	_data = data
 	terrain.text = _terrain_row(model, province_id)
-	var port_tile: Vector2i = data.port_tile
-	if port_tile.x >= 0:
-		var water: String = ProvinceLedger.harbour_name(model, data)
-		port.text = ("Harbour · %s" % water) if not water.is_empty() else "Harbour"
-	else:
-		port.text = "Landlocked"
+	port.text = HarbourRead.line(model, works, data, blockade)
+	port.tooltip_text = HarbourRead.tip(model, works, data, blockade)
 	town.text = DossierCopy.town(data)
 	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
@@ -105,6 +111,7 @@ func fill(values: Dictionary) -> void:
 	_data = null
 	terrain.text = String(values.get("terrain", ""))
 	port.text = String(values.get("port", ""))
+	port.tooltip_text = String(values.get("port_tip", ""))
 	town.text = String(values.get("town", ""))
 	town.tooltip_text = String(values.get("town_tip", ""))
 	road.text = String(values.get("roads", ""))
