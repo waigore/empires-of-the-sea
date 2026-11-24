@@ -1,10 +1,10 @@
 class_name QuickBattleCopy
 extends RefCounted
-## Despatch copy for the Quick Battle plate: action lines, outcome stamps, and
-## round numerals. The wall a siege is fought over lives in
-## [QuickBattleSiegeCopy], so the opening line and the aftermath are read apart.
-## Pure text — no Control nodes — so the overlay stays a thin presenter
-## (REQ-P3-01, REQ-P2-03).
+## Despatch copy for the Quick Battle plate: action lines, the line and its
+## reserve, losses and outcome stamps. The wall a siege is fought over lives in
+## [QuickBattleSiegeCopy] and the decorations in [QuickBattleHonoursCopy], so the
+## opening line, the aftermath and the honours are read apart. Pure text — no
+## Control nodes — so the overlay stays a thin presenter (REQ-P3-01, REQ-P2-03).
 
 
 static func action_line(action: Dictionary, battle: Dictionary, names: Array) -> String:
@@ -256,44 +256,6 @@ static func chevron_line(battle: Dictionary, names: Array) -> String:
 	if parts.is_empty():
 		return ""
 	return "Chevrons — " + " · ".join(parts)
-
-
-## The field's name added to a winning side's colours once (DR-20261112-02).
-## Empty when no colour was bare enough to take it, so a repeat win adds no line.
-static func honour_line(battle: Dictionary, province_name: String, names: Array) -> String:
-	if province_name.is_empty():
-		return ""
-	var parts: PackedStringArray = PackedStringArray()
-	for key: String in ["attacker", "defender"]:
-		var gained: int = int(battle.get(key + "_honours", 0))
-		if gained <= 0:
-			continue
-		parts.append("%s: %s added to %d colour%s" % [
-			faction(int(battle.get(key, -1)), names), province_name,
-			gained, "" if gained == 1 else "s",
-		])
-	if parts.is_empty():
-		return ""
-	return "Honours — " + " · ".join(parts)
-
-
-## The colours the crown cited for a field won while mauled, and the weight the
-## citation buys (DR-20261112-10, DR-20261113-04). Empty when no colour bled
-## enough to be named, so a clean win adds no line.
-static func citation_line(battle: Dictionary, province_name: String, names: Array) -> String:
-	var parts: PackedStringArray = PackedStringArray()
-	for key: String in ["attacker", "defender"]:
-		var cited: int = int(battle.get(key + "_citations", 0))
-		if cited <= 0:
-			continue
-		parts.append("%s: %d colour%s cited at %s" % [
-			faction(int(battle.get(key, -1)), names), cited,
-			"" if cited == 1 else "s", province_name,
-		])
-	if parts.is_empty():
-		return ""
-	var percent: int = roundi(RegimentDecorations.CITED_STEP * 100.0)
-	return "Citations — %s (+%d%% each)" % [" · ".join(parts), percent]
 
 
 ## Up to three survivors under full strength, worst first.

@@ -4462,12 +4462,12 @@ func _sim_slots(setup: BattleSimSetup, side: String, rows: Array) -> void:
 ## § Wings and collapse).
 func test_a_line_that_lost_every_wing_still_shows_its_chips() -> void:
 	assert_true(
-		QuickBattleField.wings_shown({"left": 0, "center": 0, "right": 0}, ["left", "center", "right"]),
+		QuickBattleWingChips.wings_shown({"left": 0, "center": 0, "right": 0}, ["left", "center", "right"]),
 		"a broken line is still read on the plate"
 	)
-	assert_true(QuickBattleField.wings_shown({"left": 0, "center": 3, "right": 0}, []))
+	assert_true(QuickBattleWingChips.wings_shown({"left": 0, "center": 3, "right": 0}, []))
 	assert_false(
-		QuickBattleField.wings_shown({"left": 0, "center": 0, "right": 0}, []),
+		QuickBattleWingChips.wings_shown({"left": 0, "center": 0, "right": 0}, []),
 		"a garrison holds no wings, so it draws no chips"
 	)
 
@@ -4476,11 +4476,11 @@ func test_a_line_that_lost_every_wing_still_shows_its_chips() -> void:
 ## they grow so three still read, and a tall plate keeps the published size
 ## (REQ-P1-07).
 func test_the_wing_chips_grow_on_a_short_plate() -> void:
-	assert_eq(QuickBattleField.chip_scale(400.0), 1.0, "a tall plate is unchanged")
-	assert_eq(QuickBattleField.chip_scale(300.0), 1.0)
-	assert_true(QuickBattleField.chip_scale(160.0) > 1.0, "a handset plate grows its chips")
+	assert_eq(QuickBattleWingChips.chip_scale(400.0), 1.0, "a tall plate is unchanged")
+	assert_eq(QuickBattleWingChips.chip_scale(300.0), 1.0)
+	assert_true(QuickBattleWingChips.chip_scale(160.0) > 1.0, "a handset plate grows its chips")
 	assert_eq(
-		QuickBattleField.chip_scale(40.0), QuickBattleField.CHIP_SCALE_MAX,
+		QuickBattleWingChips.chip_scale(40.0), QuickBattleWingChips.CHIP_SCALE_MAX,
 		"the growth is capped so the chips never swamp the line"
 	)
 
@@ -10018,11 +10018,11 @@ func test_the_plate_names_the_honours_won() -> void:
 	battle["attacker_honours"] = 3
 
 	assert_eq(
-		QuickBattleCopy.honour_line(battle, "Flanders", NAMES),
+		QuickBattleHonoursCopy.honour_line(battle, "Flanders", NAMES),
 		"Honours — España: Flanders added to 3 colours"
 	)
-	assert_eq(QuickBattleCopy.honour_line(_battle(), "Flanders", NAMES), "")
-	assert_eq(QuickBattleCopy.honour_line(battle, "", NAMES), "")
+	assert_eq(QuickBattleHonoursCopy.honour_line(_battle(), "Flanders", NAMES), "")
+	assert_eq(QuickBattleHonoursCopy.honour_line(battle, "", NAMES), "")
 
 	var overlay := QuickBattleOverlay.new()
 	add_child(overlay)
@@ -10043,15 +10043,15 @@ func test_the_plate_names_the_cited_colours() -> void:
 	battle["attacker_citations"] = 2
 
 	assert_eq(
-		QuickBattleCopy.citation_line(battle, "Flanders", NAMES),
+		QuickBattleHonoursCopy.citation_line(battle, "Flanders", NAMES),
 		"Citations — España: 2 colours cited at Flanders (+5% each)"
 	)
 	battle["attacker_citations"] = 1
 	assert_eq(
-		QuickBattleCopy.citation_line(battle, "Flanders", NAMES),
+		QuickBattleHonoursCopy.citation_line(battle, "Flanders", NAMES),
 		"Citations — España: 1 colour cited at Flanders (+5% each)"
 	)
-	assert_eq(QuickBattleCopy.citation_line(_battle(), "Flanders", NAMES), "")
+	assert_eq(QuickBattleHonoursCopy.citation_line(_battle(), "Flanders", NAMES), "")
 
 	var overlay := QuickBattleOverlay.new()
 	add_child(overlay)

@@ -170,8 +170,8 @@ func _finish() -> void:
 		QuickBattleCopy.loss_line(battle, faction_names),
 		QuickBattleCopy.health_line(battle, faction_names),
 		QuickBattleCopy.chevron_line(battle, faction_names),
-		QuickBattleCopy.honour_line(battle, province_name, faction_names),
-		QuickBattleCopy.citation_line(battle, province_name, faction_names),
+		QuickBattleHonoursCopy.honour_line(battle, province_name, faction_names),
+		QuickBattleHonoursCopy.citation_line(battle, province_name, faction_names),
 		QuickBattleSiegeCopy.siege_line(battle),
 	]
 	for text: String in lines:

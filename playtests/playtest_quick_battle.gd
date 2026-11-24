@@ -147,9 +147,9 @@ func _fight(play: PlaySession) -> void:
 	_say("plate wings line: %s" % QuickBattleCopy.wings_line(battle, names))
 	_say("plate chips: attacker %s (shown %s) · defender %s (shown %s)" % [
 		QuickBattleWings.describe(overlay.field.attacker_wings),
-		QuickBattleField.wings_shown(overlay.field.attacker_wings, overlay.field.attacker_broken),
+		QuickBattleWingChips.wings_shown(overlay.field.attacker_wings, overlay.field.attacker_broken),
 		QuickBattleWings.describe(overlay.field.defender_wings),
-		QuickBattleField.wings_shown(overlay.field.defender_wings, overlay.field.defender_broken),
+		QuickBattleWingChips.wings_shown(overlay.field.defender_wings, overlay.field.defender_broken),
 	])
 	var reported: int = (battle.get("attacker_lost", []) as Array).size() \
 		+ (battle.get("defender_lost", []) as Array).size()
