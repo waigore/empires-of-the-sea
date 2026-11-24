@@ -30,6 +30,12 @@ const KIND_LAND: String = "land"
 ## `wants_income` lifts the frontier guard: a court on **earn** sails to the far
 ## coast the gold is on, unless a hostile host already stands on its own soil
 ## (DR-20261113-19).
+## `voyage_waits` is the colony chain's claim on the hull (issue #1429): a court
+## whose muster waits for its next voyage leaves the free squadron for the
+## voyage — the crossing force reads the muster's own gate
+## (`CivilianMuster.wants_voyage`) before it takes a hull, so the expedition's
+## hull is a claim the army keeps too. An expedition already afloat keeps
+## sailing; only a fresh boarding stands down.
 static func split_orders(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -38,10 +44,13 @@ static func split_orders(
 	fleets: Array,
 	armies: Array,
 	charts: CourtCharts = null,
-	wants_income: bool = false
+	wants_income: bool = false,
+	voyage_waits: bool = false
 ) -> Array[Dictionary]:
 	var actions: Array[Dictionary] = []
 	if config == null or state == null or world == null or model == null:
+		return actions
+	if voyage_waits:
 		return actions
 	var owner: int = config.faction
 	if model.region_id != FactionCatalog.region_of(owner):
@@ -92,7 +101,10 @@ static func _detach(
 
 
 ## One legal step of this court's expedition in this region, or an empty
-## dictionary when it has nothing to do this turn.
+## dictionary when it has nothing to do this turn. `voyage_waits` is the
+## colony chain's claim on the hull (issue #1429): while the muster waits for
+## its next voyage, a fresh boarding stands down — the expedition's hull is a
+## claim the crossing force reads too. A voyage already afloat keeps sailing.
 static func plan(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -103,7 +115,8 @@ static func plan(
 	armies: Array,
 	turn: int = 0,
 	charts: CourtCharts = null,
-	wants_income: bool = false
+	wants_income: bool = false,
+	voyage_waits: bool = false
 ) -> Dictionary:
 	if config == null or state == null or world == null or model == null:
 		return {}
@@ -113,6 +126,8 @@ static func plan(
 	if fleet != null:
 		return _voyage(config, world, region, model, armies, fleet, hostile, turn, charts)
 	if region != FactionCatalog.region_of(owner):
+		return {}
+	if voyage_waits:
 		return {}
 	if not _has_overseas_war(config, state, world, owner, charts, armies, wants_income):
 		return {}
