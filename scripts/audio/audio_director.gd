@@ -4,8 +4,11 @@ extends Node
 ## voice pool and the sea ambience. Nothing here decides gameplay; screens call
 ## `play_event` / `play_music` and the mix stays in `AudioMix` (REQ-P1-06, P3).
 ##
-## The fades live in [AudioBedFader] so a driven run can land them without the
-## desk holding a book per Tween.
+## The desk owns the tree and the printers; the books are node-free helpers: the
+## fades live in [AudioBedFader], the bed pair in [AudioBedDeck], the cue voices
+## in [AudioVoicePool], the streams in [AudioStreamShelf], and the rotate flag in
+## [MusicRotation]. A driven run can still land its fades without the desk holding
+## a book of Tweens per switch (docs/testing.md § Speed rules).
 ##
 ## Lives as a scene node (no autoload) so `arch-lint` keeps autoloads empty and
 ## tests can instantiate it in isolation.
@@ -25,29 +28,39 @@ const SAVE_DELAY := 0.5
 ## waiting out a fade nothing listens to (docs/testing.md § Speed rules).
 var fade_scale: float:
 	get:
-		return _fader.scale
+		return fader.scale
 	set(value):
-		_fader.scale = value
+		fader.scale = value
 
 var mix: AudioMix = AudioMix.new()
 var settings_path: String = AudioMix.SETTINGS_PATH
-## Last cue / bed requested — intent, even when the stream is missing on disk.
-var last_event: String = ""
+## Last bed requested — intent, even when the stream is missing on disk.
 var last_track_id: String = ""
-var sfx_played: int = 0
+## The fades still walking, so a driven run lands them without a Tween per switch.
+var fader: AudioBedFader = AudioBedFader.new()
+## The cue book: the last cue named and how many were started (the suites and
+## the smoke count `cues.played`; a muted cue still names its request).
+var cues: AudioVoicePool = AudioVoicePool.new()
+## The rotate book: whether the score is walking `MusicPlaylist.ROTATION`.
+var rotation: MusicRotation = MusicRotation.new()
 
-var _fader: AudioBedFader = AudioBedFader.new()
-var _music: Array[AudioStreamPlayer] = []
-var _active: int = 0
-var _sfx: Array[AudioStreamPlayer] = []
-var _cursor: int = 0
+var _beds: AudioBedDeck = AudioBedDeck.new()
+var _shelf: AudioStreamShelf = AudioStreamShelf.new()
 var _ambience: AudioStreamPlayer = null
-var _cache: Dictionary = {}
 var _save_timer: Timer = null
 var _current_track: String = ""
-## The score is walking `MusicPlaylist.ROTATION`; an explicit looping bed clears
-## it. Read by the map score to tell "the tune is running" from "it was paused".
-var rotating: bool = false
+
+
+## True while the rotate is walking; an explicit bed clears it. The map score
+## reads this to tell "the tune is running" from "a battle paused it".
+var rotating: bool:
+	get:
+		return rotation.running
+	set(value):
+		if value:
+			rotation.start()
+		else:
+			rotation.hold()
 
 
 func _ready() -> void:
@@ -62,18 +75,17 @@ func _ready() -> void:
 func play_event(event_name: String, volume_scale: float = 1.0) -> bool:
 	if not AudioEvents.has(event_name):
 		return false
-	last_event = event_name
+	cues.note(event_name)
 	var stream: AudioStream = _stream(AudioEvents.path_for(event_name))
 	if stream == null:
 		return false
-	sfx_played += 1
-	if mix.muted:
-		return true
-	var cue: Dictionary = AudioEvents.cue(event_name)
-	var pitch: float = float(cue.get("pitch", 0.0))
-	var trim: float = float(cue.get("volume_db", -12.0))
-	var gain: float = linear_to_db(clampf(volume_scale, 0.05, 1.0))
-	_play_voice(stream, trim + gain + mix.sfx_db(), randf_range(-pitch, pitch))
+	var voice: AudioStreamPlayer = cues.take()
+	if not mix.muted and voice != null:
+		var cue: Dictionary = AudioEvents.cue(event_name)
+		var pitch: float = float(cue.get("pitch", 0.0))
+		var trim: float = float(cue.get("volume_db", -12.0))
+		var gain: float = linear_to_db(clampf(volume_scale, 0.05, 1.0))
+		_sound(voice, stream, trim + gain + mix.sfx_db(), randf_range(-pitch, pitch))
 	return true
 
 
@@ -82,11 +94,10 @@ func play_stinger(track_id: String, volume_db: float = -4.0) -> bool:
 	var stream: AudioStream = _stream(MusicPlaylist.path_for(track_id))
 	if stream == null:
 		return false
-	_set_loop(stream, false)
-	sfx_played += 1
-	if mix.muted:
-		return true
-	_play_voice(stream, volume_db + mix.sfx_db(), 0.0)
+	AudioStreamShelf.set_loop(stream, false)
+	var voice: AudioStreamPlayer = cues.take()
+	if not mix.muted and voice != null:
+		_sound(voice, stream, volume_db + mix.sfx_db(), 0.0)
 	return true
 
 
@@ -101,17 +112,18 @@ func play_music(track_id: String, fade: float = MUSIC_FADE, rotate: bool = false
 	# the hand-off to the next one.
 	var loop: bool = MusicPlaylist.loops(track_id) and not rotate
 	last_track_id = track_id
-	if track_id == _current_track and _active_player().playing:
-		_set_loop(_active_player().stream, loop)
-		rotating = rotate
+	var live: AudioStreamPlayer = _beds.live()
+	if track_id == _current_track and live != null and live.playing:
+		AudioStreamShelf.set_loop(live.stream, loop)
+		_note_rotate(rotate, track_id)
 		return true
 	var stream: AudioStream = _stream(MusicPlaylist.path_for(track_id))
 	if stream == null:
 		return false
-	_set_loop(stream, loop)
+	AudioStreamShelf.set_loop(stream, loop)
 	_crossfade(stream, fade)
 	_current_track = track_id
-	rotating = rotate
+	_note_rotate(rotate, track_id)
 	_start_ambience()
 	return true
 
@@ -127,25 +139,36 @@ func play_rotation(track_id: String = "", fade: float = MUSIC_FADE) -> bool:
 
 
 func stop_music(fade: float = MUSIC_FADE) -> void:
-	rotating = false
+	_note_rotate(false, "")
 	_current_track = ""
-	_fader.fade(self, _active_player(), SILENT_DB, fade, true)
+	fader.fade(self, _beds.live(), SILENT_DB, fade, true)
 
 
 ## Lands every bed now at the knob it is fading toward, the way `_apply_mix`
 ## does when the mix changes. A driven run ends its fades this way so no Tween
 ## keeps the tree busy after the last assert (docs/testing.md § Speed rules).
 func land_fades() -> void:
-	_fader.land()
+	fader.land()
 	# The stopped bed stays stopped; the desk only restores the live one, and
 	# only when the mix is not muted (the mute assert left it at silence).
 	if _current_track.is_empty() or mix.muted:
 		return
-	_active_player().volume_db = mix.music_db()
+	_beds.live().volume_db = mix.music_db()
 
 
 func current_track_id() -> String:
 	return _current_track
+
+
+## The bed the desk is holding: the one playing, or the one it last asked for.
+## A suite or a driven run reads this instead of walking the players.
+func live_bed() -> AudioStreamPlayer:
+	return _beds.live()
+
+
+## The bed waiting its turn under a crossfade: the tail of a switch, not the tune.
+func sleeping_bed() -> AudioStreamPlayer:
+	return _beds.waiting()
 
 
 # --- mix ---------------------------------------------------------------------
@@ -177,6 +200,15 @@ func is_muted() -> bool:
 # --- internals ---------------------------------------------------------------
 
 
+## One door for the rotate flag: a rotate bed names where it walks, any other
+## bed (or a stop) pauses the rotate.
+func _note_rotate(rotate: bool, track_id: String) -> void:
+	if rotate:
+		rotation.start(track_id)
+	else:
+		rotation.hold()
+
+
 ## Applies a fresh mix, saves it soon and tells the desk's listeners: one door
 ## for every knob, so the three setters cannot drift apart (REQ-P1-06).
 func _mix_spoken() -> void:
@@ -186,29 +218,30 @@ func _mix_spoken() -> void:
 	mix_changed.emit(mix.music, mix.sfx, mix.muted)
 
 
-## One cue on a pooled voice: the desk picks the player, the caller prices it.
-func _play_voice(stream: AudioStream, volume_db: float, pitch: float) -> void:
-	var player: AudioStreamPlayer = _take_sfx_player()
-	player.stream = stream
-	player.pitch_scale = 1.0 + pitch
-	player.volume_db = volume_db
-	player.play()
+## One cue on a pooled voice: the pool picks the player, the caller prices it.
+func _sound(voice: AudioStreamPlayer, stream: AudioStream, volume_db: float, pitch: float) -> void:
+	voice.stream = stream
+	voice.pitch_scale = 1.0 + pitch
+	voice.volume_db = volume_db
+	voice.play()
 
 
 func _build_players() -> void:
+	var beds: Array[AudioStreamPlayer] = []
 	for index in 2:
-		var player := AudioStreamPlayer.new()
-		player.name = "Music%d" % index
-		player.volume_db = SILENT_DB
-		player.finished.connect(_on_bed_finished.bind(index))
-		add_child(player)
-		_music.append(player)
+		var bed := AudioStreamPlayer.new()
+		bed.name = "Music%d" % index
+		bed.finished.connect(_on_bed_finished.bind(bed))
+		add_child(bed)
+		beds.append(bed)
+	_beds.adopt(beds, SILENT_DB)
+	var voices: Array[AudioStreamPlayer] = []
 	for index in SFX_VOICES:
 		var voice := AudioStreamPlayer.new()
 		voice.name = "Sfx%d" % index
-		voice.volume_db = SILENT_DB
 		add_child(voice)
-		_sfx.append(voice)
+		voices.append(voice)
+	cues.adopt(voices, SILENT_DB)
 	_ambience = AudioStreamPlayer.new()
 	_ambience.name = "Ambience"
 	_ambience.volume_db = SILENT_DB
@@ -221,14 +254,10 @@ func _build_players() -> void:
 
 
 func _apply_mix() -> void:
-	_fader.clear()
-	for index in _music.size():
-		var player: AudioStreamPlayer = _music[index]
-		player.volume_db = mix.music_db() if index == _active else SILENT_DB
+	fader.clear()
+	_beds.rest_knobs(mix.music_db(), SILENT_DB)
 	_ambience.volume_db = _ambience_db()
-	for player: AudioStreamPlayer in _sfx:
-		if not player.playing:
-			player.volume_db = SILENT_DB
+	cues.hush(SILENT_DB)
 
 
 func _ambience_db() -> float:
@@ -238,70 +267,37 @@ func _ambience_db() -> float:
 
 
 func _start_ambience() -> void:
-	if _ambience.playing:
+	if _ambience == null or _ambience.playing:
 		return
 	var stream: AudioStream = _stream(MusicPlaylist.AMBIENCE)
 	if stream == null:
 		return
-	_set_loop(stream, true)
+	AudioStreamShelf.set_loop(stream, true)
 	_ambience.stream = stream
 	_ambience.volume_db = _ambience_db()
 	_ambience.play()
 
 
-## A rotate bed ran to its end: the next one takes over under the same fade. An
-## explicit bed (or a second player still fading out) hears nothing here.
-func _on_bed_finished(index: int) -> void:
-	if not rotating or index != _active:
+## A rotate bed ran to its end and hands over to the next tune. The other bed
+## (the tail of a crossfade) ending moves nothing: only the live bed's end is a
+## hand-off. The callback binds its own bed; a driven run may call with none.
+func _on_bed_finished(bed: AudioStreamPlayer = null) -> void:
+	if not rotation.running:
 		return
-	play_rotation(MusicPlaylist.next_in_rotation(_current_track))
+	if bed != null and bed != _beds.live():
+		return
+	play_rotation(rotation.next())
 
 
 func _crossfade(stream: AudioStream, fade: float) -> void:
-	var previous: AudioStreamPlayer = _active_player()
-	var next_index: int = 1 - _active
-	var incoming: AudioStreamPlayer = _music[next_index]
+	var outgoing: AudioStreamPlayer = _beds.live()
+	var incoming: AudioStreamPlayer = _beds.turn()
 	incoming.stream = stream
 	incoming.volume_db = SILENT_DB
 	incoming.play()
-	_active = next_index
-	_fader.fade(self, previous, SILENT_DB, fade, true)
-	_fader.fade(self, incoming, mix.music_db(), fade, false)
-
-
-func _active_player() -> AudioStreamPlayer:
-	return _music[_active]
-
-
-func _take_sfx_player() -> AudioStreamPlayer:
-	for player: AudioStreamPlayer in _sfx:
-		if not player.playing:
-			return player
-	var chosen: AudioStreamPlayer = _sfx[_cursor % _sfx.size()]
-	_cursor += 1
-	chosen.stop()
-	return chosen
+	fader.fade(self, outgoing, SILENT_DB, fade, true)
+	fader.fade(self, incoming, mix.music_db(), fade, false)
 
 
 func _stream(path: String) -> AudioStream:
-	if path.is_empty():
-		return null
-	if _cache.has(path):
-		return _cache[path] as AudioStream
-	if not ResourceLoader.exists(path):
-		return null
-	var loaded: Resource = load(path)
-	if loaded is AudioStream:
-		_cache[path] = loaded
-		return loaded
-	return null
-
-
-func _set_loop(stream: AudioStream, loop: bool) -> void:
-	var ogg := stream as AudioStreamOggVorbis
-	if ogg != null:
-		ogg.loop = loop
-		return
-	var wav := stream as AudioStreamWAV
-	if wav != null:
-		wav.loop_mode = AudioStreamWAV.LOOP_FORWARD if loop else AudioStreamWAV.LOOP_DISABLED
+	return _shelf.stream(path)

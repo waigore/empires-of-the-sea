@@ -332,7 +332,7 @@ static func _works(run, screen: MapScreen) -> void:
 static func _audio(run) -> void:
 	if run.audio == null:
 		return
-	run.check(run.audio.sfx_played >= run.cues_before + 3, "turn cues fired")
+	run.check(run.audio.cues.played >= run.cues_before + 3, "turn cues fired")
 	# Only war resolves a battle now; either bed is fine, silence is not.
 	var bed: String = run.audio.current_track_id()
 	run.check(
