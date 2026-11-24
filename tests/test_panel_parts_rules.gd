@@ -492,6 +492,32 @@ func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
 	assert_false(grid.harbour.visible, "a reading with no harbour prints no row")
 
 
+## The province sheet names the water its harbour opens on — the zone the quay
+## faces, the same reading the realm row and the observatory print — and never
+## ends the row on a bare separator (wiki: capital-and-connectivity § Blockade;
+## ships-and-naval § Missions and Movement; DR-20261124-05). A chart that keeps
+## the sea zone on the water rather than the quay used to read "Harbour ·" with
+## nothing after it, because the row asked the port tile's own zone.
+func test_the_province_sheet_names_the_water_its_harbour_opens_on() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_eq(_model.sea_zone_at(Fixture.COAST_TILE.x, Fixture.COAST_TILE.y), MapModel.NO_ID,
+		"the quay sits on land, one tile off the water")
+	assert_eq(grid.port.text, "Harbour · Mar Caribe", "the water beside the quay")
+	# A quay that touches no water prints the plain word, not a dangling row.
+	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Fixture.BARE_TILE
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(grid.port.text, "Harbour")
+	# No port tile at all keeps the sheet's own word for inland ground.
+	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Vector2i(-1, -1)
+	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
+	assert_eq(grid.port.text, "Landlocked")
+
+
 ## The province sheet names what the wall soaks, what it spares the garrison and
 ## the storm it sets — the fort table's own figures, so a plan is made against
 ## the wall a battle would fight — and leaves the row out on open ground (wiki:

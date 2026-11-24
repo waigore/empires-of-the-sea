@@ -42,12 +42,42 @@ static func port_sea_zones(model: MapModel, province_id: int) -> Array[int]:
 	if port.x < 0 or port.y < 0:
 		return province_sea_zones(model, province_id)
 	var zones: Array[int] = []
+	# A quay the chart keeps in the water faces the water it stands in.
+	var own: int = model.sea_zone_at(port.x, port.y)
+	if own != MapModel.NO_ID:
+		zones.append(own)
 	for offset: Vector2i in ORTHOGONAL:
 		var zone: int = model.sea_zone_at(port.x + offset.x, port.y + offset.y)
 		if zone != MapModel.NO_ID and not zones.has(zone):
 			zones.append(zone)
 	zones.sort()
 	return zones
+
+
+## The one water a sheet names for a harbour: the port tile's own zone when the
+## chart keeps the quay in the water, else the first zone beside it (the chart
+## keeps the zone on the water, not the quay). NO_ID when the province keeps no
+## port tile or its quay touches no water, so a caller prints plain "Harbour"
+## rather than a trailing separator. `port_sea_zones` stays the gate's reading:
+## a corner harbour faces both waters and stands a blockade in either, while a
+## sheet names the one the crown would sail from.
+static func harbour_zone(model: MapModel, province_id: int) -> int:
+	if model == null:
+		return MapModel.NO_ID
+	var data: ProvinceState = model.province_data(province_id)
+	if data == null:
+		return MapModel.NO_ID
+	var port: Vector2i = data.port_tile
+	if port.x < 0 or port.y < 0:
+		return MapModel.NO_ID
+	var own: int = model.sea_zone_at(port.x, port.y)
+	if own != MapModel.NO_ID:
+		return own
+	for offset: Vector2i in ORTHOGONAL:
+		var zone: int = model.sea_zone_at(port.x + offset.x, port.y + offset.y)
+		if zone != MapModel.NO_ID:
+			return zone
+	return MapModel.NO_ID
 
 
 ## Provinces of `owner` that share a P-S edge with the sea zone.
