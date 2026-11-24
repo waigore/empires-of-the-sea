@@ -194,6 +194,19 @@ static func boost_note() -> String:
 	) % SpyNetworks.BOOST_PERCENT
 
 
+## What a shadow abroad costs when it is caught (wiki: civilian-units § Spy (3),
+## diplomacy § Spy-death penalty): a host's counter-espionage screen takes a
+## shadow on 5% a turn, turns a survivor on 10%, and every catch cools the pair's
+## relations by 8. The figures are `SpyRules`' own constants — the ones
+## `resolve_turn` rolls and the map adapter charges — so the sheet cannot name a
+## price the rules do not pay. A reading: no spy is moved, caught or turned.
+static func catch_note() -> String:
+	return (
+		"A host's screen catches a shadow on %d%% a turn and turns a survivor on "
+		+ "%d%% — every catch costs −%d with that court."
+	) % [SpyRules.KILL_PCT, SpyRules.DEFECT_PCT, int(SpyRules.KILL_RELATION_PENALTY)]
+
+
 # --- rows -------------------------------------------------------------------
 
 

@@ -656,6 +656,45 @@ func test_the_summary_names_the_gap_not_only_the_gain() -> void:
 	assert_true(SpyLedger.boost_note().contains("%d%%" % SpyNetworks.BOOST_PERCENT))
 
 
+## The network prices the catch (wiki: civilian-units § Spy (3), diplomacy
+## § Spy-death penalty): a host's screen takes a shadow on 5% a turn, turns a
+## survivor on 10%, and every catch costs −8 with that court. The figures are
+## `SpyRules`' own constants, so a retuned roll moves the words with it — the
+## sheet cannot name a catch price the rules do not charge.
+func test_the_network_prices_the_catch_a_shadow_risks() -> void:
+	var note: String = SpyLedger.catch_note()
+	assert_true(
+		note.contains("%d%% a turn" % SpyRules.KILL_PCT),
+		"the screen's own catch chance prints: %s" % note
+	)
+	assert_true(
+		note.contains("%d%%" % SpyRules.DEFECT_PCT),
+		"and the share of survivors it turns: %s" % note
+	)
+	assert_true(
+		note.contains("−%d" % int(SpyRules.KILL_RELATION_PENALTY)),
+		"and the relations a catch costs: %s" % note
+	)
+	assert_true(note.contains("catches a shadow"), "the price is a sentence, not a number")
+
+
+## The eyes sheet prints that price under the network, spies or none, so a crown
+## weighs the posting before it gives it — the despatch names the price only
+## after a spy is taken (wiki: civilian-units § Spy (4); diplomacy § Spy-death
+## penalty).
+func test_the_sheet_prices_the_catch_under_the_network() -> void:
+	_attach()
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	panel.open()
+	var painted: String = _spy_texts(panel)
+	assert_true(painted.contains("catches a shadow"), painted)
+	assert_true(
+		painted.contains("−%d" % int(SpyRules.KILL_RELATION_PENALTY)),
+		"the painted sheet names the relations a catch costs: %s" % painted
+	)
+	panel.close()
+
+
 # --- projection edges -------------------------------------------------------
 
 

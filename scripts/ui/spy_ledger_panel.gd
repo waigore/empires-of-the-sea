@@ -95,6 +95,9 @@ func _is_marked(row: Dictionary) -> bool:
 
 
 ## The crown's spies, one row each: where it stands and what it earns there.
+## Under them the network's own price: what a shadow costs when a host's screen
+## catches it, so the posting is weighed before it is given
+## (wiki: civilian-units § Spy (3); diplomacy § Spy-death penalty).
 func _network() -> void:
 	var rows: Array = _snapshot.get("rows", [])
 	_heading("THE NETWORK", SpyLedger.count_text(rows.size()))
@@ -105,9 +108,12 @@ func _network() -> void:
 			13,
 			Palette.TEXT_DIM
 		))
-		return
-	for raw: Variant in rows:
-		_rows.add_child(_spy_row(raw as Dictionary))
+	else:
+		for raw: Variant in rows:
+			_rows.add_child(_spy_row(raw as Dictionary))
+	_rows.add_child(UiRowBuilder.wrapped_line(
+		SpyLedger.catch_note(), 12, Palette.TEXT_DIM
+	))
 
 
 ## Every Great Power but the reader's own: the shadowed and the open alike, so
