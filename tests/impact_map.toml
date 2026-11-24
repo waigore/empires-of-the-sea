@@ -561,13 +561,10 @@ match = "scripts/map/map_play_economy_larder.gd*"
 domain = "ai_economy"
 
 # The famine order (issue #1433): the court sheds the mouths its harvest cannot
-# carry, and its own suite proves the streak, the shedding and the receipts.
+# carry. Cases live in test_market_economy_rules (folded off the micro-suite
+# boot — docs/testing.md § Speed rules).
 [[rules]]
 match = "scripts/map/map_play_larder_recovery.gd*"
-domain = "ai_famine"
-
-[[rules]]
-match = "tests/test_larder_recovery.gd*"
 domain = "ai_famine"
 
 [[rules]]
@@ -3236,11 +3233,12 @@ suites = [
 ]
 
 # The famine order (issue #1433): the court's own shed, its streak and the
-# receipts it files. One pure suite — the shed reads a hand-built chart, so it
-# never pays the map, the panel or the AI fan-out (docs/testing.md § Speed).
+# receipts it files. Folded into the purse suite so a larder-recovery edit
+# still avoids the map / panel / AI fan-out, without a second coverage boot
+# (docs/testing.md § Speed rules).
 [domains.ai_famine]
 suites = [
-  "test_larder_recovery.gd",
+  "test_market_economy_rules.gd",
 ]
 
 [domains.ai_ledger]
