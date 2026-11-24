@@ -42,7 +42,7 @@ func build(root: Control, short: bool) -> CapitalChoiceChrome:
 	banner = PanelContainer.new()
 	banner.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, pad)
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 4, pad)
 	)
 	banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	banner.offset_left = MARGIN

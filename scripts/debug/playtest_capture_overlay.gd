@@ -45,7 +45,7 @@ func _build() -> void:
 	_bar.add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.92), Palette.GOLD_DIM, 1, 3, Vector4(10, 6, 10, 6)
+			Palette.with_alpha(Palette.PARCHMENT, 0.92), Palette.GOLD_DIM, 1, 3, Vector4(10, 6, 10, 6)
 		)
 	)
 	_bar.anchor_left = 1.0
@@ -82,7 +82,7 @@ func _build_prompt() -> void:
 	_prompt.add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD, 1, 4, Vector4(16, 12, 16, 12)
+			Palette.with_alpha(Palette.PARCHMENT, 0.97), Palette.GOLD, 1, 4, Vector4(16, 12, 16, 12)
 		)
 	)
 	_prompt.anchor_left = 0.5

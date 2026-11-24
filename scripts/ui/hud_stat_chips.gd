@@ -258,13 +258,13 @@ func _chip(
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	button.set_meta("chip", true)
 	button.add_theme_stylebox_override(
-		"normal", UiTheme.cartouche(Color(0.16, 0.13, 0.09, 0.70), Color(0.54, 0.43, 0.12, 0.50))
+		"normal", UiTheme.cartouche(Color(0.16, 0.13, 0.09, 0.70), Palette.with_alpha(Palette.GOLD_DIM, 0.50))
 	)
 	button.add_theme_stylebox_override(
 		"hover", UiTheme.cartouche(Color(0.24, 0.19, 0.12, 0.92), Palette.GOLD)
 	)
 	button.add_theme_stylebox_override(
-		"pressed", UiTheme.cartouche(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_PALE)
+		"pressed", UiTheme.cartouche(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_PALE)
 	)
 	button.add_theme_stylebox_override(
 		"focus", UiTheme.cartouche(Color(0.0, 0.0, 0.0, 0.0), Palette.GOLD_PALE)

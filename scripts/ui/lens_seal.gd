@@ -84,7 +84,7 @@ func _ready() -> void:
 	_menu.add_theme_color_override("font_disabled_color", Palette.TEXT_DIM)
 	_menu.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.98), Palette.GOLD_DIM, 1, 4, Vector4(6, 6, 6, 6))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.98), Palette.GOLD_DIM, 1, 4, Vector4(6, 6, 6, 6))
 	)
 	_menu.add_theme_stylebox_override(
 		"hover",

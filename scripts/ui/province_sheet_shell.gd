@@ -11,8 +11,6 @@ signal dock_pressed
 
 const HINT: String = "Civilians muster at the capital; estates are managed from the ledger."
 const HINT_INK: Color = Color(0.74, 0.68, 0.55, 0.6)
-## The gold hairline that divides the dossier's sections.
-const RULE_INK: Color = Color(0.83, 0.69, 0.22, 0.35)
 
 ## The column the dossier's sections print into, so a compact sheet can move the
 ## order rail above the survey table.
@@ -48,7 +46,7 @@ func _ready() -> void:
 ## A section under a hairline: the dossier never repeats the rule between its
 ## blocks (REQ-P3-01).
 func add_section(section: Control) -> void:
-	column.add_child(UiRowBuilder.rule(RULE_INK))
+	column.add_child(UiRowBuilder.rule())
 	column.add_child(section)
 
 

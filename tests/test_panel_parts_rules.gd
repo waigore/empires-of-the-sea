@@ -5601,6 +5601,31 @@ func test_row_builder_builds_themed_widgets() -> void:
 	caption.free()
 	button.free()
 
+
+## The dossier hairline carries the sheet's gold at a third strength and never
+## eats a scroll drag, so every sheet divides its blocks off one builder
+## (REQ-P1-05, REQ-P3-01).
+func test_row_builder_rule_reads_the_sheet_gold() -> void:
+	var rule: Control = UiRowBuilder.rule()
+	assert_eq(rule.custom_minimum_size.y, 1.0)
+	assert_eq(rule.mouse_filter, Control.MOUSE_FILTER_IGNORE)
+	var swatch: ColorRect = rule as ColorRect
+	assert_almost_eq(swatch.color.a, 0.35, 0.001)
+	assert_almost_eq(swatch.color.r, Palette.GOLD_RULE.r, 0.001)
+	assert_almost_eq(swatch.color.g, Palette.GOLD_RULE.g, 0.001)
+	rule.free()
+
+
+## The sheet ink keeps its tone and takes whatever strength a layer asks for, so
+## one parchment serves a fill, a hint's fade and a plaque (REQ-P1-02).
+func test_palette_alpha_keeps_the_ink() -> void:
+	var faded: Color = Palette.with_alpha(Palette.PARCHMENT, 0.96)
+	assert_almost_eq(faded.r, Palette.PARCHMENT.r, 0.0001)
+	assert_almost_eq(faded.g, Palette.PARCHMENT.g, 0.0001)
+	assert_almost_eq(faded.b, Palette.PARCHMENT.b, 0.0001)
+	assert_almost_eq(faded.a, 0.96, 0.0001)
+
+
 func test_clear_empties_a_container() -> void:
 	var box := VBoxContainer.new()
 	add_child(box)

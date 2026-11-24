@@ -191,7 +191,7 @@ static func dress(
 	button.tooltip_text = tip
 	button.focus_mode = Control.FOCUS_ALL
 	button.add_theme_stylebox_override(
-		"normal", UiTheme.cartouche(Color(0.13, 0.10, 0.07, 0.58), Color(0.54, 0.43, 0.12, 0.55))
+		"normal", UiTheme.cartouche(Color(0.13, 0.10, 0.07, 0.58), Palette.with_alpha(Palette.GOLD_DIM, 0.55))
 	)
 	button.add_theme_stylebox_override(
 		"hover", UiTheme.cartouche(Color(0.22, 0.17, 0.11, 0.88), Palette.GOLD)
@@ -200,7 +200,7 @@ static func dress(
 		"pressed", UiTheme.cartouche(Color(0.09, 0.07, 0.05, 0.95), Palette.GOLD_PALE)
 	)
 	button.add_theme_stylebox_override(
-		"disabled", UiTheme.cartouche(Color(0.13, 0.10, 0.07, 0.58), Color(0.54, 0.43, 0.12, 0.55))
+		"disabled", UiTheme.cartouche(Color(0.13, 0.10, 0.07, 0.58), Palette.with_alpha(Palette.GOLD_DIM, 0.55))
 	)
 	button.add_theme_stylebox_override(
 		"focus", UiTheme.cartouche(Color(0.0, 0.0, 0.0, 0.0), Palette.GOLD_PALE)

@@ -182,7 +182,7 @@ func _draw() -> void:
 
 	if selected_province >= 0:
 		_draw_province_outline(
-			selected_province, Color(0.83, 0.69, 0.22, 0.16 + 0.12 * pulse), 9.0
+			selected_province, Palette.with_alpha(Palette.GOLD_RULE, 0.16 + 0.12 * pulse), 9.0
 		)
 		_draw_province_outline(
 			selected_province, Color(0.99, 0.93, 0.72, 0.70 + 0.25 * pulse), 2.4
@@ -190,7 +190,7 @@ func _draw() -> void:
 
 	for zone_id: int in move_zones:
 		_draw_sea_zone_outline(
-			zone_id, Color(0.83, 0.69, 0.22, 0.12 + 0.08 * pulse), 10.0
+			zone_id, Palette.with_alpha(Palette.GOLD_RULE, 0.12 + 0.08 * pulse), 10.0
 		)
 		_draw_sea_zone_outline(
 			zone_id, Color(0.99, 0.93, 0.72, 0.50 + 0.25 * pulse), 2.2
@@ -198,7 +198,7 @@ func _draw() -> void:
 
 	for province_id: int in move_provinces:
 		_draw_province_outline(
-			province_id, Color(0.83, 0.69, 0.22, 0.12 + 0.08 * pulse), 10.0
+			province_id, Palette.with_alpha(Palette.GOLD_RULE, 0.12 + 0.08 * pulse), 10.0
 		)
 		_draw_province_outline(
 			province_id, Color(0.99, 0.93, 0.72, 0.55 + 0.25 * pulse), 2.2
