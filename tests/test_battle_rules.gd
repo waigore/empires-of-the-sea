@@ -26,6 +26,45 @@ func test_feeding_bands_follow_the_published_table() -> void:
 	assert_almost_eq(ArmyModifiers.feeding_multiplier(0.49), 0.5, 0.001)
 
 
+## The dossier's ration row words the ladder the exchange itself reads: the share
+## of the bill the granary fed and the morale every engagement fights at, so a
+## crown learns why a winnable storm came home a draw (wiki: combat § Feeding
+## modifiers, § Auto-resolve ratio bands; DR-20261124-02).
+func test_the_ration_row_words_the_band_the_exchange_reads() -> void:
+	assert_almost_eq(ArmyRationRead.multiplier(0.6), 0.75, 0.001)
+	assert_almost_eq(ArmyRationRead.multiplier(0.4), 0.5, 0.001)
+	assert_eq(
+		ArmyRationRead.line(1.0),
+		"Rations · the whole bill fed · engagements fight at full morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.6),
+		"Rations · 60% of the bill fed · engagements fight at 0.75 morale"
+	)
+	assert_eq(
+		ArmyRationRead.line(0.4),
+		"Rations · 40% of the bill fed · engagements fight at half morale"
+	)
+	# A short band never claims a whole bill: one mouth unfed drops the ladder, so
+	# the share floors below 100 rather than contradicting the morale beside it.
+	assert_eq(
+		ArmyRationRead.line(0.996),
+		"Rations · 99% of the bill fed · engagements fight at 0.75 morale"
+	)
+	# No reading — another court's standard — prints no row, and answers the full
+	# band the battle itself defaults to when its context carries no figure.
+	assert_eq(ArmyRationRead.line(ArmyRationRead.NO_READING), "")
+	assert_almost_eq(ArmyRationRead.multiplier(ArmyRationRead.NO_READING), 1.0, 0.001)
+	assert_true(
+		ArmyRationRead.tip(0.6).contains("blunted"),
+		"the hungry tip names the blunted band"
+	)
+	assert_true(
+		ArmyRationRead.tip(1.0).contains("full morale"),
+		"a fed tip names full morale"
+	)
+
+
 func test_medal_aura_is_five_percent_per_medal_capped_at_twenty() -> void:
 	assert_almost_eq(ArmyModifiers.medal_aura(0), 1.0, 0.001)
 	assert_almost_eq(ArmyModifiers.medal_aura(2), 1.1, 0.001)
