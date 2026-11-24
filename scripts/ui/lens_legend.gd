@@ -2,8 +2,9 @@ class_name LensLegend
 extends Control
 ## Key cartouche shown while a map lens is on. Vector swatches mirror the lens
 ## inks (`Palette`) so the map and the key cannot drift apart (REQ-P1-02).
-## One node serves both lenses: the survey key while the resource lens is on,
-## the political key while the diplomatic lens is on.
+## One node serves every lens: the survey key while the resource lens is on,
+## the political key while the diplomatic lens is on. The reading rows are this
+## cartouche's own; the marks beside them are `LensKeyMarks`' (REQ-P3-01).
 
 const WIDTH: float = 244.0
 ## Tall enough for the six estate rows, the three road strokes and the three
@@ -123,7 +124,7 @@ func _draw_survey() -> void:
 		var tint: Color = (
 			Palette.SURVEY_FOREIGN if status == "foreign" else Palette.survey_color(status)
 		)
-		_draw_dot(Vector2(22, y - 4.5), status, tint)
+		LensKeyMarks.dot(self, Vector2(22, y - 4.5), status, tint)
 		draw_string(
 			_font, Vector2(38, y), String(row["text"]),
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
@@ -131,7 +132,7 @@ func _draw_survey() -> void:
 		y += 16.0
 	y += 2.0
 	for row: Dictionary in ROAD_ROWS:
-		_draw_road(Vector2(16, y - 4.5), String(row["kind"]))
+		LensKeyMarks.road(self, Vector2(16, y - 4.5), String(row["kind"]))
 		draw_string(
 			_font, Vector2(44, y), String(row["text"]),
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 54, 13, Palette.TEXT
@@ -151,28 +152,6 @@ func _draw_survey() -> void:
 	)
 
 
-## The three road strokes at key size: solid ink for a road to the crown, sleepers
-## for a railroad, dashes for a road the network does not reach.
-func _draw_road(start: Vector2, kind: String) -> void:
-	var end: Vector2 = start + Vector2(18, 0)
-	var ink: Color = Palette.GOLD_DIM
-	match kind:
-		"rail":
-			draw_line(start, end, ink, 1.8, true)
-			for i in 2:
-				var x: float = start.x + 6.0 + float(i) * 8.0
-				draw_line(Vector2(x, start.y - 3.4), Vector2(x, start.y + 3.0), ink, 1.3, true)
-		"cut":
-			for i in 3:
-				var x: float = start.x + float(i) * 7.0
-				draw_line(
-					Vector2(x, start.y), Vector2(x + 4.0, start.y),
-					Palette.TEXT_DIM, 1.5, true
-				)
-		_:
-			draw_line(start, end, ink, 2.1, true)
-
-
 ## Four readings, one per band. The wash is a flat tint, so the key shows the
 ## same flat swatch rather than a status ring.
 func _draw_diplomacy() -> void:
@@ -184,14 +163,7 @@ func _draw_diplomacy() -> void:
 	for row: Dictionary in DIPLOMACY_ROWS:
 		var band: String = String(row["band"])
 		var tint: Color = Palette.diplo_color(band)
-		draw_rect(
-			Rect2(Vector2(14, y - 13), Vector2(16, 16)),
-			Color(tint.r, tint.g, tint.b, 0.72)
-		)
-		draw_rect(
-			Rect2(Vector2(14, y - 13), Vector2(16, 16)),
-			Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55), false, 1.0
-		)
+		LensKeyMarks.swatch(self, Vector2(14, y - 13), tint)
 		draw_string(
 			_font, Vector2(38, y), String(row["text"]),
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
@@ -214,14 +186,7 @@ func _draw_crown_road() -> void:
 	for row: Dictionary in CROWN_ROWS:
 		var state: String = String(row["state"])
 		var tint: Color = Palette.crown_color(state)
-		draw_rect(
-			Rect2(Vector2(14, y - 13), Vector2(16, 16)),
-			Color(tint.r, tint.g, tint.b, 0.72)
-		)
-		draw_rect(
-			Rect2(Vector2(14, y - 13), Vector2(16, 16)),
-			Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55), false, 1.0
-		)
+		LensKeyMarks.swatch(self, Vector2(14, y - 13), tint)
 		draw_string(
 			_font, Vector2(38, y), String(row["text"]),
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
@@ -249,7 +214,7 @@ func _draw_defence() -> void:
 	var y: float = 50.0
 	for row: Dictionary in DEFENCE_ROWS:
 		var band: String = String(row["band"])
-		_draw_shield(Vector2(22, y - 4), Palette.defence_color(band))
+		LensKeyMarks.shield(self, Vector2(22, y - 4), Palette.defence_color(band))
 		draw_string(
 			_font, Vector2(38, y), String(row["text"]),
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
@@ -280,7 +245,7 @@ func _draw_sea() -> void:
 	var y: float = 50.0
 	for row: Dictionary in SEA_ROWS:
 		var band: String = String(row["band"])
-		_draw_pennant(Vector2(22, y - 4), Palette.sea_color(band))
+		LensKeyMarks.pennant(self, Vector2(22, y - 4), Palette.sea_color(band))
 		draw_string(
 			_font, Vector2(40, y), String(row["text"]),
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 50, 13, Palette.TEXT
@@ -293,36 +258,6 @@ func _draw_sea() -> void:
 	draw_string(
 		_font, Vector2(14, HEIGHT - 14), "??? : a weight not yet read · red rule: a fight",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
-	)
-
-
-## The pennant over a short mast the slips carry, at key size.
-func _draw_pennant(center: Vector2, tint: Color) -> void:
-	draw_line(
-		center + Vector2(-5.0, -9.0), center + Vector2(-5.0, 9.0),
-		Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55), 1.2, true
-	)
-	var fly := PackedVector2Array([
-		center + Vector2(-4.0, -8.0),
-		center + Vector2(10.0, -3.0),
-		center + Vector2(-4.0, 2.0),
-	])
-	draw_colored_polygon(fly, Color(tint.r, tint.g, tint.b, 0.92))
-
-
-## The same heraldic shield the map slips carry, at key size.
-func _draw_shield(center: Vector2, tint: Color) -> void:
-	var points := PackedVector2Array([
-		center + Vector2(-7.0, -8.0),
-		center + Vector2(7.0, -8.0),
-		center + Vector2(7.0, 1.0),
-		center + Vector2(0.0, 9.0),
-		center + Vector2(-7.0, 1.0),
-	])
-	draw_colored_polygon(points, Color(tint.r, tint.g, tint.b, 0.90))
-	draw_polyline(
-		PackedVector2Array([points[0], points[1], points[2], points[3], points[4], points[0]]),
-		Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55), 1.0, true
 	)
 
 
@@ -341,20 +276,3 @@ func _ensure() -> void:
 ## One swatch per reading. `survey` is the Explorer's own compass mark, the same
 ## the plates carry beside their prospectable count; a plate's badge reads
 ## `built/linked/held` per resource type, which the footer spells out.
-func _draw_dot(center: Vector2, status: String, tint: Color) -> void:
-	if status == "survey":
-		CivicGlyphs.explorer(self, center, 13.0, Palette.TEXT_DIM, tint)
-		return
-	var radius: float = 6.2
-	if status == "producing":
-		draw_circle(center, radius - 0.6, Color(tint.r, tint.g, tint.b, 0.22))
-	draw_circle(center, 2.0, tint)
-	match status:
-		"disconnected":
-			draw_arc(center, radius, 0, TAU, 18, tint, 1.1, true)
-			draw_line(
-				center + Vector2(-radius * 0.7, radius * 0.7),
-				center + Vector2(radius * 0.7, -radius * 0.7), tint, 1.3, true
-			)
-		_:
-			draw_arc(center, radius, 0, TAU, 18, tint, 1.4, true)

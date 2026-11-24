@@ -36,7 +36,7 @@ static func step(run) -> void:
 	MapPlayInput.select_lens(screen.play, "")
 	run.check(screen.world != null and screen.world.region_count() == 2, "world has two regions")
 	run.check(
-		screen.overlay._country_borders.size() >= 4,
+		screen.overlay.country_borders().size() >= 4,
 		"country borders built for every nation"
 	)
 	run.check(

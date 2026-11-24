@@ -28,16 +28,10 @@ var _map_size: Vector2 = Vector2.ZERO
 var _tile_world: float = 22.0
 var _dragging: bool = false
 var _seen_revision: int = 0
-## Chart the baked texture and ink were drawn from; a rebake of the same chart
-## (a re-seat from the same save, a region repaint) draws nothing again.
-var _baked_key: int = 0
-var _baked: bool = false
-## Cached ink, first in world coordinates then projected into the inset's own
-## pixels so strokes are drawn at device scale with true antialiasing.
-var _coast: Array[PackedVector2Array] = []
-var _country_borders: Dictionary = {}
-var _ink_coast: Array[PackedVector2Array] = []
-var _ink_borders: Dictionary = {}
+## The chart this inset has already inked: a rebake of the same chart (a re-seat
+## from the same save, a region repaint) draws nothing again. The ink itself is
+## `ChartInk`'s, shared with the map overlay.
+var _ink: ChartInk = ChartInk.new()
 
 
 func _ready() -> void:
@@ -94,13 +88,11 @@ func rebuild() -> void:
 	if model == null:
 		return
 	var key: int = _chart_key()
-	if _baked and _texture != null and key == _baked_key:
+	if _texture != null and _ink.holds(key):
 		return
-	_baked_key = key
-	_baked = true
+	_ink.take(key)
 	_rebuild_texture()
 	_rebuild_ink()
-	_project_ink()
 	queue_redraw()
 
 
@@ -142,57 +134,37 @@ func _rebuild_texture() -> void:
 
 
 func _rebuild_ink() -> void:
-	_coast.clear()
-	_country_borders.clear()
-	if model == null:
-		return
-	_coast = _coast_segments()
+	_ink.clear()
+	_ink.take_coast(model, _charted_land, _tile_world)
 	# CountryBorders already hides edges touching unknown ground, so an
 	# uncharted crown never draws its outline on the inset.
-	var raw: Dictionary = CountryBorders.build(model, _tile_world, visibility)
-	var owners: Array = raw.keys()
-	owners.sort()
-	for owner: int in owners:
-		_country_borders[owner] = InkPaths.smooth_segments(raw[owner], 2)
+	_ink.take_borders(model, _tile_world, visibility)
+	_ink.project(_map_size, _fit_rect())
 
 
-## Ink is cached in world units; the inset only ever draws its own pixels, so
-## project once per build/resize instead of scaling the canvas (a scaled canvas
-## stretches the antialiasing feather and muddies thin strokes).
+## Re-projects the cached ink into the inset's new pixels: a resize moves the
+## fit rect, not the chart.
 func _project_ink() -> void:
-	_ink_coast.clear()
-	_ink_borders.clear()
-	if model == null or _map_size.x <= 0.0:
-		return
-	var fit: Rect2 = _fit_rect()
-	var unit: float = fit.size.x / _map_size.x
-	for path: PackedVector2Array in _coast:
-		_ink_coast.append(_project_path(path, fit.position, unit))
-	var owners: Array = _country_borders.keys()
-	owners.sort()
-	for owner: int in owners:
-		var paths: Array[PackedVector2Array] = []
-		for path: PackedVector2Array in _country_borders[owner]:
-			paths.append(_project_path(path, fit.position, unit))
-		_ink_borders[owner] = paths
+	_ink.project(_map_size, _fit_rect())
 
 
-func _project_path(path: PackedVector2Array, origin: Vector2, unit: float) -> PackedVector2Array:
-	var projected := PackedVector2Array()
-	projected.resize(path.size())
-	for index in path.size():
-		projected[index] = origin + path[index] * unit
-	return projected
+## The chart's coastline in world units, for suites and tooling.
+func coast_paths() -> Array[PackedVector2Array]:
+	return _ink.coast
 
 
-## Land/sea edges of charted ground, smoothed into the chart's hand. Uncharted
-## coast stays un-inked; the seam walk itself is `TileEdges`, shared with the
-## play overlay.
-func _coast_segments() -> Array[PackedVector2Array]:
-	var seams: Array[PackedVector2Array] = TileEdges.province_seams(
-		model, _charted_land, _tile_world, TileEdges.Look.COAST
-	)
-	return InkPaths.smooth_segments(seams, 2)
+## The owners' internal borders in world units.
+func border_paths() -> Dictionary:
+	return _ink.country_borders
+
+
+## Coast and borders as the inset draws them, in its own pixels.
+func projected_coast() -> Array[PackedVector2Array]:
+	return _ink.projected_coast
+
+
+func projected_borders() -> Dictionary:
+	return _ink.projected_borders
 
 
 ## Charted land, as the seam walk's reading: unknown tiles never ink a coast, so
@@ -232,12 +204,13 @@ func _draw() -> void:
 ## core, bolder than the terrain so borders read first.
 func _draw_ink() -> void:
 	var coast := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.72)
-	for path: PackedVector2Array in _ink_coast:
+	var ink: ChartInk = _ink
+	for path: PackedVector2Array in ink.projected_coast:
 		draw_polyline(path, coast, 1.4, true)
-	var owners: Array = _ink_borders.keys()
+	var owners: Array = ink.projected_borders.keys()
 	owners.sort()
 	for owner: int in owners:
-		for path: PackedVector2Array in _ink_borders[owner]:
+		for path: PackedVector2Array in ink.projected_borders[owner]:
 			draw_polyline(path, Color(INK_SHADOW.r, INK_SHADOW.g, INK_SHADOW.b, 0.55), 2.6, true)
 	for owner: int in owners:
 		var color: Color = FactionCatalog.color_of(owner)
@@ -247,7 +220,7 @@ func _draw_ink() -> void:
 			clampf(color.b * 1.18 + 0.03, 0.0, 1.0),
 			0.98
 		)
-		for path: PackedVector2Array in _ink_borders[owner]:
+		for path: PackedVector2Array in ink.projected_borders[owner]:
 			draw_polyline(path, core, 1.5, true)
 
 
