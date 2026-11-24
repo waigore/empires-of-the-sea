@@ -45,13 +45,25 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 			"%s went down with a sunken squadron"
 			% MoneyText.counted(army.count(), "regiment")
 		)
+	# A squadron sunk whole takes every hand she carried: one line names the loss
+	# of that squadron, not one plate per head (wiki: hud-toasts § Danger to the
+	# crown), and the count takes the counting bar's own word pair
+	# (MoneyText.counted).
+	var per_squadron: Dictionary = {}
 	for unit: CivilianState in CivilianVoyageMap.drop_lost(
 		play.civilian_layer, FleetRosters.carried_civilians(play.ship_layer.regions)
 	):
 		if unit.owner != play.human_faction_id():
 			continue
+		var seat: int = unit.embarked_fleet
+		per_squadron[seat] = int(per_squadron.get(seat, 0)) + 1
+	var seats: Array[int] = []
+	seats.assign(per_squadron.keys())
+	seats.sort()
+	for seat: int in seats:
 		play.hud.toast(
-			"A civilian went down with a sunken squadron — lost at sea"
+			"%s went down with a sunken squadron"
+			% MoneyText.counted(int(per_squadron[seat]), "civilian")
 		)
 	if battles.is_empty():
 		return battles

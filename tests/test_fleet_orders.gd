@@ -7396,7 +7396,33 @@ func test_a_sunk_hull_takes_her_colonist_with_her() -> void:
 	assert_eq(int(colonists[0]), 23, "the last hand aboard drowns first")
 	assert_eq(fleet.civilian_count(), 2)
 	assert_eq(NavalDeck.aboard(fleet, null), 2)
-	assert_eq(NavalDeck.drown_news(drowned), ["A colonist went down with a sunk hull"])
+	assert_eq(
+		NavalDeck.drown_news(drowned),
+		["1 colonist went down with the sunk hulls — the deck could not hold them"],
+		"the bar names the one hand it lost"
+	)
+
+
+## A deck short by two hulls drowns two hands, and the bar names both in one
+## line with their count — the same reading the regiments' line takes (wiki:
+## ships-and-naval § Losses — the crown reads it on the bar; § Civilian
+## passengers — the last hand aboard first, on the same reading as an army's
+## drowned regiments).
+func test_a_shorter_deck_counts_the_hands_it_took() -> void:
+	var fleet := FleetState.at_sea(8, 0, 0, ["ship_12", "ship_13", "ship_14"])
+	fleet.add_civilian(31)
+	fleet.add_civilian(32)
+	fleet.add_civilian(33)
+	fleet.remove_hull("ship_14")
+	fleet.remove_hull("ship_13")
+	var drowned: Dictionary = NavalDeck.trim_aboard(fleet, null)
+	assert_eq((drowned["civilians"] as Array).size(), 2, "two hulls, two hands")
+	assert_eq(fleet.civilian_count(), 1, "the deck keeps the hand it still holds")
+	assert_eq(
+		NavalDeck.drown_news(drowned),
+		["2 colonists went down with the sunk hulls — the deck could not hold them"],
+		"one line names both hands and their count"
+	)
 
 
 ## The turn's close reads every deck: whichever loss took the hull — a battle's
@@ -9814,6 +9840,33 @@ func test_a_drowned_rival_regiment_stays_off_the_lane() -> void:
 
 	assert_eq(hud.toasts.size(), 1, "the crown's own loss is told")
 	assert_true(hud.toasts[0].contains("went down"), hud.toasts[0])
+	hud.free()
+	play.ship_layer.free()
+
+
+## A squadron sunk whole takes every hand she carried, and the lane names that
+## loss once with its count — not one identical plate per drowned head (wiki:
+## hud-toasts § Danger to the crown — `N civilians went down with a sunken
+## squadron`; REQ-P3-01).
+func test_a_sunk_squadron_counts_the_hands_it_took() -> void:
+	var hud := DespatchHud.new()
+	add_child(hud)
+	var play: PlaySession = _despatch_play(hud, [] as Array[FleetState])
+	var hands: Array[CivilianState] = []
+	for id: int in [41, 42, 43]:
+		var unit: CivilianState = CivilianState.create(id, 0, "explorer", CivilianState.NO_TILE)
+		unit.embarked_fleet = 99
+		hands.append(unit)
+	play.civilian_layer.units = hands
+	play.civilian_layer.regions.set_region(play.model.region_id, hands)
+
+	MapPlayNavalTurn.resolve(play)
+
+	assert_eq(hud.toasts.size(), 1, "one sinking is one line of news")
+	assert_eq(
+		hud.toasts[0], "3 civilians went down with a sunken squadron",
+		"the lane names the hands it lost and their count"
+	)
 	hud.free()
 	play.ship_layer.free()
 
