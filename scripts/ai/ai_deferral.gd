@@ -18,7 +18,11 @@ extends RefCounted
 ## standing still, falling behind, one ducat of noise — counts the turn, so an
 ## oscillating chest cannot reset the escalation bar forever (the 2026-11-15
 ## full-AI measurement: a wobbling shortfall kept the re-route from ever
-## answering and the court's worker training froze for 175 turns). The ledger
+## answering and the court's worker training froze for 175 turns). Past the
+## escalation bar the valve has answered, and the record gains its exit: a
+## shortfall that falls back above the best — the court spending its margin
+## under the re-route — resets the low to the current gap, so the fill's
+## recovery counts as progress and the chest re-arms (issue #1484). The ledger
 ## itself stays a pure reading (REQ-P2-03): the escalation lives in what the
 ## planners read back — `AiIncome` re-routes a stalled war chest, and the trace
 ## names an aim stalled past `ledger.blocked_turns` as `blocked` with its
@@ -38,9 +42,9 @@ extends RefCounted
 ## of its own — the child's row is the one being tracked; a blocked aim keeps
 ## the record it had, so an escalation-blocked reading does not restart the
 ## count it names; an aim that is absent this turn simply leaves no record.
-static func note(records: Dictionary, rows: Variant) -> Dictionary:
+static func note(records: Dictionary, rows: Variant, escalate_turns: int = 0) -> Dictionary:
 	var next: Dictionary = {}
-	_note_rows(records, next, rows)
+	_note_rows(records, next, rows, maxi(escalate_turns, 0))
 	return next
 
 
@@ -112,7 +116,7 @@ static func clean(records: Dictionary) -> Dictionary:
 # --- fold ---------------------------------------------------------------------
 
 
-static func _note_rows(records: Dictionary, next: Dictionary, rows: Variant) -> void:
+static func _note_rows(records: Dictionary, next: Dictionary, rows: Variant, bar: int) -> void:
 	if typeof(rows) != TYPE_ARRAY:
 		return
 	for raw: Variant in rows:
@@ -121,12 +125,12 @@ static func _note_rows(records: Dictionary, next: Dictionary, rows: Variant) -> 
 		var row: Dictionary = raw
 		var aim_id: String = String(row.get("id", ""))
 		if not aim_id.is_empty():
-			_note_aim(records, next, aim_id, row)
-		_note_rows(records, next, row.get("children", []))
+			_note_aim(records, next, aim_id, row, bar)
+		_note_rows(records, next, row.get("children", []), bar)
 
 
 static func _note_aim(
-	records: Dictionary, next: Dictionary, aim_id: String, row: Dictionary
+	records: Dictionary, next: Dictionary, aim_id: String, row: Dictionary, bar: int
 ) -> void:
 	var status: String = String(row.get("status", ""))
 	var shortfall: Dictionary = _dictionary(row.get("shortfall", {}))
@@ -135,7 +139,7 @@ static func _note_aim(
 		next[aim_id] = {
 			"turns": _stall_turns(previous, shortfall),
 			"shortfall": shortfall,
-			"low": _low_water(previous, shortfall),
+			"low": _low_water(previous, shortfall, bar),
 		}
 	elif status == AiObjective.STATUS_BLOCKED and not previous.is_empty():
 		# An escalation-blocked reading keeps the stall it names; a rule-blocked
@@ -168,11 +172,23 @@ static func _held_low(previous: Dictionary, shortfall: Dictionary) -> int:
 
 ## The record's low water: the smaller of the gap the stall has seen and this
 ## turn's shortfall, so the next turn's progress check reads the true best. A
-## new stall's best is this turn's own shortfall.
-static func _low_water(previous: Dictionary, shortfall: Dictionary) -> int:
+## new stall's best is this turn's own shortfall. Past the escalation bar the
+## valve has answered — the court is living on the re-routed reserve and spends
+## its margin down — so a shortfall that falls back above the best the stall
+## has seen resets the low to the current gap: the spend-down is the episode's
+## own floor, and recovery from the dip counts as progress again (issue
+## #1484). Without the reset the low is a monotone historic best a spend-down
+## can never beat, and a chest that once stood high never re-arms. The stall
+## count itself keeps running, so a court that stands still under the re-route
+## stays re-routed; only a genuine recovery restarts it.
+static func _low_water(previous: Dictionary, shortfall: Dictionary, bar: int) -> int:
 	if previous.is_empty():
 		return _total(shortfall)
-	return mini(_held_low(previous, shortfall), _total(shortfall))
+	var held: int = _held_low(previous, shortfall)
+	var total: int = _total(shortfall)
+	if bar > 0 and int(previous.get("turns", 0)) >= bar and total > held:
+		return total
+	return mini(held, total)
 
 
 ## Total shortfall across the row's resources, so a stall that changes shape
