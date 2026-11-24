@@ -16,9 +16,11 @@ const RAIL: String = "build_rail"
 
 
 ## What the dossier reads for one tile: whether it can still go rail, whether an
-## idle Rail Builder can take the order, and why not when it cannot. `needed`
-## is false for ground that is not the crown's, carries no road, already carries
-## a railroad, or waits on a study — the block prints only what can be pressed.
+## idle Rail Builder can take the order, what the order spends and how long it
+## waits, and why not when it cannot — so the press prints its own step rather
+## than a hover (DR-20261125-08). `needed` is false for ground that is not the
+## crown's, carries no road, already carries a railroad, or waits on a study —
+## the block prints only what can be pressed.
 static func plan(
 	model: MapModel,
 	works: LandWorks,
@@ -27,7 +29,9 @@ static func plan(
 	tile: Vector2i,
 	tech_unlocked: Dictionary = {}
 ) -> Dictionary:
-	var plan_out: Dictionary = {"needed": false, "rail_builder": false, "reason": ""}
+	var plan_out: Dictionary = {
+		"needed": false, "rail_builder": false, "reason": "", "cost": {}, "turns": 0,
+	}
 	if model == null or works == null or owner < 0 or tile.x < 0:
 		return plan_out
 	if model.owner_at(tile.x, tile.y) != owner:
@@ -44,6 +48,10 @@ static func plan(
 		return plan_out
 	plan_out["needed"] = true
 	plan_out["rail_builder"] = not idle_rail_builders(units, owner).is_empty()
+	# The step the press prints: the Rail Builder's own price and wait for this
+	# tile, read off the order that charges it (DR-20261125-08).
+	plan_out["cost"] = CivilianWorkPlan.cost_for(RAIL)
+	plan_out["turns"] = CivilianWorkPlan.duration_for(model, RAIL, tile, works)
 	if not bool(plan_out["rail_builder"]):
 		plan_out["reason"] = "No idle Rail Builder musters — train one at the capital."
 	return plan_out

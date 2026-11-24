@@ -1632,7 +1632,9 @@ func _by_tile() -> Dictionary:
 
 
 ## A cut-off developed estate carries the one-tap road order (issue #671): an
-## idle Engineer takes it, and a linked estate never offers one.
+## idle Engineer takes it, and a linked estate never offers one. The press prints
+## its own step under the row — the order's price, its wait and the tiles still to
+## lay (DR-20261125-08).
 func test_a_cut_off_estate_offers_build_road() -> void:
 	_setup_province_panel()
 	_units = [Fixture.unit("engineer", Vector2i(0, 2))]
@@ -1645,10 +1647,27 @@ func test_a_cut_off_estate_offers_build_road() -> void:
 		cut.tooltip_text
 	)
 	assert_null(_road_button(LINKED_TILE), "an estate beside the road offers none")
+	var block: ProvinceResources = _province_panel_panel._resources
+	var note: String = block.road_note(OFF_ROAD_TILE)
+	var price: String = CivilianWorkPlan.cost_text(CivilianWorkPlan.cost_for("build_road"))
+	assert_true(note.contains(price), "the note prices the order: %s" % note)
+	assert_true(note.contains("1 turn —"), "the note names the wait: %s" % note)
+	assert_true(note.contains("last road tile"), "and what it buys: %s" % note)
+	var plan: Dictionary = block.road_plan(OFF_ROAD_TILE)
+	assert_eq(
+		plan["cost"], CivilianWorkPlan.cost_for("build_road"),
+		"the plan carries the order's own price"
+	)
+	assert_eq(
+		int(plan["turns"]), CivilianTransport.turns("build_road"),
+		"and its own wait"
+	)
 
 
 ## No crew, no order: the control stays legible with the reason a tap would
-## return, so the dossier never offers what the rules refuse (REQ-P2-03).
+## return, so the dossier never offers what the rules refuse (REQ-P2-03). The
+## plan's own refusal stands under the row, where a phone reads it without a
+## hover (DR-20261125-08).
 func test_build_road_waits_for_an_engineer() -> void:
 	_setup_province_panel()
 	_show()
@@ -1656,6 +1675,10 @@ func test_build_road_waits_for_an_engineer() -> void:
 	assert_not_null(cut, "the estate still names the gap")
 	assert_true(cut.disabled, "no idle Engineer, so the control is disabled")
 	assert_true(cut.tooltip_text.contains("Engineer"), cut.tooltip_text)
+	var block: ProvinceResources = _province_panel_panel._resources
+	var reason: String = String(block.road_plan(OFF_ROAD_TILE).get("reason", ""))
+	assert_eq(block.road_note(OFF_ROAD_TILE), reason, "the row prints its own gate")
+	assert_true(reason.contains("Engineer"), reason)
 
 
 ## The control is an intent, not a rule: a press carries the estate's tile out
@@ -3248,8 +3271,42 @@ func test_the_rail_block_emits_the_tile_it_names() -> void:
 	assert_eq(actions, ["rail:1,0"] as Array[String], "one press, one intent")
 
 
+## The press prints its own step under the row: the Rail Builder's price and wait
+## with the transport the rail buys (DR-20261125-08; REQ-P1-05, REQ-P5-07).
+func test_the_rail_press_prices_its_step_and_prints_the_transport() -> void:
+	_setup_province_panel()
+	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_ROAD)
+	_units = [] as Array[CivilianState]
+	_units.append(_rail_builder())
+	_show(STEAM)
+	var block: ProvinceRailBlock = _province_panel_panel._rail
+	var note: String = block.rail_note(RAIL_TILE)
+	var price: String = CivilianWorkPlan.cost_text(CivilianWorkPlan.cost_for("build_rail"))
+	assert_true(note.contains(price), "the note prices the order: %s" % note)
+	assert_true(
+		note.contains("%d turns —" % CivilianTransport.turns("build_rail")),
+		"the note names the wait: %s" % note
+	)
+	assert_true(
+		note.contains("transport %d" % LandWorks.TRANSPORT_RAIL),
+		"and the transport the rail buys: %s" % note
+	)
+	var plan: Dictionary = {}
+	for row: Dictionary in block.rows():
+		if row["tile"] == RAIL_TILE:
+			plan = row["plan"]
+	assert_eq(
+		plan["cost"], CivilianWorkPlan.cost_for("build_rail"),
+		"the plan carries the order's own price"
+	)
+	assert_eq(
+		int(plan["turns"]), CivilianTransport.turns("build_rail"),
+		"and its own wait"
+	)
+
+
 ## No crew, no order: the control stays legible with the reason a tap would
-## return (REQ-P2-03).
+## return (REQ-P2-03), printed under the row for a crown with no hover.
 func test_the_rail_block_waits_for_a_rail_builder() -> void:
 	_setup_province_panel()
 	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_ROAD)
@@ -3259,6 +3316,9 @@ func test_the_rail_block_waits_for_a_rail_builder() -> void:
 	assert_not_null(button, "the row still names the ground")
 	assert_true(button.disabled, "no idle Rail Builder, so the press is disabled")
 	assert_true(button.tooltip_text.contains("Rail Builder"), button.tooltip_text)
+	var reason: String = String((block.rows()[0] as Dictionary)["plan"].get("reason", ""))
+	assert_eq(block.rail_note(RAIL_TILE), reason, "the row prints its own gate")
+	assert_true(reason.contains("Rail Builder"), reason)
 
 
 ## A province with nothing to rail says nothing: no heading over no ground.
@@ -3374,7 +3434,11 @@ func test_a_bare_road_tile_reads_as_plain_ground() -> void:
 	assert_not_null(button, "the bare road still carries its press")
 	assert_true(button.disabled, "no crew, so the press waits")
 	assert_true(button.tooltip_text.contains("Rail Builder"), button.tooltip_text)
-	var title: Label = block._body.get_child(0).get_child(0) as Label
+	var title: Label = null
+	for node: Node in block._body.get_child(0).find_children("*", "Label", true, false):
+		title = node as Label
+		break
+	assert_not_null(title, "the row names the ground")
 	assert_eq(title.text, "Road (2, 1)", "plain ground is named by its tile")
 
 # --- yarn dialogue, plates and espionage ---

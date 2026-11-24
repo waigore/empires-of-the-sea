@@ -10,7 +10,10 @@ extends VBoxContainer
 ##
 ## A developed estate the crown cannot reach carries **Build road**: one tap
 ## dispatches an idle Engineer onto the first tile of the route RoadWorks plans
-## (issue #671). The block only prints the plan and emits the intent.
+## (issue #671). The block only prints the plan and emits the intent, and the
+## press prints its own step under the row — the price, the wait and what it
+## buys, or the plan's refusal — so a phone reads what the tap costs
+## (DR-20261125-08).
 
 signal road_pressed(tile: Vector2i)
 
@@ -27,6 +30,9 @@ const ROAD: String = "Build road"
 
 var _lines: Array[Dictionary] = []
 var _roads: Dictionary = {}
+## The note under each estate's road press, keyed by tile, so a suite reads what
+## the sheet prints where a hover would say it (DR-20261125-08).
+var _notes: Dictionary = {}
 var _body: VBoxContainer = null
 var _empty: Label = null
 var _survey: Label = null
@@ -110,6 +116,9 @@ func render(
 	for child: Node in _body.get_children():
 		_body.remove_child(child)
 		child.queue_free()
+	# A repaint drops every press's note with the row it hung under, so a stale
+	# reading can never outlive the row that printed it (DR-20261125-08).
+	_notes.clear()
 	for row: Dictionary in rows:
 		_body.add_child(_line(row))
 	_empty.visible = rows.is_empty()
@@ -130,7 +139,12 @@ func _tiles(count: int) -> String:
 # --- one estate --------------------------------------------------------------
 
 
-func _line(row: Dictionary) -> HBoxContainer:
+## One estate's row: the pictogram, name, level and crown link, then the road
+## press and the note under it for a cut-off estate — one child per estate, so
+## `lines()` and the body stay read in step (DR-20261125-08).
+func _line(row: Dictionary) -> Control:
+	var entry := VBoxContainer.new()
+	entry.add_theme_constant_override("separation", 1)
 	var line := HBoxContainer.new()
 	line.add_theme_constant_override("separation", 8)
 	line.tooltip_text = _tip(row)
@@ -140,16 +154,36 @@ func _line(row: Dictionary) -> HBoxContainer:
 	line.add_child(title)
 	line.add_child(_text(_level_text(row), 13, _level_color(row), 30))
 	line.add_child(_text(_link_text(row), 12, _link_color(row), 62))
+	entry.add_child(line)
 	var road: Dictionary = _roads.get(row["tile"], {})
 	if bool(road.get("needed", false)):
-		line.add_child(_road_button(row, road))
-	return line
+		var note: Label = PressNote.line()
+		line.add_child(_road_press(row, road, note))
+		entry.add_child(note)
+	return entry
+
+
+## The road press and the note under it, as one reading: the step while the order
+## is open, the plan's own refusal while it is shut (REQ-P5-07; DR-20261125-08).
+func road_order(tile: Vector2i) -> Dictionary:
+	return {"note": _notes.get(tile), "text": road_note(tile)}
+
+
+## The note under one estate's road press as the sheet prints it, or "" when the
+## estate offers no press or the press prints nothing (DR-20261125-08).
+func road_note(tile: Vector2i) -> String:
+	var note: Label = _notes.get(tile)
+	return note.text if note != null and note.visible else ""
 
 
 ## The one-tap dispatch for a cut-off estate: an idle Engineer takes the first
 ## tile of the route. Disabled with the reason when no crew or no route exists,
-## so the control never offers an order the rules would refuse (REQ-P2-03).
-func _road_button(row: Dictionary, road: Dictionary) -> Button:
+## so the control never offers an order the rules would refuse (REQ-P2-03). The
+## note under the row prices the step and names what it buys while the press is
+## open, and carries the plan's own refusal while it is shut — printed, never a
+## hover, so a phone reads what a tap costs and why it is dead (REQ-P1-05,
+## REQ-P5-07; DR-20261125-08).
+func _road_press(row: Dictionary, road: Dictionary, note: Label) -> Button:
 	var button := Button.new()
 	button.text = ROAD
 	button.custom_minimum_size = Vector2(0, 40 if _compact() else 30)
@@ -161,14 +195,30 @@ func _road_button(row: Dictionary, road: Dictionary) -> Button:
 	button.disabled = not ready
 	button.tooltip_text = _road_tip(road) if ready else String(road.get("reason", ""))
 	button.pressed.connect(func() -> void: road_pressed.emit(row["tile"]))
+	_notes[row["tile"]] = note
+	PressNote.paint(
+		note,
+		PressNote.step(
+			CivilianWorkPlan.cost_text(road.get("cost", {})),
+			int(road.get("turns", 0)),
+			"an Engineer lays %s" % road_work(road)
+		) if ready else String(road.get("reason", "")),
+		ready
+	)
 	return button
 
 
-func _road_tip(road: Dictionary) -> String:
+## The road the press would lay, in the plan's own count: the one tile left to the
+## estate, or the first of how many.
+static func road_work(road: Dictionary) -> String:
 	var gap: int = int(road.get("gap", 0))
 	if gap <= 1:
-		return "An Engineer lays the last road tile to this estate."
-	return "An Engineer lays the first of %d road tiles to this estate." % gap
+		return "the last road tile to this estate"
+	return "the first of %d road tiles to this estate" % gap
+
+
+func _road_tip(road: Dictionary) -> String:
+	return "An Engineer lays %s." % road_work(road)
 
 
 func _compact() -> bool:

@@ -75,9 +75,11 @@ static func route(
 
 
 ## What the dossier reads for one estate: whether it needs a road at all, how
-## many tiles the route still takes, and whether an idle Engineer can take the
-## order. `resolved` may be handed in so a whole province costs one
-## [method LandConnectivity.resolve] (the dossier's own reading).
+## many tiles the route still takes, whether an idle Engineer can take the order,
+## what the order spends and how long it waits — so the press prints its own step
+## rather than a hover (DR-20261125-08). `resolved` may be handed in so a whole
+## province costs one [method LandConnectivity.resolve] (the dossier's own
+## reading).
 static func plan(
 	model: MapModel,
 	works: LandWorks,
@@ -93,6 +95,8 @@ static func plan(
 		"route": [] as Array[Vector2i],
 		"engineer": false,
 		"reason": "",
+		"cost": {},
+		"turns": 0,
 	}
 	if model == null or works == null or owner < 0 or tile.x < 0:
 		return plan_out
@@ -114,6 +118,10 @@ static func plan(
 	plan_out["gap"] = route_tiles.size()
 	plan_out["route"] = route_tiles
 	plan_out["engineer"] = not idle_engineers(units, owner).is_empty()
+	# The step the press prints: the Engineer's own price and wait for this tile,
+	# read off the order that charges it (DR-20261125-08).
+	plan_out["cost"] = CivilianWorkPlan.cost_for(ROAD)
+	plan_out["turns"] = CivilianWorkPlan.duration_for(model, ROAD, tile, works)
 	if route_tiles.is_empty():
 		plan_out["reason"] = "No owned-land route to the crown."
 	elif not bool(plan_out["engineer"]):

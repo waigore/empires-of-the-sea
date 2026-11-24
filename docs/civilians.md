@@ -13,22 +13,23 @@ Units: explore, improve, colonize, spy.
 - **Roster** (`CivilianCatalog`): six types.
 - **Hiring:** the rail names each craft's work and study gate
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
-  the hire pass names its craft `▸` (`MapPlayHirePick`, DR-20261122-12/15).
+  the hire pass names its craft `▸` (DR-20261122-12/15).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, walks
   the idle ones, marks the pick `▸` (DR-20261121-12/22-06); a crew aboard reads
-  **Aboard** and answers no order chip.
+  **Aboard**, answering no order chip.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders keep to crown land, Explorer, Merchant, Spy cross borders; one crew
-  per tile per crown.
+  per tile.
 - **Spy** (`SpyNetworks`, `SpyRules`): holds its province charted (never
   `unknown`); each shadowed rival GP adds +15% RP at Low+ funding.
   **Counter-espionage** kills or turns agents; reports name deeds
   ([espionage.md](espionage.md)).
 - **Work orders** (Builders: any owned tile); materials spent at assign,
-  never refunded on cancel. **Aboard** a squadron a crew is off the map and
-  takes no order. Explore ≤3, **prospect 1**
-  (charted ground), improve 1–4, **upgrade town** (National Bureaucracy), road,
-  port (one per seaboard), rail, fort 1–5 ([forts.md](forts.md)), hospital 1–2.
+  never refunded. **Aboard** a squadron a crew is off the map, taking no order.
+  Explore ≤3, **prospect 1** (charted ground), improve 1–4, **upgrade town**
+  (National Bureaucracy), road, port (one per seaboard), rail, fort 1–5
+  ([forts.md](forts.md)), hospital 1–2. Both presses print their price, wait and
+  gate (DR-20261125-08).
 - **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
   a mineral hides until prospected.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
@@ -41,11 +42,11 @@ Units: explore, improve, colonize, spy.
   ([DR-20261119-03](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-03));
   Explorers/Merchants any coast, others crown land. **A rival reads the
   ground:** its colonist takes the charted coast its workshop can turn, and,
-  once charted, mineral-bearing terrain by `economy.riches_route_weight` —
+  mineral-bearing terrain by `economy.riches_route_weight` —
   never above a wanted raw
   ([DR-20261123-21](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261123-21)).
-  **The crown reads her own step:** the passenger block names the voyage and
-  marks its press (DR-20261121-08/22-21).
+  **The crown reads her step:** the passenger block names the voyage and marks
+  its press (DR-20261121-08/22-21).
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
   prospected mineral); 15× base, debit on complete; each deed lifts the
   town ([DR-20261118-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-05)).

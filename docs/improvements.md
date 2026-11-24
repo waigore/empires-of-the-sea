@@ -15,8 +15,8 @@ level-4 Great Power towns, four grain farms.
 ## Implemented
 
 - **Named improvements**: Timber → Lumber camp, minerals → Mine, Grain → Farm,
-  Wool → Pasture, Meat/Horses → Ranch, crops → Plantation, Furs → Fur post, each
-  with a pictogram (DR-20261119-06).
+  Wool → Pasture, Meat/Horses → Ranch, crops → Plantation, Furs → Fur post,
+  pictogrammed (DR-20261119-06).
 - **Levels 1–4.** A Builder raises one level for 1/4/8/16 lumber + cast iron
   over target-level turns; minerals need Prospect first (DR-20261111-26).
 - **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile a
@@ -49,9 +49,9 @@ level-4 Great Power towns, four grain farms.
 - **The court's own raise** (DR-20261121-10): a gold line above the press names
   the estates the Builder pass would raise, three named; no idle
   Builder names that gate. Each leads with `▸` (DR-20261122-04, DR-20261123-08).
-- **Province dossier**: town level, crown link, estates, unsurveyed ground;
-  a cut-off estate carries **Build road**; the block prices the harvest at
-  today's sell (DR-20261123-25).
+- **Province dossier**: town level, crown link, estates, unsurveyed ground,
+  the harvest at today's sell (DR-20261123-25); a cut-off estate's **Build
+  road** prints its price, wait and gate (DR-20261125-08).
 
 ## Deferred (REQ-P2-02)
 
