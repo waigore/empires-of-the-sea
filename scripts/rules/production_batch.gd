@@ -12,7 +12,10 @@ extends RefCounted
 ## Units a row may still be set to, read from the projection the page prints:
 ## the post-Consumption store and the idle labour the phase will see, less the
 ## other rows' claims and the pieces already on the bench. The rules own the
-## arithmetic; this only picks which state the phase will see (REQ-P2-03).
+## arithmetic; this only picks which state the phase will see (REQ-P2-03). The
+## court's study set rides along so a row the phase would skip for want of a
+## technology is offered nothing here either (wiki: production-recipes
+## § Technology-gated recipes).
 static func allowance(
 	economy: PlayerEconomy,
 	recipe_id: String,
@@ -30,7 +33,8 @@ static func allowance(
 		assignments,
 		economy.workers,
 		economy.production_wip,
-		town_level
+		town_level,
+		economy.tech_unlocked
 	)
 
 
