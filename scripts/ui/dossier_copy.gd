@@ -91,7 +91,7 @@ static func crown_roads(province: ProvinceState, crown: Dictionary) -> String:
 	var planned: int = 0
 	for path: Array in province.road_paths:
 		planned += path.size()
-	return "%d tiles" % planned if planned > 0 else "—"
+	return MoneyText.counted(planned, "tile") if planned > 0 else "—"
 
 
 ## What the province's own estates clear at today's sell, in the realm's own
@@ -106,7 +106,7 @@ static func harvest(economy: Dictionary) -> String:
 	var parts: PackedStringArray = PackedStringArray()
 	var output: int = int(economy.get("output", 0))
 	if output > 0:
-		parts.append("%d units gathered" % output)
+		parts.append("%s gathered" % MoneyText.counted(output, "unit"))
 		parts.append("%s at today's sell" % MoneyText.ducats(
 			int(economy.get("value", 0))
 		))
