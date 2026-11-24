@@ -55,6 +55,16 @@ func paint_crown(gain: int = 0, projection: Dictionary = {}, counts: bool = fals
 	if read.is_empty():
 		read = host.readings.projected()
 	stats.set_income(int(read.get("treasury_delta", 0)))
+	# The label is the phases' figure. The court's staged orders and the last
+	# clearing settle after it, so the plaque names both rather than letting the
+	# per-turn number read as the whole purse movement (wiki: world-market
+	# § Trade orders; REQ-P5-05).
+	stats.set_income_scope(
+		int(read.get("staged_orders", 0)),
+		LedgerMarketText.clearing_net(
+			read.get("clearing", {}) as Dictionary, host.player_faction
+		)
+	)
 	if not counts:
 		return
 	stats.set_fleets(host.readings.fleet_ships())

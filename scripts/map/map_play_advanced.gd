@@ -34,6 +34,9 @@ static func begin(play: PlaySession) -> void:
 	play.hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	play.hud.stats.set_income(play.income)
+	# The preset's purse is the mark the first close measures its move from; the
+	# turn-0 figure is no longer the crown's own.
+	play.purse_at_close = play.treasury()
 
 
 static func apply(play: PlaySession) -> Dictionary:
