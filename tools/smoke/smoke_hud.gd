@@ -107,12 +107,12 @@ static func _audio(run, screen: MapScreen) -> void:
 		run.audio.current_track_id() == MusicPlaylist.AGE_OF_DISCOVERY, "opening bed playing"
 	)
 	run.check(run.audio._ambience.playing, "sea ambience playing")
-	run.cues_before = run.audio.sfx_played
+	run.cues_before = run.audio.cues.played
 	run.check(run.audio.play_event(AudioEvents.UI_CLICK), "ui cue fires")
-	run.check(run.audio.sfx_played == run.cues_before + 1, "ui cue counted")
+	run.check(run.audio.cues.played == run.cues_before + 1, "ui cue counted")
 	run.audio.set_muted(true)
 	run.check(
-		run.audio._active_player().volume_db == AudioDirector.SILENT_DB, "mute silences music"
+		run.audio.live_bed().volume_db == AudioDirector.SILENT_DB, "mute silences music"
 	)
 	run.audio.set_muted(false)
 	# A driven run ends its fades on the frame it asks for them (fade_scale 0),

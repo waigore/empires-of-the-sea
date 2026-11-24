@@ -313,15 +313,15 @@ func test_clicking_a_fleet_selects_it() -> void:
 func test_end_turn_advances_the_calendar_and_files_every_courts_rations() -> void:
 	var turn_before: int = _screen.turn
 	var audio: AudioDirector = _screen.get_node("Audio") as AudioDirector
-	var cues_before: int = audio.sfx_played
+	var cues_before: int = audio.cues.played
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
 	assert_eq(_screen.turn, turn_before + 1)
 	# The calendar's close reaches the score the way the player hears it: the
 	# screen's own signal, the bell and the coin (the audio suite reads the same
 	# signal without paying a rival pass of its own).
-	assert_eq(audio.last_event, AudioEvents.COIN, "the turn closes on the coin")
-	assert_gte(audio.sfx_played, cues_before + 2, "bell and coin both sound")
+	assert_eq(audio.cues.last_event, AudioEvents.COIN, "the turn closes on the coin")
+	assert_gte(audio.cues.played, cues_before + 2, "bell and coin both sound")
 	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
 	assert_eq(_screen.income, _screen.economy.readings.projected_income())
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)

@@ -1915,15 +1915,15 @@ func _audio_director_remove_temp() -> void:
 func test_unknown_events_are_refused() -> void:
 	_setup_audio_director()
 	assert_false(_director.play_event("kraken_scream"))
-	assert_eq(_director.sfx_played, 0)
-	assert_eq(_director.last_event, "")
+	assert_eq(_director.cues.played, 0)
+	assert_eq(_director.cues.last_event, "")
 
 func test_a_known_cue_plays_on_a_pooled_voice() -> void:
 	_setup_audio_director()
 	assert_true(_director.play_event(AudioEvents.UI_CLICK))
-	assert_eq(_director.last_event, AudioEvents.UI_CLICK)
-	assert_eq(_director.sfx_played, 1)
-	var voices: Array = _director._sfx
+	assert_eq(_director.cues.last_event, AudioEvents.UI_CLICK)
+	assert_eq(_director.cues.played, 1)
+	var voices: Array = _director.cues.voices()
 	assert_eq(voices.size(), AudioDirector.SFX_VOICES)
 	var busy: int = 0
 	for player: AudioStreamPlayer in voices:
@@ -1935,14 +1935,14 @@ func test_the_pool_never_overruns_its_voices() -> void:
 	_setup_audio_director()
 	for _step in AudioDirector.SFX_VOICES * 3:
 		_director.play_event(AudioEvents.UI_CLICK)
-	assert_eq(_director._sfx.size(), AudioDirector.SFX_VOICES)
-	assert_eq(_director.sfx_played, AudioDirector.SFX_VOICES * 3)
+	assert_eq(_director.cues.voices().size(), AudioDirector.SFX_VOICES)
+	assert_eq(_director.cues.played, AudioDirector.SFX_VOICES * 3)
 
 func test_music_beds_load_and_loop() -> void:
 	_setup_audio_director()
 	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
 	assert_eq(_director.current_track_id(), MusicPlaylist.SPANISH_MAIN)
-	var stream := _director._active_player().stream as AudioStreamOggVorbis
+	var stream := _director.live_bed().stream as AudioStreamOggVorbis
 	assert_not_null(stream)
 	assert_true(stream.loop)
 	assert_true(_director._ambience.playing)
@@ -1955,28 +1955,28 @@ func test_unknown_beds_are_refused() -> void:
 func test_restarting_the_same_bed_does_not_restart_playback() -> void:
 	_setup_audio_director()
 	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
-	var player: AudioStreamPlayer = _director._active_player()
+	var player: AudioStreamPlayer = _director.live_bed()
 	var playback: float = player.get_playback_position()
 	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
-	assert_eq(_director._active_player(), player)
-	assert_almost_eq(_director._active_player().get_playback_position(), playback, 0.5)
+	assert_eq(_director.live_bed(), player)
+	assert_almost_eq(_director.live_bed().get_playback_position(), playback, 0.5)
 
 func test_switching_beds_crossfades_to_the_other_player() -> void:
 	_setup_audio_director()
 	_director.play_music(MusicPlaylist.AGE_OF_DISCOVERY)
-	var first: AudioStreamPlayer = _director._active_player()
+	var first: AudioStreamPlayer = _director.live_bed()
 	_director.play_music(MusicPlaylist.SPANISH_MAIN)
-	assert_ne(_director._active_player(), first)
+	assert_ne(_director.live_bed(), first)
 	assert_eq(_director.current_track_id(), MusicPlaylist.SPANISH_MAIN)
 
 func test_mute_silences_the_bed_and_the_ambience() -> void:
 	_setup_audio_director()
 	_director.play_music(MusicPlaylist.SPANISH_MAIN)
 	_director.set_muted(true)
-	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+	assert_eq(_director.live_bed().volume_db, AudioDirector.SILENT_DB)
 	assert_eq(_director._ambience.volume_db, AudioDirector.SILENT_DB)
 	_director.set_muted(false)
-	assert_almost_eq(_director._active_player().volume_db,
+	assert_almost_eq(_director.live_bed().volume_db,
 		linear_to_db(_director.mix.music), 0.01)
 
 ## A driven run asks for no fades: the bed lands on its knob on the same frame
@@ -1987,13 +1987,13 @@ func test_a_driven_run_lands_its_bed_while_the_knobs_are_read() -> void:
 	_director.fade_scale = 0.0
 	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
 	assert_almost_eq(
-		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+		_director.live_bed().volume_db, linear_to_db(_director.mix.music), 0.01
 	)
-	assert_true(_director._fader.pending().is_empty(), "no fade waits behind the bed")
+	assert_true(_director.fader.pending().is_empty(), "no fade waits behind the bed")
 	_director.set_muted(true)
-	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+	assert_eq(_director.live_bed().volume_db, AudioDirector.SILENT_DB)
 	_director.set_muted(false)
-	assert_true(_director._fader.pending().is_empty(), "nor behind the mute")
+	assert_true(_director.fader.pending().is_empty(), "nor behind the mute")
 
 func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> void:
 	_setup_audio_director()
@@ -2003,9 +2003,9 @@ func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> voi
 	assert_true(_director.play_stinger(MusicPlaylist.SPANISH_MAIN), "a stinger still lands")
 	_director.set_muted(false)
 	_director.land_fades()
-	assert_true(_director._fader.pending().is_empty(), "every fade is ended")
+	assert_true(_director.fader.pending().is_empty(), "every fade is ended")
 	assert_almost_eq(
-		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+		_director.live_bed().volume_db, linear_to_db(_director.mix.music), 0.01
 	)
 	assert_eq(_director.current_track_id(), MusicPlaylist.BROADSIDES)
 
@@ -2014,11 +2014,11 @@ func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> voi
 func test_land_fades_steps_pending_bed_tweens() -> void:
 	_setup_audio_director()
 	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
-	assert_false(_director._fader.pending().is_empty(), "a live crossfade waits")
+	assert_false(_director.fader.pending().is_empty(), "a live crossfade waits")
 	_director.land_fades()
-	assert_true(_director._fader.pending().is_empty(), "every fade is stepped out")
+	assert_true(_director.fader.pending().is_empty(), "every fade is stepped out")
 	assert_almost_eq(
-		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+		_director.live_bed().volume_db, linear_to_db(_director.mix.music), 0.01
 	)
 
 ## Mute keeps the bed silent after a land: the desk must not restore volume
@@ -2028,7 +2028,7 @@ func test_land_fades_keeps_silence_when_muted() -> void:
 	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
 	_director.set_muted(true)
 	_director.land_fades()
-	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+	assert_eq(_director.live_bed().volume_db, AudioDirector.SILENT_DB)
 
 ## Stopping the bed clears the track; landing then leaves the stopped player
 ## alone instead of writing a mix knob onto an empty desk.
@@ -2039,7 +2039,7 @@ func test_land_fades_skips_restore_when_no_bed() -> void:
 	assert_eq(_director.current_track_id(), "")
 	_director.land_fades()
 	assert_eq(_director.current_track_id(), "")
-	assert_true(_director._fader.pending().is_empty())
+	assert_true(_director.fader.pending().is_empty())
 
 func test_volume_changes_are_clamped_and_broadcast() -> void:
 	_setup_audio_director()
@@ -2066,11 +2066,11 @@ func test_toggle_mute_flips_the_flag() -> void:
 func test_stingers_play_without_stopping_the_bed() -> void:
 	_setup_audio_director()
 	_director.play_music(MusicPlaylist.SPANISH_MAIN)
-	var bed: AudioStreamPlayer = _director._active_player()
+	var bed: AudioStreamPlayer = _director.live_bed()
 	assert_true(_director.play_stinger(MusicPlaylist.VICTORY))
-	assert_eq(_director._active_player(), bed)
+	assert_eq(_director.live_bed(), bed)
 	assert_true(bed.playing)
-	assert_false((_director._sfx[0].stream as AudioStreamOggVorbis).loop)
+	assert_false((_director.cues.voices()[0].stream as AudioStreamOggVorbis).loop)
 
 
 ## The rotate (issue #1154): a bed plays once, unlooped, and the desk hands the
@@ -2080,9 +2080,9 @@ func test_the_rotate_plays_a_bed_once_and_steps_to_the_next() -> void:
 	assert_true(_director.play_rotation(MusicPlaylist.AGE_OF_DISCOVERY))
 	assert_true(_director.rotating)
 	assert_eq(_director.current_track_id(), MusicPlaylist.AGE_OF_DISCOVERY)
-	var stream := _director._active_player().stream as AudioStreamOggVorbis
+	var stream := _director.live_bed().stream as AudioStreamOggVorbis
 	assert_false(stream.loop, "a rotate bed ends so the next can start")
-	_director._on_bed_finished(_director._active)
+	_director._on_bed_finished()
 	assert_eq(_director.current_track_id(), MusicPlaylist.COURT)
 
 
@@ -2091,7 +2091,7 @@ func test_the_rotate_plays_a_bed_once_and_steps_to_the_next() -> void:
 func test_a_finished_rotate_bed_steps_the_rotate() -> void:
 	_setup_audio_director()
 	_director.play_rotation(MusicPlaylist.COURT)
-	_director._on_bed_finished(_director._active)
+	_director._on_bed_finished()
 	assert_eq(_director.current_track_id(),
 		MusicPlaylist.next_in_rotation(MusicPlaylist.COURT))
 	assert_true(_director.rotating)
@@ -2102,7 +2102,7 @@ func test_a_stale_bed_ending_leaves_the_rotate_alone() -> void:
 	_setup_audio_director()
 	_director.play_rotation(MusicPlaylist.COURT)
 	var before: String = _director.current_track_id()
-	_director._on_bed_finished(1 - _director._active)
+	_director._on_bed_finished(_director.sleeping_bed())
 	assert_eq(_director.current_track_id(), before)
 
 
@@ -2113,8 +2113,8 @@ func test_an_explicit_bed_pauses_the_rotate() -> void:
 	_director.play_rotation(MusicPlaylist.AGE_OF_DISCOVERY)
 	assert_true(_director.play_music(MusicPlaylist.BROADSIDES))
 	assert_false(_director.rotating)
-	assert_true((_director._active_player().stream as AudioStreamOggVorbis).loop)
-	_director._on_bed_finished(_director._active)
+	assert_true((_director.live_bed().stream as AudioStreamOggVorbis).loop)
+	_director._on_bed_finished()
 	assert_false(_director.rotating, "no rotate under an explicit bed")
 	assert_eq(_director.current_track_id(), MusicPlaylist.BROADSIDES)
 
@@ -2133,12 +2133,124 @@ func test_the_rotate_obeys_the_mix() -> void:
 	assert_true(_director.play_rotation(MusicPlaylist.COURT))
 	assert_true(_director._ambience.playing, "the swell joins a rotate bed")
 	_director.set_muted(true)
-	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+	assert_eq(_director.live_bed().volume_db, AudioDirector.SILENT_DB)
 	_director.set_muted(false)
-	assert_almost_eq(_director._active_player().volume_db,
+	assert_almost_eq(_director.live_bed().volume_db,
 		linear_to_db(_director.mix.music), 0.01)
 	_director.set_music_volume(0.3)
-	assert_almost_eq(_director._active_player().volume_db, linear_to_db(0.3), 0.01)
+	assert_almost_eq(_director.live_bed().volume_db, linear_to_db(0.3), 0.01)
+
+
+# --- the desk's books (REQ-P3-01: each one answers on its own) ---------------
+
+## The cue book answers without a desk: it names the request, counts it, hands
+## out a free voice first and keeps its round bounded when every voice is busy.
+func test_the_cue_book_names_counts_and_rounds_its_voices() -> void:
+	var book := AudioVoicePool.new()
+	assert_eq(book.last_event, "")
+	assert_eq(book.played, 0)
+	book.note(AudioEvents.UI_CLICK)
+	assert_eq(book.last_event, AudioEvents.UI_CLICK, "a cue is named as asked")
+	var voices: Array[AudioStreamPlayer] = []
+	for index in 2:
+		var voice := AudioStreamPlayer.new()
+		add_child(voice)
+		voices.append(voice)
+	book.adopt(voices, AudioDirector.SILENT_DB)
+	assert_eq(book.voices().size(), 2)
+	assert_eq(book.voices()[0].volume_db, AudioDirector.SILENT_DB, "a voice starts mute")
+	var stream: AudioStream = load(AudioEvents.path_for(AudioEvents.UI_CLICK)) as AudioStream
+	var first: AudioStreamPlayer = book.take()
+	assert_eq(first, voices[0], "a free voice takes the first cue")
+	first.stream = stream
+	first.play()
+	var second: AudioStreamPlayer = book.take()
+	assert_eq(second, voices[1], "the next free voice follows")
+	second.stream = stream
+	second.play()
+	assert_eq(book.played, 2)
+	# Every voice busy: the round hands them out in turn instead of piling up.
+	assert_eq(book.take(), voices[0], "a spent round comes back to the first voice")
+	assert_false(voices[0].playing, "the spent voice is stopped for the next cue")
+	assert_eq(book.next_voice(), voices[0], "a stopped voice is free again")
+	assert_eq(book.played, 3)
+	book.hush(AudioDirector.SILENT_DB)
+	assert_null(AudioVoicePool.new().take(), "an empty book hands no voice")
+	for voice: AudioStreamPlayer in voices:
+		voice.free()
+
+
+## The bed deck turns the pair and keeps the knobs: one bed live, the other mute
+## until a switch warms it (REQ-P1-06).
+func test_the_bed_deck_turns_its_pair() -> void:
+	var deck := AudioBedDeck.new()
+	assert_null(deck.live(), "no beds, no live bed")
+	assert_null(deck.waiting())
+	var beds: Array[AudioStreamPlayer] = []
+	for index in 2:
+		var bed := AudioStreamPlayer.new()
+		add_child(bed)
+		beds.append(bed)
+	deck.adopt(beds, AudioDirector.SILENT_DB)
+	assert_eq(deck.live(), beds[0])
+	assert_eq(deck.waiting(), beds[1])
+	assert_eq(deck.live_index(), 0)
+	assert_eq(deck.turn(), beds[1], "a switch warms the waiting bed")
+	assert_eq(deck.live_index(), 1)
+	assert_eq(deck.waiting(), beds[0])
+	deck.rest_knobs(linear_to_db(0.4), AudioDirector.SILENT_DB)
+	assert_almost_eq(beds[1].volume_db, linear_to_db(0.4), 0.01, "the live bed keeps the mix")
+	assert_eq(beds[0].volume_db, AudioDirector.SILENT_DB, "the sleeping bed stays mute")
+	for bed: AudioStreamPlayer in beds:
+		bed.free()
+	var lone: Array[AudioStreamPlayer] = [AudioStreamPlayer.new()]
+	var single := AudioBedDeck.new()
+	single.adopt(lone, AudioDirector.SILENT_DB)
+	assert_eq(single.turn(), lone[0], "one bed is its own waiting bed")
+	lone[0].free()
+
+
+## The shelf reads each stream once and answers a missing path with null.
+func test_the_shelf_reads_a_stream_once() -> void:
+	var shelf := AudioStreamShelf.new()
+	assert_null(shelf.stream(""), "an empty path reads nothing")
+	assert_null(shelf.stream("res://assets/audio/sfx/missing_cue.ogg"), "a missing file reads nothing")
+	var first: AudioStream = shelf.stream(MusicPlaylist.AMBIENCE)
+	assert_not_null(first)
+	assert_eq(shelf.stream(MusicPlaylist.AMBIENCE), first, "the shelf keeps the one stream")
+
+
+## The loop rule is the shelf's: an Ogg bed follows the flag, and a null stream
+## is left alone.
+func test_the_shelf_sets_the_loop_on_every_bed() -> void:
+	var ogg := AudioStreamOggVorbis.new()
+	AudioStreamShelf.set_loop(ogg, true)
+	assert_true(ogg.loop)
+	AudioStreamShelf.set_loop(ogg, false)
+	assert_false(ogg.loop)
+	var wav := AudioStreamWAV.new()
+	AudioStreamShelf.set_loop(wav, true)
+	assert_eq(wav.loop_mode, AudioStreamWAV.LOOP_FORWARD)
+	AudioStreamShelf.set_loop(wav, false)
+	assert_eq(wav.loop_mode, AudioStreamWAV.LOOP_DISABLED)
+	AudioStreamShelf.set_loop(null, true)
+
+
+## The rotate book keeps its own place: a start names the tune, a hold forgets
+## it, and a stopped book names nothing.
+func test_the_rotate_book_keeps_its_place() -> void:
+	var book := MusicRotation.new()
+	assert_false(book.running)
+	assert_eq(book.track(), "")
+	book.start(MusicPlaylist.COURT)
+	assert_true(book.running)
+	assert_eq(book.track(), MusicPlaylist.COURT)
+	assert_eq(book.next(), MusicPlaylist.next_in_rotation(MusicPlaylist.COURT))
+	book.start()
+	assert_eq(book.track(), MusicPlaylist.COURT, "an unnamed start keeps the tune")
+	book.hold()
+	assert_false(book.running)
+	assert_eq(book.track(), "")
 
 
 func test_mix_settings_persist_to_disk() -> void:
@@ -2232,13 +2344,13 @@ func test_the_soundtrack_wires_the_director() -> void:
 
 func test_selecting_a_province_plays_a_cue_pair() -> void:
 	_setup_map_soundtrack()
-	var before: int = _audio.sfx_played
+	var before: int = _audio.cues.played
 	var province_id: int = Fixture.inland_province(_screen.model)
 	MapPlayInput.on_tapped(
 		_screen.play, _screen.model.province_center(province_id) * MapScreen.TILE_SIZE
 	)
-	assert_eq(_audio.last_event, AudioEvents.PANEL_OPEN)
-	assert_eq(_audio.sfx_played, before + 2)
+	assert_eq(_audio.cues.last_event, AudioEvents.PANEL_OPEN)
+	assert_eq(_audio.cues.played, before + 2)
 
 
 func test_clearing_the_selection_closes_the_panel_audibly() -> void:
@@ -2249,28 +2361,28 @@ func test_clearing_the_selection_closes_the_panel_audibly() -> void:
 	)
 	MapPlayInput.on_tapped(_screen.play, inland)
 	MapPlayInput.deselect(_screen.play)
-	assert_eq(_audio.last_event, AudioEvents.PANEL_CLOSE)
+	assert_eq(_audio.cues.last_event, AudioEvents.PANEL_CLOSE)
 
 
 func test_deselecting_a_fleet_does_not_sound_another_selection() -> void:
 	_setup_map_soundtrack()
 	_screen.ship_layer.select(_screen.ship_layer.ships[0])
-	assert_eq(_audio.last_event, AudioEvents.FLEET_SELECT)
+	assert_eq(_audio.cues.last_event, AudioEvents.FLEET_SELECT)
 	MapPlayInput.deselect(_screen.play)
-	assert_eq(_audio.last_event, AudioEvents.PANEL_CLOSE)
+	assert_eq(_audio.cues.last_event, AudioEvents.PANEL_CLOSE)
 
 
 func test_civilian_selection_and_moves_sound() -> void:
 	_setup_map_soundtrack()
 	var unit: CivilianState = _screen.civilian_layer.units[0]
 	_screen.civilian_layer.select(unit)
-	assert_eq(_audio.last_event, AudioEvents.CIVILIAN_SELECT)
-	var before: int = _audio.sfx_played
+	assert_eq(_audio.cues.last_event, AudioEvents.CIVILIAN_SELECT)
+	var before: int = _audio.cues.played
 	_screen.civilian_layer.unit_moved.emit(unit, {"ok": true})
-	assert_eq(_audio.last_event, AudioEvents.CIVILIAN_MOVE)
+	assert_eq(_audio.cues.last_event, AudioEvents.CIVILIAN_MOVE)
 	_screen.civilian_layer.unit_moved.emit(unit, {"ok": false, "reason": "blocked"})
-	assert_eq(_audio.last_event, AudioEvents.ORDER_DENIED)
-	assert_eq(_audio.sfx_played, before + 2)
+	assert_eq(_audio.cues.last_event, AudioEvents.ORDER_DENIED)
+	assert_eq(_audio.cues.played, before + 2)
 
 
 func test_ending_a_turn_rings_the_bell_and_coins() -> void:
@@ -2279,18 +2391,18 @@ func test_ending_a_turn_rings_the_bell_and_coins() -> void:
 	# (`test_a_map_screen`); a rival pass here would only re-prove it under
 	# coverage (docs/testing.md § Speed rules).
 	_setup_map_soundtrack()
-	var before: int = _audio.sfx_played
+	var before: int = _audio.cues.played
 	var closed: int = _screen.play.turn
 	_screen.turn_ended.emit(closed + 1)
-	assert_eq(_audio.last_event, AudioEvents.COIN)
-	assert_gte(_audio.sfx_played, before + 2)
+	assert_eq(_audio.cues.last_event, AudioEvents.COIN)
+	assert_gte(_audio.cues.played, before + 2)
 
 
 func test_selecting_a_fleet_sounds_the_ship_bell() -> void:
 	_setup_map_soundtrack()
 	var ship: Ship = _screen.ship_layer.ships[0]
 	_screen.ship_layer.select(ship)
-	assert_eq(_audio.last_event, AudioEvents.FLEET_SELECT)
+	assert_eq(_audio.cues.last_event, AudioEvents.FLEET_SELECT)
 
 
 func test_a_battle_brings_the_battle_bed_and_a_salute() -> void:
@@ -2307,10 +2419,10 @@ func test_a_battle_brings_the_battle_bed_and_a_salute() -> void:
 		"attacker_lost": [],
 		"defender_lost": ["hull_a"],
 	}
-	var before: int = _audio.sfx_played
+	var before: int = _audio.cues.played
 	_score._on_battle_resolved([battle] as Array[Dictionary])
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
-	assert_gte(_audio.sfx_played, before + 2)
+	assert_gte(_audio.cues.played, before + 2)
 
 
 func test_a_battle_bed_survives_the_turn_end() -> void:
@@ -2352,12 +2464,12 @@ func test_a_siege_plays_its_battery_and_the_breach() -> void:
 		"attacker_lost": [],
 		"defender_lost": [],
 	}
-	var before: int = _audio.sfx_played
+	var before: int = _audio.cues.played
 
 	_score._on_battle_resolved([battle] as Array[Dictionary])
 
-	assert_eq(_audio.last_event, AudioEvents.WALL_BREACH, "the breach lands last")
-	assert_gte(_audio.sfx_played, before + 2, "battery and breach both sound")
+	assert_eq(_audio.cues.last_event, AudioEvents.WALL_BREACH, "the breach lands last")
+	assert_gte(_audio.cues.played, before + 2, "battery and breach both sound")
 
 
 func test_a_lost_battle_plays_the_knell() -> void:
@@ -2385,7 +2497,7 @@ func test_the_era_bed_follows_the_calendar() -> void:
 ## calendar era calls the calendar's bed back.
 func test_a_turn_close_keeps_the_rotate_where_it_is() -> void:
 	_setup_map_soundtrack()
-	_audio._on_bed_finished(_audio._active)
+	_audio._on_bed_finished()
 	var playing: String = _audio.current_track_id()
 	assert_eq(playing, MusicPlaylist.COURT)
 	_score._sync_bed()
@@ -2395,7 +2507,7 @@ func test_a_turn_close_keeps_the_rotate_where_it_is() -> void:
 
 func test_a_new_era_re_anchors_the_rotate() -> void:
 	_setup_map_soundtrack()
-	_audio._on_bed_finished(_audio._active)
+	_audio._on_bed_finished()
 	_screen.turn = 101
 	_score._sync_bed()
 	assert_eq(_audio.current_track_id(), MusicPlaylist.GILDED_MINUET)
@@ -2407,7 +2519,7 @@ func test_a_new_era_re_anchors_the_rotate() -> void:
 func test_the_rotate_steps_under_the_map() -> void:
 	_setup_map_soundtrack()
 	var first: String = _audio.current_track_id()
-	_audio._on_bed_finished(_audio._active)
+	_audio._on_bed_finished()
 	assert_ne(_audio.current_track_id(), first)
 	assert_eq(_audio.current_track_id(), MusicPlaylist.next_in_rotation(first))
 
@@ -2572,7 +2684,7 @@ func test_a_campaign_takes_the_launch_director_over() -> void:
 		app.audio.current_track_id(), MusicPlaylist.menu_bed_id(),
 		"the launch bed keeps playing into the first turn"
 	)
-	assert_true(app.audio._active_player().playing, "the bed never stopped")
+	assert_true(app.audio.live_bed().playing, "the bed never stopped")
 	await get_tree().process_frame
 	assert_null(screen.get_node_or_null("Audio"), "the scene's own director retires")
 
@@ -2593,7 +2705,7 @@ func test_the_title_bed_rotates_on() -> void:
 	_reseat_shell(app)
 	assert_true(app.audio.rotating, "the launch starts the rotate")
 	assert_eq(app.audio.current_track_id(), MusicPlaylist.menu_bed_id())
-	app.audio._on_bed_finished(app.audio._active)
+	app.audio._on_bed_finished()
 	assert_eq(
 		app.audio.current_track_id(),
 		MusicPlaylist.next_in_rotation(MusicPlaylist.menu_bed_id())
