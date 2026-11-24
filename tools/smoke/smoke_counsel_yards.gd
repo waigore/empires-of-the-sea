@@ -47,7 +47,7 @@ static func _yards(run, screen: MapScreen) -> void:
 	if slip != null:
 		_slip(run, play, slip)
 	# The capital rail's craft rows (DR-20261121-06).
-	var seat: int = int(MapPlayCourtHoldings.crown_seat(play).get("province", -1))
+	var seat: int = int(MapPlayCourt.crown_seat(play).get("province", -1))
 	run.check(seat >= 0, "the crown keeps a seat to hire at")
 	if seat >= 0:
 		await _rail(run, screen, play, seat)

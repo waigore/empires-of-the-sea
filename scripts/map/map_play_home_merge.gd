@@ -104,7 +104,7 @@ static func settle_seats(play: PlaySession) -> int:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
+		var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 		var changed: bool = false
 		for faction: int in FactionCatalog.great_power_ids():
 			var reports: Array[Dictionary] = FleetHomeMerge.settle(model, roster, faction)

@@ -61,7 +61,7 @@ static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
 		return {}
 	var plan: Dictionary = AiBindCampaign.invasion_plan(
 		kind, config, play.diplomacy, play.world, region, model,
-		MapPlayCourtRoster.region_fleets(play, region), MapPlayCourtRoster.visible_armies(play, region),
+		MapPlayCourt.region_fleets(play, region), MapPlayCourt.visible_armies(play, region),
 		play.turn, play.court_charts, MapPlaySeaStep.earning(play, fleet.owner, kind, config)
 	)
 	if plan.is_empty() or int(plan.get("fleet", -1)) != fleet.id:
@@ -134,7 +134,7 @@ static func _zone(model: MapModel, order: Dictionary, pattern: String) -> String
 ## True when this is the squadron the published pass would plan: no other crown
 ## squadron of a lower id in the same roster carries a host.
 static func _steered(play: PlaySession, fleet: FleetState, region: int) -> bool:
-	for raw: Variant in MapPlayCourtRoster.region_fleets(play, region):
+	for raw: Variant in MapPlayCourt.region_fleets(play, region):
 		var other: FleetState = raw
 		if other == null or other.owner != fleet.owner or other.embarked_army < 0:
 			continue

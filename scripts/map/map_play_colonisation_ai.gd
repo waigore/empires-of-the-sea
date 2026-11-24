@@ -21,13 +21,13 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var fleets: Array = MapPlayCourtRoster.region_fleets(play, region)
+		var fleets: Array = MapPlayCourt.region_fleets(play, region)
 		var civilians: Array = []
 		civilians.assign(play.civilian_layer.regions.value(region, []))
 		# The full-AI observer has no human court: the former player slot runs
 		# every planner like any rival (wiki: game-setup § Human/AI slot
 		# assignment; docs/ai-observer.md).
-		for faction: int in MapPlayCourtHoldings.planning_factions(play):
+		for faction: int in MapPlayCourt.planning_factions(play):
 			var court: Dictionary = AiControl.court(play, faction)
 			if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 				continue
@@ -52,7 +52,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var crossing: FleetState = null
 			var leaving: Array[int] = []
 			if String(order.get("kind", "")) == "cross":
-				crossing = MapPlayCourtRoster.fleet_in(play, region, int(order.get("fleet", -1)))
+				crossing = MapPlayCourt.fleet_in(play, region, int(order.get("fleet", -1)))
 				if crossing != null:
 					for unit_id: int in crossing.embarked_civilians:
 						leaving.append(unit_id)
@@ -65,7 +65,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# ships-and-naval § Home Fleet — "any naval move that docks at the
 			# capital resolves by merging").
 			if String(order.get("kind", "")) == "dock":
-				var moored: FleetState = MapPlayCourtRoster.fleet_in(
+				var moored: FleetState = MapPlayCourt.fleet_in(
 					play, region, int(order.get("fleet", -1))
 				)
 				if moored != null:
@@ -89,7 +89,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		MapPlaySeaStep.merge_stored(stored_civilians, civilians)
 		play.civilian_layer.regions.set_region(region, civilians)
 	if visible_touched:
-		MapPlayCourtRoster.refresh_hulls(play)
+		MapPlayCourt.refresh_hulls(play)
 	return trace
 
 
@@ -112,7 +112,7 @@ static func _apply(
 	play: PlaySession, region: int, model: MapModel, order: Dictionary
 ) -> Dictionary:
 	var kind: String = String(order.get("kind", ""))
-	var fleet: FleetState = MapPlayCourtRoster.fleet_in(
+	var fleet: FleetState = MapPlayCourt.fleet_in(
 		play, region, int(order.get("fleet", -1))
 	)
 	if fleet == null:

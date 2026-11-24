@@ -26,7 +26,7 @@ static func run(play: PlaySession) -> Dictionary:
 	# Every rival ledger exists before any court resolves, so a spy observing a
 	# court later in the order still reads its known techs this turn.
 	MapPlaySpyAi.prepare_ledgers(play)
-	for faction: int in MapPlayCourtHoldings.planning_factions(play):
+	for faction: int in MapPlayCourt.planning_factions(play):
 		var row: Dictionary = _court_row(play, faction, market)
 		order_log.append_array((row.get("civilians", {}) as Dictionary).get("orders", []))
 		by_faction[faction] = row

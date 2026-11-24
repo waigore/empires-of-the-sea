@@ -26,7 +26,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		var model: MapModel = play.world.region(region)
 		if model == null:
 			continue
-		var roster: Array[ArmyState] = MapPlayCourtRoster.region_armies(play, region)
+		var roster: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
 		if roster.is_empty():
 			continue
 		if not _run_region(play, model, roster, trace):
@@ -50,7 +50,7 @@ static func _run_region(
 	play: PlaySession, model: MapModel, roster: Array[ArmyState], trace: Array[Dictionary]
 ) -> bool:
 	var changed: bool = false
-	for faction: int in MapPlayCourtHoldings.planning_factions(play):
+	for faction: int in MapPlayCourt.planning_factions(play):
 		var court: Dictionary = AiControl.court(play, faction)
 		if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 			continue
@@ -111,7 +111,7 @@ static func _apply_split(
 	action: Dictionary,
 	trace: Array[Dictionary]
 ) -> bool:
-	var home: ArmyState = MapPlayCourtRoster.army_by_id(
+	var home: ArmyState = MapPlayCourt.army_by_id(
 		roster, int(action["army_id"]), faction
 	)
 	if home == null:
@@ -126,7 +126,7 @@ static func _apply_split(
 	var field: ArmyState = split["army"] as ArmyState
 	play.army_layer.next_army += 1
 	trace.append(
-		MapPlayCourtRoster.army_trace(
+		MapPlayCourt.army_trace(
 			model, faction, AiMilitaryPlanner.KIND_SPLIT, field.id, field.province
 		)
 	)
@@ -145,7 +145,7 @@ static func _apply_marches(
 ) -> bool:
 	var changed: bool = false
 	for order: Dictionary in plan["orders"]:
-		var army: ArmyState = MapPlayCourtRoster.army_by_id(
+		var army: ArmyState = MapPlayCourt.army_by_id(
 			roster, int(order["army_id"]), faction
 		)
 		if army == null:
@@ -167,7 +167,7 @@ static func _apply_marches(
 		# is what makes a war pay, and the diplomacy pass reads it.
 		if attacked and play.ai != null and owner != MapModel.NO_ID and owner != faction:
 			AiWarMemory.note_attack(play.ai, faction, owner, play.turn)
-		var line: Dictionary = MapPlayCourtRoster.army_trace(
+		var line: Dictionary = MapPlayCourt.army_trace(
 			model, faction, kind, army.id, province
 		)
 		line["attacked"] = attacked
@@ -208,7 +208,7 @@ static func _apply_rotation_combine(
 	for order: Dictionary in plan["orders"]:
 		if String(order.get("kind", "")) != AiMilitaryPlanner.KIND_ROTATE:
 			continue
-		var army: ArmyState = MapPlayCourtRoster.army_by_id(
+		var army: ArmyState = MapPlayCourt.army_by_id(
 			roster, int(order["army_id"]), faction
 		)
 		if army == null or army == home or army.province != home.province:
@@ -218,7 +218,7 @@ static func _apply_rotation_combine(
 			continue
 		changed = true
 		trace.append(
-			MapPlayCourtRoster.army_trace(
+			MapPlayCourt.army_trace(
 				model, faction, KIND_COMBINE, home.id, home.province
 			)
 		)

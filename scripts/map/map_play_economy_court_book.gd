@@ -30,9 +30,9 @@ static func door(
 ) -> Dictionary:
 	if play == null or economy == null:
 		return {}
-	if AiNavy.due(at_war, warships, MapPlayCourtHoldings.hostile_warships(play, faction)):
+	if AiNavy.due(at_war, warships, MapPlayCourt.hostile_warships(play, faction)):
 		var hull: String = AiNavy.unlock_tech(
-			economy, MapPlayCourtHoldings.hull_types(play, faction)
+			economy, MapPlayCourt.hull_types(play, faction)
 		)
 		if not hull.is_empty():
 			return {"tech": hull, "why": DOOR_HULL}

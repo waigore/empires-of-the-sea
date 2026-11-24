@@ -31,7 +31,7 @@ static func run(
 		return report
 	var kind: String = String(court["kind"])
 	var config: Variant = court["config"]
-	var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var want: int = (
 		int(overseas.get("used", 0)) + int(overseas.get("left_total", 0))
 		+ maxi(int(config.parameter("cargo.trade_holds")), 0)
@@ -45,7 +45,7 @@ static func run(
 	report["candidates"] = plan["candidates"]
 	for raw: Variant in plan["routes"]:
 		var route: Dictionary = raw
-		var fleet: FleetState = MapPlayCourtRoster.fleet_by_id(
+		var fleet: FleetState = MapPlayCourt.fleet_by_id(
 			roster, int(route.get("fleet_id", -1)), faction
 		)
 		if fleet == null:
@@ -90,7 +90,7 @@ static func run(
 	if not scrapped.is_empty():
 		report["scrap"] = scrapped
 	play.ship_layer.regions.set_region(region, roster)
-	MapPlayCourtRoster.refresh_hulls(play)
+	MapPlayCourt.refresh_hulls(play)
 	return report
 
 
@@ -117,7 +117,7 @@ static func _scrap_idle(
 	var idle: Dictionary = AiNavy.idle_hull(config, economy, roster, seat, slack)
 	if idle.is_empty():
 		return {}
-	var fleet: FleetState = MapPlayCourtRoster.fleet_by_id(
+	var fleet: FleetState = MapPlayCourt.fleet_by_id(
 		roster, int(idle["fleet_id"]), faction
 	)
 	if fleet == null:
@@ -149,14 +149,14 @@ static func _build_warship(
 	var claim: Dictionary = play.ai.objectives_for(faction)
 	if not (claim.get("funded_ids", []) as Array).has("navy.build"):
 		return {}
-	var flown: Array[String] = MapPlayCourtHoldings.hull_types(play, faction)
+	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
 	# One gate for the yard, the ledger and this pass: the hull the yard would
 	# lay down today, or the reason it will not (issue #1126).
 	var yard: Dictionary = AiNavy.laying(economy, flown)
 	var type_id: String = String(yard.get("type_id", ""))
 	if type_id.is_empty():
 		return {"refused": String(yard.get("reason", "")), "type_id": ""}
-	var chest: int = MapPlayCourtHoldings.navy_chest(play, faction)
+	var chest: int = MapPlayCourt.navy_chest(play, faction)
 	var laid: Dictionary = _launch(
 		play, roster, faction, economy, seat, {"type_id": type_id}, flown
 	)

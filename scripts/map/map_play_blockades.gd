@@ -20,7 +20,7 @@ static func of(play: PlaySession, faction: int) -> Blockades:
 	# The crown's seat is the capital it holds, read off the world: the chart on
 	# screen frames its own holding, which is no seat (wiki:
 	# capital-and-connectivity § Capital; world-model-identity).
-	var seat: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if faction != play.player_faction:
 		seat = int(WorldBootstrap.capital_seat(model, faction)["province"])
 	return Blockades.read(

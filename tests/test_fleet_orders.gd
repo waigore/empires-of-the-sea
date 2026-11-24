@@ -1356,7 +1356,7 @@ func _printed_lines(entry: Control) -> Array[String]:
 func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 	var play: PlaySession = _screen.play
 	_lose_the_capital(play)
-	assert_eq(int(MapPlayCourtHoldings.crown_seat(play)["province"]), -1, "the seat is gone")
+	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), -1, "the seat is gone")
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
@@ -2544,7 +2544,7 @@ func _unowned_province() -> int:
 ## province and the flag goes with the court (wiki: capital-and-connectivity
 ## § Capital loss and reassignment).
 func _lose_the_capital(play: PlaySession) -> void:
-	var province: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if province < 0:
 		return
 	var seat: ProvinceState = play.model.province_data(province)
@@ -2556,7 +2556,7 @@ func _lose_the_capital(play: PlaySession) -> void:
 ## (wiki: capital-and-connectivity § Capital loss and reassignment).
 func _move_the_seat(play: PlaySession, province: int) -> void:
 	var model: MapModel = play.model
-	var current: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var current: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if current >= 0:
 		CapitalLoss.clear_seat(model.province_data(current))
 	var seat: ProvinceState = model.province_data(province)
@@ -2811,7 +2811,7 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 			seat = found
 			break
 	assert_gte(seat, 0, "the rival seats a capital on the chart")
-	var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(_screen.play, region)
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(_screen.play, region)
 	var home: FleetState = _rival_home(roster, rival, seat)
 	var stray := FleetState.in_port(
 		FleetRosters.next_id(roster), rival, seat, ["ship_91"], {"ship_91": "fluyte"}
@@ -2823,7 +2823,7 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 	var joined: int = MapPlayHomeMerge.settle_seats(_screen.play)
 
 	assert_gte(joined, 1, "the docked squadron joins the home fleet")
-	var after: Array[FleetState] = MapPlayCourtRoster.region_fleets(_screen.play, region)
+	var after: Array[FleetState] = MapPlayCourt.region_fleets(_screen.play, region)
 	assert_eq(_squadrons_at(after, rival, seat), 1)
 	assert_true(_hulls_at(after, rival, seat).has("ship_91"),
 		"the hull keeps its instance id through the merge")
@@ -2848,7 +2848,7 @@ func test_a_seat_merge_leaves_the_chart_in_step() -> void:
 			seat = found
 			break
 	assert_gte(rival, 0, "a rival seats a capital on the shown chart")
-	var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var home: FleetState = _rival_home(roster, rival, seat)
 	var kept: int = home.ship_count()
 	var stray := FleetState.in_port(
@@ -3039,7 +3039,7 @@ func test_settle_seats_lands_a_displaced_army() -> void:
 			seat = found
 			break
 	assert_gte(seat, 0, "the rival seats a capital on the chart")
-	var roster: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var home: FleetState = _rival_home(roster, rival, seat)
 	var stray := FleetState.in_port(
 		FleetRosters.next_id(roster), rival, seat, ["ship_93"], {"ship_93": "fluyte"}

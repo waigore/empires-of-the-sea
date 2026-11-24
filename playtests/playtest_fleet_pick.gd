@@ -238,7 +238,7 @@ func _planner_order(player: int) -> Dictionary:
 	var config: Variant = AiBind.config(kind, player, _play.map_seed)
 	var plan: Dictionary = AiBindCampaign.naval_orders(
 		kind, config, _play.diplomacy, _play.model,
-		MapPlayCourtRoster.region_fleets(_play, _play.model.region_id), _play.court_charts
+		MapPlayCourt.region_fleets(_play, _play.model.region_id), _play.court_charts
 	)
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw

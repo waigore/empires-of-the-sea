@@ -23,7 +23,7 @@ static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 ## already in the crown's own water may be replaced without her study
 ## (issue #484; REQ-P2-03).
 static func flown(play: PlaySession) -> Array[String]:
-	return MapPlayCourtHoldings.hull_types(play, play.player_faction)
+	return MapPlayCourt.hull_types(play, play.player_faction)
 
 
 ## Opens the capital yard from the province dossier; with no home fleet afloat the
@@ -31,7 +31,7 @@ static func flown(play: PlaySession) -> Array[String]:
 static func open(play: PlaySession) -> void:
 	if not _at_slip(play):
 		return
-	var province: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if province < 0 or play.model.province_owner(province) != play.player_faction:
 		play.hud.toast("Your capital must be in hand to open the yard.")
 		return
@@ -75,7 +75,7 @@ static func launch(play: PlaySession, type_id: String) -> void:
 		return
 	if not _at_slip(play):
 		return
-	var province: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if province < 0 or play.model.province_owner(province) != play.player_faction:
 		play.hud.toast("Your capital must be in hand to launch hulls.")
 		return
@@ -113,7 +113,7 @@ static func launch_all(play: PlaySession) -> void:
 		return
 	if not _at_slip(play):
 		return
-	var province: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if province < 0 or play.model.province_owner(province) != play.player_faction:
 		play.hud.toast("Your capital must be in hand to launch hulls.")
 		return
@@ -205,7 +205,7 @@ static func on_action(play: PlaySession, action: String) -> bool:
 static func _is_home(play: PlaySession, fleet: FleetState) -> bool:
 	if fleet == null or fleet.owner != play.player_faction or not fleet.is_in_port():
 		return false
-	var seat: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
 	return fleet.province >= 0 and fleet.province == seat
 
 
@@ -214,7 +214,7 @@ static func _is_home(play: PlaySession, fleet: FleetState) -> bool:
 ## number — lays no keel. False answers the press with where the yard really
 ## stands (wiki: world-model-identity; capital-and-connectivity § Capital).
 static func _at_slip(play: PlaySession) -> bool:
-	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
 	var region: int = int(seat["region"])
 	var province: int = int(seat["province"])
 	if region == MapModel.NO_ID or province == MapModel.NO_ID:

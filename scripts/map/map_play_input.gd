@@ -102,7 +102,7 @@ static func select_province(play: PlaySession, province_id: int, world_position:
 	# The seat's chart, not the chart's framing field: a colony wearing the
 	# seat's own number on another chart hires nobody (wiki:
 	# capital-and-connectivity § Capital; world-model-identity).
-	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
 	var at_capital: bool = (
 		int(seat["region"]) == play.region_index and province_id == int(seat["province"])
 	)

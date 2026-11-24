@@ -144,10 +144,10 @@ func rehearse() -> void:
 	# turn — their rivals played no market, no production and no recruits
 	# (issue #910).
 	phase = AiBind.phase_for(kind, config, play.diplomacy)
-	regiments = MapPlayCourtHoldings.regiments(play, faction)
-	ships = MapPlayCourtHoldings.ships(play, faction)
-	warships = MapPlayCourtHoldings.warships(play, faction)
-	hull_chest = MapPlayCourtHoldings.navy_chest(play, faction)
+	regiments = MapPlayCourt.regiments(play, faction)
+	ships = MapPlayCourt.ships(play, faction)
+	warships = MapPlayCourt.warships(play, faction)
+	hull_chest = MapPlayCourt.navy_chest(play, faction)
 	army_food = MapPlayEconomyLarder.army_food(play, faction)
 	leader = MapPlayEconomyCourtBook.leader(play, faction)
 	# The goal the court plans with this turn: money first (DR-20261113-19).

@@ -68,10 +68,10 @@ static func can_open_court(state: DiplomacyState, player: int, court: int) -> bo
 
 
 ## The published power score for every crown, from the public order of battle
-## `MapPlayCourtHoldings` reads once. The panel compares each court against the
-## reader with it; no screen reads an army or a hull itself.
+## `MapPlayCourt` reads once. The panel compares each court against the reader
+## with it; no screen reads an army or a hull itself.
 static func public_power(play: PlaySession) -> Dictionary:
-	var orders: Dictionary = MapPlayCourtHoldings.public_orders(play)
+	var orders: Dictionary = MapPlayCourt.public_orders(play)
 	return DiplomacyPower.public_power(
 		play.world,
 		orders.get("strength", {}) as Dictionary,

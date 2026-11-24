@@ -58,13 +58,13 @@ static func readings(
 static func _host(play: PlaySession, faction: int, economy: PlayerEconomy) -> Dictionary:
 	return {
 		"at_war": AiIncome.at_war(play.diplomacy, faction),
-		"regiments": MapPlayCourtHoldings.regiments(play, faction),
-		"ships": MapPlayCourtHoldings.ships(play, faction),
-		"warships": MapPlayCourtHoldings.warships(play, faction),
-		"hostile_ships": MapPlayCourtHoldings.hostile_ships(play, faction),
-		"hostile_warships": MapPlayCourtHoldings.hostile_warships(play, faction),
-		"flown": MapPlayCourtHoldings.hull_types(play, faction),
-		"hull_chest": MapPlayCourtHoldings.navy_chest(play, faction),
+		"regiments": MapPlayCourt.regiments(play, faction),
+		"ships": MapPlayCourt.ships(play, faction),
+		"warships": MapPlayCourt.warships(play, faction),
+		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
+		"hostile_warships": MapPlayCourt.hostile_warships(play, faction),
+		"flown": MapPlayCourt.hull_types(play, faction),
+		"hull_chest": MapPlayCourt.navy_chest(play, faction),
 		"records": AiDeferral.records_for(play.ai.deferrals, faction),
 		"treasury": economy.treasury,
 	}

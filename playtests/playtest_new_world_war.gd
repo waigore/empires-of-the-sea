@@ -378,7 +378,7 @@ func _survey() -> void:
 		named.append("%s %d" % [FactionCatalog.name_of(tribe), int(tribes[tribe])])
 	_say("Tribes on this chart: %s" % (", ".join(named) if not named.is_empty() else "none"))
 	var armies: int = 0
-	for raw: Variant in MapPlayCourtRoster.region_armies(_play, FactionCatalog.NEW_WORLD):
+	for raw: Variant in MapPlayCourt.region_armies(_play, FactionCatalog.NEW_WORLD):
 		var army: ArmyState = raw
 		if army != null and army.owner == _play.player_faction:
 			armies += 1

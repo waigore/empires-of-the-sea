@@ -67,7 +67,7 @@ static func resolve_work(play: PlaySession) -> void:
 ## Rival expeditions board and sail before the field armies march, so an army
 ## chosen for the crossing is not also ordered inland (docs/ai.md). The crown's
 ## own seat has run its version of these passes already, so every pass here
-## plans the rival courts only (MapPlayCourtHoldings.planning_factions).
+## plans the rival courts only (MapPlayCourt.planning_factions).
 static func _march(play: PlaySession, book: TurnBook) -> void:
 	book.invasion = MapPlayInvasionAi.run(play)
 	book.army = MapPlayArmies.run_ai(play)

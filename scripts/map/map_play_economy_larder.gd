@@ -132,7 +132,7 @@ static func muster_hands(court: MapPlayEconomyCourt) -> int:
 	if court.kind == AiControl.KIND_BASELINE:
 		return 0
 	var navy_hand: int = AiNavy.hands(
-		court.economy, MapPlayCourtHoldings.hull_types(court.play, court.faction),
+		court.economy, MapPlayCourt.hull_types(court.play, court.faction),
 		court.hull_chest
 	)
 	return (
@@ -165,8 +165,8 @@ static func chest_rows(
 	)
 	var navy: Dictionary = (
 		AiNavy.due_row(
-			at_war, warships, MapPlayCourtHoldings.hostile_warships(play, faction),
-			economy, MapPlayCourtHoldings.hull_types(play, faction)
+			at_war, warships, MapPlayCourt.hostile_warships(play, faction),
+			economy, MapPlayCourt.hull_types(play, faction)
 		)
 		if hull_chest > 0 else {}
 	)
@@ -207,7 +207,7 @@ static func food_demand(
 		economy.stockpile,
 		{
 			"army": army_food(play, faction),
-			"ships": MapPlayCourtHoldings.ships(play, faction),
+			"ships": MapPlayCourt.ships(play, faction),
 			"wards": HospitalRules.demand_list(play.world, faction),
 		}
 	)

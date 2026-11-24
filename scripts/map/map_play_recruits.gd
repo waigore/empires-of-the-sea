@@ -97,7 +97,7 @@ static func _civilian(play: PlaySession, type_id: String) -> Dictionary:
 ## is never refused because the crown was looking at a colony when the turn
 ## closed (wiki: capital-and-connectivity § Capital).
 static func _regiment(play: PlaySession, type_id: String) -> Dictionary:
-	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
 	if int(seat["province"]) == MapModel.NO_ID:
 		return _refuse(play, RegimentCatalog.display_name(type_id), "your capital is not in hand")
 	var roster: Array = play.army_layer.regions.value(int(seat["region"]), [])
@@ -121,7 +121,7 @@ static func _regiment(play: PlaySession, type_id: String) -> Dictionary:
 ## the capital launches even when the crown closed the turn looking at a colony
 ## (wiki: capital-and-connectivity § Capital).
 static func _ship(play: PlaySession, type_id: String) -> Dictionary:
-	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
 	var province: int = int(seat["province"])
 	var model: MapModel = seat["model"]
 	if province < 0 or model == null or model.province_owner(province) != play.player_faction:

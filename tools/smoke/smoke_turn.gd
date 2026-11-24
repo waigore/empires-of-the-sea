@@ -67,7 +67,7 @@ static func _mustered(run, screen: MapScreen) -> void:
 		"Build/work musters the queued regiment"
 	)
 	run.check(
-		screen.hud.stats.army_label.text
+		screen.hud._army_label.text
 		== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
 		"troop chip counts the new regiment"
 	)

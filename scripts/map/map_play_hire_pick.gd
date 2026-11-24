@@ -108,8 +108,8 @@ static func banks(
 	)
 	var income: Dictionary = AiBindEconomy.income_plan(
 		kind, config, economy, MapPlayCourt.at_war(play, faction),
-		MapPlayCourtHoldings.regiments(play, faction), MapPlayCourtHoldings.navy_chest(play, faction),
-		MapPlayCourtHoldings.warships(play, faction),
+		MapPlayCourt.regiments(play, faction), MapPlayCourt.navy_chest(play, faction),
+		MapPlayCourt.warships(play, faction),
 		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line"),
 		int(pressure.get("need", 0)) > 0
 	)

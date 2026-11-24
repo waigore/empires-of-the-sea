@@ -26,12 +26,12 @@ static func desire(
 		"power": powers,
 		"victory_press": int(pressure.get("war_press", 0)),
 		"regiments": {
-			faction: MapPlayCourtHoldings.regiments(play, faction),
-			target: MapPlayCourtHoldings.regiments(play, target),
+			faction: MapPlayCourt.regiments(play, faction),
+			target: MapPlayCourt.regiments(play, target),
 		},
 		"ships": {
-			faction: MapPlayCourtHoldings.ships(play, faction),
-			target: MapPlayCourtHoldings.ships(play, target),
+			faction: MapPlayCourt.ships(play, faction),
+			target: MapPlayCourt.ships(play, target),
 		},
 	}
 	return int(
@@ -69,6 +69,6 @@ static func _weakest_rival(play: PlaySession, faction: int) -> int:
 
 static func _power(play: PlaySession, faction: int) -> int:
 	return AiPower.score(
-		play.world, faction, MapPlayCourtHoldings.regiments(play, faction),
-		MapPlayCourtHoldings.ships(play, faction)
+		play.world, faction, MapPlayCourt.regiments(play, faction),
+		MapPlayCourt.ships(play, faction)
 	)

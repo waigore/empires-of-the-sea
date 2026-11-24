@@ -74,8 +74,8 @@ static func plan(
 ) -> Dictionary:
 	if play == null or economy == null or play.army_layer == null:
 		return {}
-	var own_warships: int = MapPlayCourtHoldings.warships(play, faction)
-	var chest: int = MapPlayCourtHoldings.navy_chest(play, faction)
+	var own_warships: int = MapPlayCourt.warships(play, faction)
+	var chest: int = MapPlayCourt.navy_chest(play, faction)
 	var held: Dictionary = {}
 	if chest > 0 and (
 		economy.treasury >= chest or own_warships == 0
@@ -83,8 +83,8 @@ static func plan(
 		held = AiNavy.due_row(
 			MapPlayCourt.at_war(play, faction),
 			own_warships,
-			MapPlayCourtHoldings.hostile_warships(play, faction),
-			economy, MapPlayCourtHoldings.hull_types(play, faction)
+			MapPlayCourt.hostile_warships(play, faction),
+			economy, MapPlayCourt.hull_types(play, faction)
 		)
 	var own: int = play.army_layer.regiment_count_all(faction)
 	var slack: int = MapPlayEconomyLarder.noted_slack(play, faction)
@@ -97,7 +97,7 @@ static func plan(
 		extra_regiments(play, faction, config),
 		AiBindEconomy.fed_slack(
 			kind, economy, play.army_layer.food_upkeep_all(faction),
-			MapPlayCourtHoldings.ships(play, faction)
+			MapPlayCourt.ships(play, faction)
 		),
 		chest,
 		held,
@@ -297,7 +297,7 @@ static func _reinforce(
 	if not bool(ArmyTraining.recruit(economy, home, type_id, unit_id).get("ok", false)):
 		return false
 	play.army_layer.next_regiment += 1
-	var line: Dictionary = MapPlayCourtRoster.army_trace(
+	var line: Dictionary = MapPlayCourt.army_trace(
 		model, faction, KIND_REINFORCE, home.id, home.province
 	)
 	line["type"] = type_id
@@ -324,7 +324,7 @@ static func _recall(
 	var from: int = home.province
 	home.province = capital
 	home.moved = false
-	var line: Dictionary = MapPlayCourtRoster.army_trace(
+	var line: Dictionary = MapPlayCourt.army_trace(
 		model, faction, KIND_RECALL, home.id, capital
 	)
 	line["from"] = from
@@ -359,7 +359,7 @@ static func _pitch_train(
 		economy.take(commodity, int(cost[commodity]))
 	HospitalTrain.apply(army)
 	trace.append(
-		MapPlayCourtRoster.army_trace(model, faction, KIND_HOSPITAL, army.id, army.province)
+		MapPlayCourt.army_trace(model, faction, KIND_HOSPITAL, army.id, army.province)
 	)
 	return true
 

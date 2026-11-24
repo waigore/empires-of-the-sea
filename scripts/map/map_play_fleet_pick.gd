@@ -39,7 +39,7 @@ static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
 	if config == null:
 		return {}
 	var plan: Dictionary = AiBindCampaign.naval_orders(
-		kind, config, play.diplomacy, model, MapPlayCourtRoster.region_fleets(play, region),
+		kind, config, play.diplomacy, model, MapPlayCourt.region_fleets(play, region),
 		play.court_charts
 	)
 	for raw: Variant in plan.get("orders", []):

@@ -2858,14 +2858,14 @@ func test_training_is_refused_outside_the_capital() -> void:
 ## framing flip is `region_index` alone — no `_cycle_region` under coverage.
 func test_the_seat_reads_the_same_from_either_chart() -> void:
 	var play: PlaySession = _screen.play
-	var seat: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
 	assert_gt(seat, -1, "the crown holds a seat")
 	play.region_index = FactionCatalog.NEW_WORLD
 	assert_ne(play.region_index, FactionCatalog.OLD_WORLD, "the other chart is framed")
-	assert_eq(int(MapPlayCourtHoldings.crown_seat(play)["region"]), FactionCatalog.OLD_WORLD)
-	assert_eq(int(MapPlayCourtHoldings.crown_seat(play)["province"]), seat, "the seat stays home")
+	assert_eq(int(MapPlayCourt.crown_seat(play)["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), seat, "the seat stays home")
 	play.region_index = FactionCatalog.OLD_WORLD
-	assert_eq(int(MapPlayCourtHoldings.crown_seat(play)["province"]), seat)
+	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), seat)
 
 
 ## A hire ordered at the seat musters there even when the turn closes on the
@@ -2875,7 +2875,7 @@ func test_the_seat_reads_the_same_from_either_chart() -> void:
 ## is `region_index` alone (docs/testing.md § Speed rules).
 func test_a_hire_musters_at_the_seat_while_another_chart_is_shown() -> void:
 	var play: PlaySession = _screen.play
-	var seat: int = int(MapPlayCourtHoldings.crown_seat(play)["province"])
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
 	play.economy.economy.treasury = 60000
 	play.economy.economy.stockpile["paper"] = 20
 	MapPlayInput.select_province(play, seat, _capital_point())
@@ -2905,7 +2905,7 @@ func test_a_hire_musters_at_the_seat_while_another_chart_is_shown() -> void:
 ## `region_index`, not the painted fog/ship layers under coverage.
 func test_the_seat_s_orders_name_the_capital_from_the_other_chart() -> void:
 	var play: PlaySession = _screen.play
-	var seat: Dictionary = MapPlayCourtHoldings.crown_seat(play)
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
 	var province: int = int(seat["province"])
 	var capital_name: String = String((seat["model"] as MapModel).province_name(province))
 	play.economy.economy.treasury = 60000
