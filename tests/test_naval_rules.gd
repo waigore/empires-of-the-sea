@@ -3638,6 +3638,70 @@ func test_escorts_cut_the_hull_loss() -> void:
 	assert_eq(home.hulls.size(), 2)
 
 
+## The convoy reading is the raid's own escort cover, in the raid's own words: a
+## crown can read what its warships buy before the turn closes (wiki:
+## ships-and-naval § Trade and Transport Interception; DR-20261124-04).
+func test_the_convoy_read_is_the_raids_own_escort_cover() -> void:
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var alone: Dictionary = ConvoyRead.read(home)
+	assert_true(bool(alone["known"]))
+	assert_eq(int(alone["warships"]), 0)
+	assert_almost_eq(float(alone["cover"]), NavalHullLoss.escort_factor(home), 0.0001)
+	assert_true(String(alone["line"]).begins_with("CONVOY  no warship covers the holds"))
+	assert_true(
+		String(alone["line"]).contains("sinks a Fluyte on 40%"),
+		"the bare published chance, in the raid's own figures"
+	)
+
+	# A carrack and a Fluyte are three hull points of cargo; one sloop is two of
+	# escort, so the cover is 2 / 3 × 0.3 = 0.2 — under the cap, so the words name
+	# the share rather than the cap.
+	home.set_hulls(
+		["home_1", "home_3", "home_2"],
+		{"home_1": "fluyte", "home_3": "carrack", "home_2": "sloop"}
+	)
+
+	var escorted: Dictionary = ConvoyRead.read(home)
+	assert_eq(int(escorted["warships"]), 1)
+	assert_almost_eq(float(escorted["cover"]), 0.2, 0.0001, "one sloop of 3 hull against 2")
+	assert_true(String(escorted["line"]).contains("1 warship cuts a raid on the holds by 20%"))
+	assert_true(
+		String(escorted["line"]).contains("sinks a Fluyte on 32%"),
+		"the same hull chance the raid rolls under escort"
+	)
+	assert_almost_eq(
+		float(escorted["hull_chance"]), NavalHullLoss.chance(home), 0.0001,
+		"one reading: the sheet and the raid price one hull"
+	)
+
+
+## The cover stops at the published cap and the words say so, instead of
+## promising a share the formula never pays (DR-20261124-04).
+func test_a_convoy_at_the_cap_names_the_cap() -> void:
+	var home := FleetState.in_port(
+		10, 0, 0, ["home_1", "home_2"], {"home_1": "fluyte", "home_2": "sloop"}
+	)
+	# One hull each: escort 2 against cargo 1 reads 0.6, past the 0.5 cap.
+	assert_almost_eq(float(ConvoyRead.read(home)["cover"]), 0.5, 0.0001)
+	assert_true(bool(ConvoyRead.read(home)["capped"]))
+	var line: String = String(ConvoyRead.read(home)["line"])
+	assert_true(line.contains("all the cover a convoy takes (50%)"))
+	assert_true(line.contains("sinks a Fluyte on 20%"), "0.2 × (1 − 0.5) × 2.0")
+
+
+## A squadron with no merchant hull offers no prize, so there is no convoy to
+## read: the sheet prints nothing rather than a zero (REQ-P1-07).
+func test_a_warship_only_squadron_reads_no_convoy() -> void:
+	var line := FleetState.in_port(10, 0, 0, ["w"], {"w": "sloop"})
+	var read: Dictionary = ConvoyRead.read(line)
+	assert_false(bool(read["known"]))
+	assert_eq(String(read["line"]), "")
+	assert_eq(String(read["tip"]), "", "no row, no hover")
+	var empty: Dictionary = ConvoyRead.read(null)
+	assert_false(bool(empty["known"]))
+	assert_eq(String(empty["line"]), "")
+
+
 func test_the_richest_merchant_hull_is_the_one_taken() -> void:
 	_setup_naval_raid()
 	var home := FleetState.in_port(
