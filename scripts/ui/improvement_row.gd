@@ -54,8 +54,8 @@ func _build() -> void:
 	add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.13, 0.11, 0.08, 0.86),
-			Color(0.54, 0.43, 0.12, 0.55),
+			Palette.with_alpha(Palette.PARCHMENT_ROW, 0.86),
+			Palette.with_alpha(Palette.GOLD_DIM, 0.55),
 			1,
 			2,
 			Vector4(8, 5, 8, 5) if compact else Vector4(10, 8, 10, 8)

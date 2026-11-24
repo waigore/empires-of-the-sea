@@ -36,12 +36,12 @@ var _peers: Array[WebSocketPeer] = []
 
 func _ready() -> void:
 	var launch: Dictionary = resolve_launch(
-		OS.get_cmdline_user_args(), OS.get_cmdline_args()
+		PlatformHost.launch_args(), PlatformHost.command_line()
 	)
 	var requested: int = int(launch["port"])
 	if bool(launch["warn_unparsed"]):
 		print("AgentDebugBridge: flag seen but not parsed; args=%s" %
-			[OS.get_cmdline_args()])
+			[PlatformHost.command_line_text()])
 	if requested <= 0:
 		# Android's launcher alias drops the launch intent's `command_line`
 		# extra, so the channel also accepts the enable file (Android path).
@@ -217,4 +217,4 @@ func _answer(text: String) -> String:
 
 ## Release player exports never carry the channel (issue #699 acceptance).
 func _release_export() -> bool:
-	return OS.has_feature("template_release")
+	return PlatformHost.is_release_export()

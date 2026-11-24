@@ -193,7 +193,7 @@ func _seat_orders_after_move(seat: int) -> void:
 		int(MapPlayCourt.crown_seat(_play)["region"]),
 		_province_name(int(MapPlayCourt.crown_seat(_play)["province"])),
 	])
-	_play.switch_region(int(MapPlayCourt.crown_seat(_play)["region"]))
+	_play.screen.switch_region(int(MapPlayCourt.crown_seat(_play)["region"]))
 	await process_frame
 	_say("Home Army stands at %s" % _home_army_place())
 	MapPlayInput.select_province(_play, seat, Vector2.ZERO)
@@ -372,22 +372,15 @@ func _fall_pass() -> void:
 
 
 ## One calendar turn through MapPlayTurn, reading every battle plate the turn
-## raises and answering whatever consent decision it stops on.
+## raises and answering whatever consent decision it stops on. The shared closer
+## presses once per turn: a decision that runs the suspended turn to its end is
+## not pressed a second time.
 func _take_turn() -> void:
-	var guardian: int = 0
-	var was: int = _play.turn
-	while guardian < 10:
-		MapPlayTurn.end_turn(_play)
-		var overlay: QuickBattleOverlay = _play.hud.quick_battle_overlay
-		while overlay != null and overlay.is_shown() and guardian < 14:
-			overlay.skip()
-			overlay._on_continue()
-			guardian += 1
-		if _play.turn != was or _play.campaign_over():
-			return
-		if not SaveDrive.answer_pending(_play):
-			return
-		guardian += 1
+	SaveDrive.advance(_play, _release_plate)
+
+
+func _release_plate() -> void:
+	SaveDrive.release_plate(_play)
 
 
 # --- readings --------------------------------------------------------------

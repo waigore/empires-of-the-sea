@@ -31,7 +31,7 @@ var _frame_index: int = 0
 var _frame_accum: float = 0.0
 var _frame_busy: bool = false
 var _video_dir: String = ""
-var _encode_pid: int = -1
+var _encode_pid: int = PlatformHost.NO_PROCESS
 var _encode_entry: int = -1
 var _pending_comment: int = -1
 
@@ -118,7 +118,7 @@ func capture_screenshot() -> void:
 func _grab() -> Image:
 	# Headless CI has no drawable frame: answer at once instead of waiting for
 	# a `frame_post_draw` that never comes.
-	if not PlaytestPlatform.has_display():
+	if not PlatformHost.has_display():
 		return null
 	await RenderingServer.frame_post_draw
 	var viewport: Viewport = get_viewport()
@@ -202,9 +202,8 @@ func _start_encode() -> void:
 	)
 	var out_path: String = ProjectSettings.globalize_path(_video_dir.path_join(VIDEO_NAME))
 	_encode_entry = entries.size() - 1
-	_encode_pid = OS.create_process("ffmpeg", encode_args(pattern, out_path))
-	if _encode_pid <= 0:
-		_encode_pid = -1
+	_encode_pid = PlatformHost.start_process("ffmpeg", encode_args(pattern, out_path))
+	if _encode_pid == PlatformHost.NO_PROCESS:
 		_encode_entry = -1
 		overlay.set_status("Video frames saved (no ffmpeg)")
 
@@ -215,7 +214,7 @@ func _process(delta: float) -> void:
 		if _frame_accum >= 1.0 / float(FPS):
 			_frame_accum = 0.0
 			_capture_frame()
-	if _encode_pid > 0 and not OS.is_process_running(_encode_pid):
+	if _encode_pid > 0 and not PlatformHost.is_running(_encode_pid):
 		_finish_encode()
 
 
@@ -231,7 +230,7 @@ func _capture_frame() -> void:
 
 
 func _finish_encode() -> void:
-	_encode_pid = -1
+	_encode_pid = PlatformHost.NO_PROCESS
 	var out_path: String = _video_dir.path_join(VIDEO_NAME)
 	if (
 		FileAccess.file_exists(out_path)

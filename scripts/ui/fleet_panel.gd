@@ -35,7 +35,7 @@ func _ready() -> void:
 	add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(18, 12, 18, 12)
+			Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(18, 12, 18, 12)
 		)
 	)
 	mouse_filter = Control.MOUSE_FILTER_STOP
@@ -116,7 +116,7 @@ func _build() -> void:
 	_yard.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
 	body.add_child(_yard)
 
-	_hint = UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
+	_hint = UiRowBuilder.line(11, Palette.with_alpha(Palette.TEXT_DIM, 0.75))
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(_hint)
 

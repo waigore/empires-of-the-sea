@@ -67,7 +67,7 @@ static func _minimap(hud: GameHud) -> void:
 	frame.offset_bottom = -18.0
 	frame.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.92), Palette.GOLD_DIM, 1, 3, Vector4(8, 8, 8, 8))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.92), Palette.GOLD_DIM, 1, 3, Vector4(8, 8, 8, 8))
 	)
 	hud.add_child(frame)
 	hud.minimap_frame = frame
@@ -176,7 +176,7 @@ static func _gazette_plate(hud: GameHud) -> void:
 static func _tooltip(hud: GameHud) -> void:
 	hud._tooltip = PanelContainer.new()
 	var style := UiTheme.box(
-		Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 3, Vector4(12, 6, 12, 6)
+		Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 3, Vector4(12, 6, 12, 6)
 	)
 	style.border_width_left = 3
 	style.border_color = Palette.GOLD_DIM
