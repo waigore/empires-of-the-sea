@@ -107,7 +107,7 @@ func clear_arm() -> void:
 ## Shows and captions every order from one named opening (REQ-P3-02).
 func apply(army: ArmyState, opening: ArmyDossierOpening) -> void:
 	var is_player: bool = opening.is_player
-	var embark_note: String = opening.embark
+	var embark_note: Dictionary = opening.embark
 	var hospital_note: Dictionary = opening.hospital
 	var plan_name: String = opening.plan
 	_last_count = army.count()
@@ -119,6 +119,12 @@ func apply(army: ArmyState, opening: ArmyDossierOpening) -> void:
 	dismiss_all.visible = is_player and army.count() > 0
 	_retitle_dismiss(army.count())
 	embark.visible = is_player and not embark_note.is_empty() and not army.is_embarked()
+	# A refused boarding keeps its press, disabled, with the rules' own reason as
+	# the caption — the field hospital's own reading (DR-20261112-07): the reason
+	# the deck cannot take the host is a reading, not a missing order
+	# (wiki: ships-and-naval § Naval transport; DR-20261124-14).
+	embark.disabled = not bool(embark_note.get("ok", false))
+	embark.text = String(embark_note.get("caption", "Embark aboard the fleet"))
 	plan.visible = is_player and not army.is_embarked() and army.count() > 0
 	plan.text = "Crown battle plan: %s" % QuickBattleActionLaw.normalize_plan(plan_name).capitalize()
 	hospital.visible = is_player and not army.is_embarked() and not hospital_note.is_empty()

@@ -50,7 +50,7 @@ suites = [
 
 [domains.audio]
 suites = [
-  "test_audio_rules.gd",
+  "test_hud_campaign_plate.gd",
 ]
 
 [domains.battle]
@@ -179,7 +179,6 @@ suites = [
 
 [domains.fleet]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_market_economy_rules.gd",
   "test_a_battle_rules.gd",
@@ -200,7 +199,6 @@ suites = [
 suites = [
   "test_a_battle_rules.gd",
   "test_market_economy_rules.gd",
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
 ]
 
@@ -224,7 +222,7 @@ suites = [
   "test_a_battle_rules.gd",
   "test_market_economy_rules.gd",
   "test_a_map_screen.gd",
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
 ]
 
 # The convoy's escort cover (wiki: ships-and-naval § Trade and Transport
@@ -234,7 +232,7 @@ suites = [
 # wording change never pays for the rules catch-all's battle and world boots.
 [domains.convoy]
 suites = [
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
   "test_economy_screen.gd",
 ]
 
@@ -291,7 +289,6 @@ suites = [
 [domains.naval_fog]
 suites = [
   "test_a_ai_rules.gd",
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_map_view_rules.gd",
 ]
@@ -418,7 +415,6 @@ suites = [
 # ui and save globs so the intel change never pulls their whole fan-out.
 [domains.naval_intel]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_campaign_end.gd",
 ]
@@ -464,7 +460,6 @@ domain = "blockade"
 # fleet + naval_feeding + naval_intel + ai past the tier-1 5 min budget.
 [domains.hostility]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_a_ai_rules.gd",
   "test_a_army_orders.gd",
@@ -518,6 +513,20 @@ domain = "hostility"
 [[rules]]
 match = "scripts/rules/naval_deck.gd*"
 domain = "hostility"
+
+# What a deck can still take, read by the squadron's own line and the standard's
+# boarding press (DR-20261124-14). One reading over the deck's own counts, proved
+# by the naval suite (the arithmetic and the squadron's line) and the army suite
+# (the boarding press), so it rides neither the hostility nor the army fan-out.
+[domains.deck_read]
+suites = [
+  "test_fleet_orders.gd",
+  "test_a_army_orders.gd",
+]
+
+[[rules]]
+match = "scripts/rules/deck_read.gd*"
+domain = "deck_read"
 
 [[rules]]
 match = "scripts/rules/fleet_missions.gd*"
@@ -968,7 +977,6 @@ domain = "naval_intel"
 # slice.
 [domains.fleet_split]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
 ]
@@ -1022,7 +1030,7 @@ match = "scripts/ui/fleet_panel.gd*"
 domain = "fleet_split"
 
 [[rules]]
-match = "tests/test_naval_rules.gd*"
+match = "tests/test_fleet_orders.gd*"
 domain = "fleet_split"
 
 # Two squadrons in one station fold into one (wiki: ships-and-naval § Ship
@@ -1032,7 +1040,6 @@ domain = "fleet_split"
 # wall time to a PR that also touches the split.
 [domains.fleet_combine]
 suites = [
-  "test_naval_rules.gd",
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
 ]
@@ -1629,7 +1636,7 @@ suites = [
 suites = [
   "test_menu_flow.gd",
   "test_panel_parts_rules.gd",
-  "test_audio_rules.gd",
+  "test_hud_campaign_plate.gd",
   "test_mobile_layout.gd",
   "test_ledgers.gd",
 ]
@@ -2444,7 +2451,7 @@ suites = [
 suites = [
   "test_a_map_screen.gd",
   "test_ledgers.gd",
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
   "test_generated_world_rules.gd",
 ]
 
@@ -3321,7 +3328,7 @@ domain = "ai_works"
 # capital seat prove it; campaign/map catch-alls overrun the tier-1 5 min budget.
 [domains.seat_harbour]
 suites = [
-  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
   "test_a_ai_rules.gd",
 ]
 
@@ -4599,6 +4606,14 @@ domain = "army_orders"
 match = "scripts/ui/army_panel_orders.gd*"
 domain = "army_orders"
 
+# The army dossier's opening — the record one sheet hands the panel. The
+# army-orders suite reads it through `MapPlayArmies.show_panel`, so a field added
+# for a sheet's reading never pulls the `scripts/ui` menu fan-out.
+# *Declared before the ui glob.*
+[[rules]]
+match = "scripts/ui/army_dossier_opening.gd*"
+domain = "army_orders"
+
 # Roster and muster blocks are dossier presentation, not army rules: keep them
 # on ui so a row change does not pull the army domain past the tier-1 budget.
 [[rules]]
@@ -5064,7 +5079,7 @@ match = "tests/test_army_*.gd"
 domain = "army"
 
 [[rules]]
-match = "tests/test_audio_*.gd"
+match = "tests/test_hud_campaign_plate.gd*"
 domain = "audio"
 
 [[rules]]
