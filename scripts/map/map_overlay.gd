@@ -32,22 +32,18 @@ var survey_tiles: Array[Vector2i] = []
 var _pulse: float = 0.0
 var _outlines: Dictionary = {}
 var _zone_outlines: Dictionary = {}
-## Owner id -> smoothed country-border polylines (drawn above fog so political
-## geography stays readable in charted but unexplored lands).
-var _country_borders: Dictionary = {}
 ## Visibility the cached borders were filtered by; null draws every border.
 var _border_visibility: VisibilityModel = null
-## Chart the cached ink was built from, so a repaint of the same chart is free.
-var _border_key: int = 0
-var _border_baked: bool = false
+## The chart this layer has already inked: a repaint of the same chart is free.
+## The border strokes themselves are `ChartInk`'s, shared with the minimap.
+var _border_ink: ChartInk = ChartInk.new()
 var _ripples: Array[Dictionary] = []
 
 
 func build(p_model: MapModel) -> void:
 	model = p_model
 	_border_visibility = null
-	_border_key = 0
-	_border_baked = false
+	_border_ink = ChartInk.new()
 	_build_fog_layer()
 	refresh_borders()
 	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
@@ -236,7 +232,8 @@ func _draw() -> void:
 ## Country borders sit on top of the fog texture: one engraved shadow plus the
 ## owner's colour, so they read on any terrain without striping.
 func _draw_country_borders() -> void:
-	var owners: Array = _country_borders.keys()
+	var borders: Dictionary = country_borders()
+	var owners: Array = borders.keys()
 	owners.sort()
 	for owner: int in owners:
 		var color: Color = FactionCatalog.color_of(owner)
@@ -249,24 +246,27 @@ func _draw_country_borders() -> void:
 			clampf(color.b * 0.78, 0.0, 1.0),
 			1.0
 		)
-		for path: PackedVector2Array in _country_borders[owner]:
+		for path: PackedVector2Array in borders[owner]:
 			draw_polyline(path, shadow, 5.0, true)
 			draw_polyline(path, core, 2.9, true)
 
 
+## Owner id -> smoothed country-border polylines in world units (drawn above
+## fog so political geography stays readable in charted but unexplored lands).
+func country_borders() -> Dictionary:
+	return _border_ink.country_borders
+
+
 func _build_country_borders() -> void:
-	_country_borders.clear()
-	var raw: Dictionary = CountryBorders.build(model, TILE_SIZE, _border_visibility)
-	var owners: Array = raw.keys()
-	owners.sort()
-	for owner: int in owners:
-		var smoothed: Array[PackedVector2Array] = InkPaths.smooth_segments(raw[owner], 3)
+	_border_ink.take_borders(model, TILE_SIZE, _border_visibility)
+	for owner: int in country_borders().keys():
+		var smoothed: Array[PackedVector2Array] = _border_ink.country_borders[owner]
 		var inked: Array[PackedVector2Array] = []
 		for i in smoothed.size():
 			# The wobble is keyed by owner and path so two crowns sharing a
 			# frontier do not trace the same hand.
 			inked.append(InkPaths.hand(smoothed[i], 1.8, 1.3 + float(owner) + float(i) * 1.9))
-		_country_borders[owner] = inked
+		_border_ink.country_borders[owner] = inked
 
 
 ## Repaints the political ink only when the chart it reads moved: a re-seat from
@@ -275,11 +275,8 @@ func _build_country_borders() -> void:
 func refresh_borders() -> void:
 	if model == null:
 		return
-	var key: int = CountryBorders.signature(model, _border_visibility)
-	if _border_baked and key == _border_key:
+	if _border_ink.holds(CountryBorders.signature(model, _border_visibility)):
 		return
-	_border_key = key
-	_border_baked = true
 	_build_country_borders()
 	queue_redraw()
 

@@ -64,13 +64,14 @@ static func dossier(
 	factors: Dictionary = {},
 	leaders: Dictionary = {},
 	known: Callable = Callable(),
-	model: MapModel = null
+	model: MapModel = null,
+	feeding: Dictionary = {}
 ) -> Dictionary:
 	if fleet == null:
 		return {}
 	var row: Dictionary = squadron(fleet)
 	var zone: Dictionary = NavalStrength.zone(
-		fleets, fleet, hostile, factors, leaders, known, model
+		fleets, fleet, hostile, factors, leaders, known, model, feeding
 	)
 	if not zone.is_empty():
 		row["zone"] = zone
@@ -92,6 +93,11 @@ static func fogged() -> Dictionary:
 ## § Difficulty): two rivals share one factor, so their mutual ratio stays
 ## published, and the human crown carries none. `leaders` applies the one
 ## published naval row (de Ruyter's +15%), exactly as the resolver does.
+## `feeding` is the per-owner coverage the last Consumption filed (`navy_feeding`),
+## read through the resolver's own ladder so a fleet fed short prices the water
+## short (wiki: workers-and-population § Consumption — naval combat; ships-and-
+## naval § Naval Combat Resolution — the leader line's "after hull aggregation
+## (and rations)"; DR-20261124-15).
 static func zone(
 	fleets: Array,
 	fleet: FleetState,
@@ -99,7 +105,8 @@ static func zone(
 	factors: Dictionary = {},
 	leaders: Dictionary = {},
 	known: Callable = Callable(),
-	model: MapModel = null
+	model: MapModel = null,
+	feeding: Dictionary = {}
 ) -> Dictionary:
 	if fleet == null or not fleet.is_at_sea():
 		return {}
@@ -116,7 +123,7 @@ static func zone(
 			continue
 		if other.owner == fleet.owner:
 			own_group.append(other)
-			own += strength(other) * _factor(factors, other.owner) * _leader(leaders, other.owner)
+			own += _side_strength(other, factors, leaders, feeding)
 			own_hulls += other.ship_count()
 			continue
 		if not Hostility.between(hostile, fleet.owner, other.owner):
@@ -126,7 +133,7 @@ static func zone(
 		if known.is_valid() and not bool(known.call(other)):
 			unread = true
 			continue
-		foe += strength(other) * _factor(factors, other.owner) * _leader(leaders, other.owner)
+		foe += _side_strength(other, factors, leaders, feeding)
 		foe_hulls += other.ship_count()
 		if not foes.has(other.owner):
 			foes.append(other.owner)
@@ -134,7 +141,7 @@ static func zone(
 		(courts[other.owner] as Array).append(other)
 	if own_hulls == 0:
 		own_group = [fleet]
-		own = strength(fleet) * _factor(factors, fleet.owner) * _leader(leaders, fleet.owner)
+		own = _side_strength(fleet, factors, leaders, feeding)
 		own_hulls = fleet.ship_count()
 	var row: Dictionary = {
 		"own": own,
@@ -152,7 +159,7 @@ static func zone(
 		# out the published retreat formula gives her (wiki: ships-and-naval
 		# § Naval Retreat Formula; DR-20261124-06).
 		var way_out: Dictionary = _way_out(
-			model, fleet, own_group, courts, fleets, hostile, factors, leaders
+			model, fleet, own_group, courts, fleets, hostile, factors, leaders, feeding
 		)
 		if not way_out.is_empty():
 			row["retreat"] = way_out
@@ -175,7 +182,8 @@ static func _way_out(
 	fleets: Array,
 	hostile: Callable,
 	factors: Dictionary,
-	leaders: Dictionary
+	leaders: Dictionary,
+	feeding: Dictionary
 ) -> Dictionary:
 	if model == null or own_group.is_empty() or courts.is_empty():
 		return {}
@@ -187,7 +195,7 @@ static func _way_out(
 		var group: Array = courts[raw]
 		var weight: float = 0.0
 		for other: FleetState in group:
-			weight += strength(other) * _factor(factors, other.owner) * _leader(leaders, other.owner)
+			weight += _side_strength(other, factors, leaders, feeding)
 		if best_owner < 0 or weight > best_weight:
 			best = group
 			best_owner = owner
@@ -196,7 +204,7 @@ static func _way_out(
 		return {}
 	var ours: float = 0.0
 	for own: FleetState in own_group:
-		ours += strength(own) * _factor(factors, own.owner) * _leader(leaders, own.owner)
+		ours += _side_strength(own, factors, leaders, feeding)
 	if outcome_of(odds(ours, best_weight)) != OUTCOME_LOSS:
 		return {}
 	var offer: Dictionary = NavalRetreat.preview(
@@ -322,6 +330,21 @@ static func _zero_totals() -> Dictionary:
 ## published, so a hand-built read (tests, an observer) needs no table.
 static func _factor(factors: Dictionary, owner: int) -> float:
 	return float(factors.get(owner, 1.0))
+
+
+## One squadron's weight in the zone: the hulls' published aggregation, then the
+## three multipliers the resolver folds in before the share is struck — the
+## rations the last Consumption bought, the difficulty layer and the leader's
+## naval row (wiki: ships-and-naval § Naval Combat Resolution; DR-20261111-25,
+## DR-20261124-15). The ladder is `ArmyModifiers`' own, read through
+## [NavalExchange]'s `feeding`, so the sheet and the fight cannot name two
+## morale bands for one court.
+static func _side_strength(
+	fleet: FleetState, factors: Dictionary, leaders: Dictionary, feeding: Dictionary
+) -> float:
+	var coverage: float = float(feeding.get(fleet.owner, 1.0))
+	return strength(fleet) * _factor(factors, fleet.owner) * _leader(leaders, fleet.owner) \
+		* ArmyModifiers.feeding_multiplier(coverage)
 
 
 ## The leader's published naval row for a side: de Ruyter's +15%, else 1.0

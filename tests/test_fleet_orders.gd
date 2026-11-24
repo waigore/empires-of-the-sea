@@ -2393,6 +2393,63 @@ func test_a_contested_zone_shows_the_share_of_strength() -> void:
 	_screen.ship_layer.fleets.erase(enemy)
 
 
+## A starved crown reads the water she would actually lose: the zone's odds price
+## the rations the resolver folds in, so a sheet can never print a share the
+## turn's close would refuse (wiki: ships-and-naval § Naval Combat Resolution;
+## workers-and-population § Consumption; DR-20261124-15).
+func test_the_dossier_prices_the_water_with_the_rations_the_fight_reads() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.province = MapModel.NO_ID
+	fleet.sea_zone = NavalMovement.province_sea_zones(
+		_screen.model, _screen.play.capital_province
+	)[0]
+	# Two carracks a side: an even water while both larders feed the whole fleet.
+	fleet.set_hulls(["ship_81", "ship_82"], {"ship_81": "carrack", "ship_82": "carrack"})
+	var rival: int = 1 if fleet.owner != 1 else 2
+	var enemy := FleetState.at_sea(
+		78, rival, fleet.sea_zone, ["ship_78", "ship_79"],
+		{"ship_78": "carrack", "ship_79": "carrack"}
+	)
+	_screen.ship_layer.fleets.append(enemy)
+	_declare_war(rival)
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
+	_screen.play.turn += 1
+	_screen.play.naval_intel.observe([enemy.id], _screen.play.turn, _screen.play.region_index)
+
+	_screen.economy.economy.navy_feeding = 1.0
+	_screen.ship_layer.select(ship)
+	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
+	assert_true(
+		block._zone.text.contains("you hold 50%"),
+		"both larders fed, so the water is even: %s" % block._zone.text
+	)
+
+	# The larder fed under half the hulls: the same water is now lost, and the
+	# sheet must strike it rather than promise a draw.
+	_screen.economy.economy.navy_feeding = 0.4
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+	assert_true(
+		block._zone.text.contains("you hold 33%"),
+		"the starved hulls price the water they would fight: %s" % block._zone.text
+	)
+	assert_eq(
+		block._zone.get_theme_color("font_color"),
+		Palette.HEALTH_LOW,
+		"a water the starved squadron would lose reads as a loss: %s" % block._zone.text
+	)
+	# The figure is the ledger's own, so the sheet and the fight read one source.
+	assert_almost_eq(
+		float(_screen.play.ledger_for(fleet.owner).navy_feeding), 0.4, 0.0001
+	)
+
+	_screen.economy.economy.navy_feeding = 1.0
+	MapPlayFleets.show_dossier(_screen.play, fleet)
+	assert_true(block._zone.text.contains("you hold 50%"), block._zone.text)
+	_screen.ship_layer.fleets.erase(enemy)
+
+
 ## A rival the crown has sighted but not read keeps her muster to herself: the
 ## dossier prints `??? hulls` with no count, no types and no upkeep bill, and the
 ## watch closing reveals the composition with the strength (wiki: ships-and-naval
@@ -6010,6 +6067,77 @@ func test_the_zone_falls_back_to_the_squadron_it_was_asked_about() -> void:
 
 	assert_almost_eq(float(row["own"]), 3.25, 0.0001)
 	assert_eq(int(row["own_hulls"]), 1)
+
+
+## The water's odds price the rations the fight reads: the resolver folds the
+## feeding ladder in beside the difficulty and the leader before the share is
+## struck (wiki: ships-and-naval § Naval Combat Resolution — "after hull
+## aggregation (and rations)"; workers-and-population § Consumption;
+## DR-20261124-15). A starved crown read `2.8 against 2.8 — you hold 50%` and
+## then lost the water, because the sheet priced the hulls and not the ladder.
+func test_the_zone_prices_the_rations_the_fight_reads() -> void:
+	var fed: Dictionary = NavalStrength.zone(_ration_pair(), _ration_pair()[0])
+	assert_almost_eq(float(fed["share"]), 0.5, 0.0001, "equal hulls, both fed")
+
+	var starved: Array = _ration_pair()
+	var hungry: Dictionary = NavalStrength.zone(
+		starved, starved[0], Callable(), {}, {}, Callable(), null, {0: 0.4, 1: 1.0}
+	)
+	assert_almost_eq(
+		float(hungry["own"]),
+		float(fed["own"]) * ArmyModifiers.feeding_multiplier(0.4),
+		0.0001,
+		"the crown's side is scaled by the ladder her ledger filed"
+	)
+	assert_eq(
+		NavalStrength.outcome_of(hungry), NavalStrength.OUTCOME_LOSS,
+		"a starved squadron no longer holds an even water"
+	)
+	# The sheet's numbers are the resolver's: the same context the turn's close
+	# hands the exchange returns the very figures the zone printed. The exchange
+	# sinks hulls, so it reads its own pair after the odds have been struck.
+	var both: Array = _ration_pair()
+	assert_almost_eq(
+		float(NavalStrength.zone(
+			both, both[0], Callable(), {}, {}, Callable(), null, {0: 0.4, 1: 0.4}
+		).get("share", 0.0)),
+		0.5, 0.0001, "one ladder for both sides"
+	)
+	var context: Dictionary = {"navy_feeding": {0: 0.4, 1: 1.0}}
+	var fight: Array = _ration_pair()
+	var record: Dictionary = NavalExchange.resolve(
+		0, 1, [fight[1]], 0, [fight[0]], fight,
+		func(_a: int, _b: int) -> bool: return true, context
+	)
+	assert_almost_eq(float(record["defender_strength"]), float(hungry["own"]), 0.0001)
+	assert_almost_eq(float(record["attacker_strength"]), float(hungry["foe"]), 0.0001)
+
+	# A rival fed short is priced short on the same ladder, so her weight falls.
+	var short: Array = _ration_pair()
+	var both_short: Dictionary = NavalStrength.zone(
+		short, short[0], Callable(), {}, {}, Callable(), null, {0: 1.0, 1: 0.4}
+	)
+	assert_lt(float(both_short["foe"]), float(fed["foe"]))
+	assert_gt(float(both_short["share"]), float(fed["share"]), "a hungry rival yields water")
+
+	# A water no ledger speaks for fights as published, so a hand-built read and
+	# a rival-versus-rival observer are unchanged.
+	var silent: Array = _ration_pair()
+	assert_almost_eq(
+		float(NavalStrength.zone(
+			silent, silent[0], Callable(), {}, {}, Callable(), null, {}
+		).get("share", 0.0)),
+		float(fed["share"]), 0.0001
+	)
+
+
+## One carrack a side in zone 0, the crown owning the first: two fresh squadrons
+## per call, because a resolved exchange sinks the hulls it fights.
+func _ration_pair() -> Array:
+	return [
+		FleetState.at_sea(1, 0, 0, ["ship_1"], {"ship_1": "carrack"}),
+		FleetState.at_sea(3, 1, 0, ["ship_3"], {"ship_3": "carrack"}),
+	]
 
 # --- test_naval_retreat ---
 

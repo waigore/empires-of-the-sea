@@ -129,7 +129,7 @@ func test_the_new_world_stays_uncharted_at_game_start() -> void:
 	assert_eq(unknown, _screen.visibility.levels.size(), "every tile is unknown")
 	var tile: Vector2i = model.provinces[0].tiles[0]
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_UNKNOWN)
-	assert_true(_screen.overlay._country_borders.is_empty(), "no tribal borders leak")
+	assert_true(_screen.overlay.country_borders().is_empty(), "no tribal borders leak")
 	var minimap_image: Image = _screen.hud._minimap._texture.get_image()
 	var pixel: Color = minimap_image.get_pixel(tile.x, tile.y)
 	assert_almost_eq(pixel.r, Palette.PAPER.r, 0.01)
@@ -179,8 +179,8 @@ func test_the_minimap_inset_paints_the_chart_on_mount() -> void:
 	)
 	# Ink is projected against the inset's own size, so a zero-size build is what
 	# leaves the coast and the owners' ribbons empty.
-	assert_gt(minimap._ink_coast.size(), 0, "the coast is inked into the inset")
-	assert_gt(minimap._ink_borders.size(), 0, "the owners' borders are inked too")
+	assert_gt(minimap.projected_coast().size(), 0, "the coast is inked into the inset")
+	assert_gt(minimap.projected_borders().size(), 0, "the owners' borders are inked too")
 	var dark: int = 0
 	var distinct: Dictionary = {}
 	for y in image.get_height():
@@ -195,7 +195,7 @@ func test_the_minimap_inset_paints_the_chart_on_mount() -> void:
 
 
 func test_country_borders_are_built_for_every_owner() -> void:
-	var borders: Dictionary = _screen.overlay._country_borders
+	var borders: Dictionary = _screen.overlay.country_borders()
 	assert_true(borders.size() >= FactionCatalog.great_power_ids().size())
 	for owner: int in borders.keys():
 		assert_true(FactionCatalog.has_faction(owner))
