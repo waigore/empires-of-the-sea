@@ -222,6 +222,11 @@ godot --headless --path . --script res://playtests/playtest_naval_intel.gd
 # tile of the chart holds is no march target (fog § Order Visibility).
 godot --headless --path . --script res://playtests/playtest_army_fog.gd
 
+# Fog invariants — plays real turns and reads every court's chart after each
+# close: own ground stays visible, nothing a rival's crew left stays charted and
+# no distant water outlives its squadron (fog § Fog Decay, § Distant sea zone).
+godot --headless --path . --script res://playtests/playtest_fog_invariants.gd
+
 # Treasury — reads the purse the player sees (chip, ledger summary and "Next
 # turn" promise, market rows, college funding), stages a sale and a study on
 # those buttons, closes real turns, and prints each promise against the ducats.

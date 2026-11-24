@@ -88,6 +88,16 @@ static func note_landing(
 	_sync_owner(play, region, owner, changed)
 
 
+## The court charts read again once the turn is final. The rival economy pass
+## applies the crews' moves (`MapPlayCivilianAi`) after the battle pass, so a Spy
+## or an Explorer that left its province during that pass must still fog it in
+## this same end-of-turn — "no timer, no grace turns" (wiki: fog-and-exploration
+## § Fog Decay; civilian-units § Spy (1); DR-20261110-03). The pass is a pure
+## read of the live roster, so a crew that stayed simply holds its ground again.
+static func settle(play: PlaySession) -> void:
+	resolve(play)
+
+
 ## End-of-turn fog decay for every rival in every region (wiki: fog-and-exploration
 ## § Fog Decay, § Distant sea zone fog). Own provinces, coastal water, a fleet at
 ## sea and a crew ashore hold what the court knows, exactly as for the player.
