@@ -192,8 +192,14 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 		return
 	_head.show_province(data)
 	# The grid reads the wall's storm off the crown's own studies, so a rival's
-	# wall prints the published envelope (DR-20261123-20).
-	_grid.show_province(model, province_id, data, seat.faction, seat.tech_unlocked)
+	# wall prints the published envelope (DR-20261123-20), and the Port row off
+	# the seated works and sealed coasts: whether a harbour stands on the water
+	# the quay faces, or what the port order would bring the coast
+	# (wiki: extraction-and-improvements § Transport Level; DR-20261125-06).
+	_grid.show_province(
+		model, province_id, data, seat.faction, seat.tech_unlocked,
+		seat.works, seat.blockade
+	)
 	_grid.set_hosts(_hosts_line(model, province_id))
 	# The harbour reads off the same seated session; the module answers "" for a
 	# sheet the boot never seated (DR-20261123-14).

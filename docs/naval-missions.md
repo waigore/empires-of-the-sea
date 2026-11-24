@@ -109,7 +109,7 @@ Rules are node-free (`REQ-P3-03`); stations are dossier rows
 ## Tests
 
 `test_fleet_orders`,
-`test_a_battle_rules`, `test_a_map_screen`, `test_economy_screen`.
+`test_a_battle_rules`, `test_a_map_screen`, `test_market_economy_rules`.
 
 ```bash
 gd-tools test --coverage --min 80

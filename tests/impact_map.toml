@@ -92,8 +92,7 @@ suites = [
 suites = [
   "test_diplomacy_rules.gd",
   "test_a_map_screen.gd",
-  "test_panel_parts_rules.gd",
-  "test_diplomacy_screen.gd",
+  "test_panel_parts_rules.gd"
 ]
 
 # The court's authored voice (wiki: dialogue-content-and-yarn): the catalogue,
@@ -127,8 +126,7 @@ suites = [
 [domains.economy_ui]
 suites = [
   "test_market_economy_rules.gd",
-  "test_economy_screen.gd",
-  "test_panel_parts_rules.gd",
+  "test_panel_parts_rules.gd"
 ]
 
 # The shared row skeleton every crown ledger prints (issue #669): the name, its
@@ -159,7 +157,7 @@ suites = [
 # The shared docked-ledger chrome: each ledger's own suite proves its body on
 # the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
 suites = [
-  "test_economy_screen.gd",
+  "test_market_economy_rules.gd",
   "test_research_rules.gd",
   "test_panel_parts_rules.gd",
   "test_diplomacy_rules.gd",
@@ -231,7 +229,7 @@ suites = [
 [domains.convoy]
 suites = [
   "test_fleet_orders.gd",
-  "test_economy_screen.gd",
+  "test_market_economy_rules.gd",
 ]
 
 [[rules]]
@@ -667,7 +665,7 @@ domain = "mark_legend"
 [domains.mark_legend]
 suites = [
   "test_ledgers.gd",
-  "test_economy_screen.gd",
+  "test_market_economy_rules.gd",
   "test_a_army_orders.gd",
   "test_fleet_orders.gd",
 ]
@@ -1509,6 +1507,15 @@ domain = "province_harbour"
 match = "scripts/map/map_play_province_harbour.gd*"
 domain = "province_harbour_sheet"
 
+# The province sheet's Port row (DR-20261125-06): whether a harbour stands on
+# the water the quay faces, what it carries, and the port order's own price for a
+# bare coast. The panel suite reads the row off the dossier and the observer
+# suite reads the same home from the observatory's sheet, so the rules module
+# rides those two and never the rules fan-out.
+[[rules]]
+match = "scripts/rules/harbour_read.gd*"
+domain = "harbour_read"
+
 # A reading's own rules module, the turn that publishes it and the two map
 # hooks that carry it. First match wins, so these sit above the ai/fog/
 # diplomacy globs below.
@@ -1952,11 +1959,10 @@ suites = [
 suites = [
   "test_generated_world_rules.gd",
   "test_panel_parts_rules.gd",
-  "test_economy_screen.gd",
   "test_market_economy_rules.gd",
   "test_research_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_diplomacy_rules.gd",
+  "test_diplomacy_rules.gd"
 ]
 
 # Chart roster / province totals (wiki: naming § default ruleset, advanced-starts
@@ -2057,7 +2063,7 @@ suites = [
 # already drive a rival chart (visibility / AI sight) stay one domain.
 [domains.tribe_contact]
 suites = [
-  "test_diplomacy_screen.gd",
+  "test_diplomacy_rules.gd",
   "test_map_view_rules.gd",
   "test_a_ai_rules.gd",
 ]
@@ -2068,7 +2074,7 @@ suites = [
 suites = [
   "test_campaign_rules.gd",
   "test_ai_observer.gd",
-  "test_diplomacy_screen.gd",
+  "test_diplomacy_rules.gd",
 ]
 
 # First matching rule wins. More specific globs before broader ones.
@@ -2184,7 +2190,7 @@ domain = "economy_ui"
 
 # Ledger button intents (trade, workers, research): the sheet suite owns them.
 # Named before scripts/economy/** so a seat-gate edit still pulls economy_ui
-# (test_economy_screen) for the body lines the patch shift counts (issue #726).
+# (test_market_economy_rules) for the body lines the patch shift counts (issue #726).
 [[rules]]
 match = "scripts/economy/ledger_orders.gd*"
 domain = "economy_ui"
@@ -2523,7 +2529,7 @@ suites = [
 
 [domains.fold_diplomacy_screen]
 suites = [
-  "test_diplomacy_screen.gd",
+  "test_diplomacy_rules.gd",
 ]
 
 [[rules]]
@@ -2642,6 +2648,17 @@ domain = "fold_market"
 match = "tests/test_market_matcher_rank_rules.gd*"
 domain = "fold_market"
 
+# Live ledger folded into the purse rules boot; a diff that still names the old
+# file follows the market suites.
+[[rules]]
+match = "tests/test_economy_screen.gd*"
+domain = "fold_market"
+
+# Live court panel folded into the diplomacy rules boot.
+[[rules]]
+match = "tests/test_diplomacy_screen.gd*"
+domain = "fold_diplomacy_screen"
+
 [[rules]]
 match = "tests/test_yarn_plates_rules.gd*"
 domain = "fold_panel"
@@ -2689,6 +2706,16 @@ suites = [
 [domains.province_harbour_sheet]
 suites = [
   "test_ledgers.gd",
+]
+
+# The province sheet's Port row (DR-20261125-06): one pure read over the chart's
+# works, the province record and the crown's seals. The panel suite reads the row
+# off the dossier, the observer suite reads the same home off the observatory's
+# sheet, and the phone audit rides the fact grid's own domain.
+[domains.harbour_read]
+suites = [
+  "test_panel_parts_rules.gd",
+  "test_ai_observer.gd",
 ]
 
 # The map hook that carries the harvest line to the estate block (DR-20261123-25):
@@ -3100,8 +3127,7 @@ domain = "diplomacy_pick"
 
 [domains.diplomacy_pick]
 suites = [
-  "test_diplomacy_rules.gd",
-  "test_diplomacy_screen.gd",
+  "test_diplomacy_rules.gd"
 ]
 
 # The pick's door (wiki: playtest-learnings § next targets): the press that
@@ -4083,8 +4109,7 @@ domain = "production_pick"
 
 [domains.production_pick]
 suites = [
-  "test_market_economy_rules.gd",
-  "test_economy_screen.gd",
+  "test_market_economy_rules.gd"
 ]
 
 [[rules]]
