@@ -23,8 +23,8 @@ static func full(report: Dictionary, names: Array, sandbox: String) -> String:
 		QuickBattleCopy.loss_line(report, names),
 		QuickBattleCopy.health_line(report, names),
 		QuickBattleCopy.chevron_line(report, names),
-		QuickBattleCopy.honour_line(report, sandbox, names),
-		QuickBattleCopy.citation_line(report, sandbox, names),
+		QuickBattleHonoursCopy.honour_line(report, sandbox, names),
+		QuickBattleHonoursCopy.citation_line(report, sandbox, names),
 		QuickBattleSiegeCopy.siege_line(report),
 	]:
 		if not text.is_empty():
