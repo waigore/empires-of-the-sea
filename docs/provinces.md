@@ -71,10 +71,12 @@ A tap opens the province: ground, harbour, town, roads, fort, **Wall**
 (DR-20261120-06) — soaks, spares, storm (DR-20261123-20) — **Hosts**
 (DR-20261123-13), **Squadrons** — hulls and the regiments they carry, same fog
 gate (DR-20261123-14, DR-20261123-18) — hospital and **Deeds**; empty rows hide.
-A Tribe shore with another crown's deed refuses an undeclared march (`DeedBar`,
-DR-20261120-05). Under its estate rows it prices the **harvest** at today's sell
-and the estates with room to raise — the realm's Economy reading where the crown
-raises (DR-20261123-25); another crown's ground prints none.
+A Tribe's land needs a declaration (DR-20261124-07); the **Deeds** row still
+names the courts that bought land there (`DeedBar`) — the intervention trial's
+stake. Under its estate
+rows it prices the **harvest** at today's sell and the estates with room to
+raise — the realm's Economy reading where the crown raises (DR-20261123-25);
+another crown's ground prints none.
 
 ## Deferred (REQ-P2-02)
 

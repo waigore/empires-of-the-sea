@@ -1,0 +1,94 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
+  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
+  "submission_hash": "sha256:78cfa2a7c6cd1a473794ef0d1767fff2c1563c742940ad403bda955d5db05930",
+  "submission_git": "fix/tribe-invasion-needs-war@e5fcad92",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 1165.0044220485397,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 7.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 9.0,
+      "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 87.73246336996337,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:1ad52fec947f522317a7fc4fdc63d205b17c6690dfecc27d087cfd02c86fad29",
+    "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
+    "parts": {
+      "provinces_old": 7,
+      "provinces_new": 0,
+      "regiments": 8,
+      "ships": 1,
+      "workers": 2,
+      "extraction_per_turn": 40.06951871657754,
+      "income_per_turn": 284.86538461538464,
+      "funded_pct": 87.73246336996337
+    },
+    "early_win": false,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 201,
+    "resolved_turns": 200,
+    "funded_pct": 87.73246336996337
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-24T03:45:37Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:ccd57426b610fd1af324b9360d7c58ea5232f1148cf1aaba0507d767643711a1"
+}

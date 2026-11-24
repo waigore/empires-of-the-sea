@@ -156,34 +156,18 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	)
 	if bool(result.get("ok", false)):
 		return true
-	play.hud.toast(refusal(play, province_id, String(result.get("reason", ""))))
+	play.hud.toast(String(result.get("reason", "That march is refused.")))
 	return true
 
 
-## The words a refused march reads. A Tribe's shore another crown has bought land
-## in is barred by that deed, not by peace — and the order can only answer "peace
-## holds" — so the refusal asks the bar itself and names the holders
-## (wiki: factions § Tribe; DR-20261120-05).
-static func refusal(play: PlaySession, province_id: int, fallback: String) -> String:
-	var owner: int = play.model.province_owner(province_id)
-	return DeedBar.refusal(
-		InvasionBar.read(
-			play.diplomacy, play.player_faction, owner, play.model, province_id
-		),
-		play.model, province_id, fallback
-	)
-
-
-## Invading foreign land needs war with its owner, except a Tribe — and a Tribe
-## province another crown has bought land in is no exception (wiki: factions
-## § Tribe; diplomacy § War required). Unowned land is not an attack.
+## Invading foreign land needs war with its owner — Great Power, Minor Nation and
+## Tribe alike (wiki: diplomacy § War required for hostile actions). Unowned land
+## is not an attack.
 static func may_invade(play: PlaySession, province_id: int) -> bool:
 	var owner: int = play.model.province_owner(province_id)
 	if owner == MapModel.NO_ID or owner == play.player_faction:
 		return true
-	return DiplomacyRules.invadable(
-		play.diplomacy, play.player_faction, owner, play.model, province_id
-	)
+	return DiplomacyRules.invadable(play.diplomacy, play.player_faction, owner)
 
 
 static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> void:
