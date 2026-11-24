@@ -2474,6 +2474,18 @@ func test_the_harvest_line_words_every_case() -> void:
 		"Harvest · 8 units gathered · 1,250 ducats at today's sell · no estate to raise",
 		"the purse groups its thousands",
 	)
+	# A province that gathers one unit reads in the singular, as the ledgers'
+	# own count line does (issue #1435's bar; REQ-P1-07, REQ-P5-05).
+	assert_eq(
+		DossierCopy.harvest({"estates": 1, "output": 1, "value": 60, "headroom": 1}),
+		"Harvest · 1 unit gathered · 60 ducats at today's sell · 1 to raise",
+		"one unit, one noun",
+	)
+	assert_eq(
+		DossierCopy.harvest({"estates": 1, "output": 2, "value": 60, "headroom": 1}),
+		"Harvest · 2 units gathered · 60 ducats at today's sell · 1 to raise",
+		"two units take the plural",
+	)
 
 
 ## The realm's own reading: the crown's provinces the civilian and land passes

@@ -139,8 +139,10 @@ func _fill_row(row: HBoxContainer, side: String) -> void:
 	for group: Dictionary in NavalDispatch.groups(battle, side):
 		row.add_child(_medal_chip(String(group["type"]), int(group["count"])))
 	if row.get_child_count() == 1:
-		row.add_child(UiRowBuilder.serif_line("%d hulls" % NavalDispatch.hull_count(battle, side), 12,
-			Palette.TEXT_DIM))
+		row.add_child(UiRowBuilder.serif_line(
+			MoneyText.counted(NavalDispatch.hull_count(battle, side), "hull"), 12,
+			Palette.TEXT_DIM
+		))
 
 
 ## The two lines of hulls the sea band is drawing, for tests and tooling.

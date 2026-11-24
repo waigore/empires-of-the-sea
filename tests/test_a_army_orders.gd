@@ -1775,6 +1775,10 @@ func test_the_dossier_offers_dismiss_all_once() -> void:
 	assert_eq(filed, [], "one tap files nothing")
 	assert_true(press.text.contains("Confirm"), press.text)
 	assert_true(press.text.contains("2"), press.text)
+	# One standard left to shed reads in the singular on the same press.
+	panel._orders._retitle_dismiss(1)
+	assert_eq(press.text, "Confirm — dismiss all 1 regiment")
+	panel._orders._retitle_dismiss(2)
 	press.pressed.emit()
 	assert_eq(filed, ["dismiss_all"], "the second tap files the whole order")
 	panel.free()
@@ -1839,6 +1843,20 @@ func test_the_courts_pick_takes_the_home_army_into_the_field() -> void:
 		"the court would take the field — 2 regiments from the seat, 1 held to guard it"
 	)
 	assert_true(MapPlayArmyPick.line(play, home).begins_with("The court would take"), "one sentence")
+	# A split that leaves one standard behind, or keeps one guard, counts in the
+	# singular (REQ-P1-07).
+	assert_eq(
+		MapPlayArmyPickWords.split_line(1, 0),
+		"the court would take the field — 1 regiment from the seat"
+	)
+	assert_eq(
+		MapPlayArmyPickWords.split_line(1, 1),
+		"the court would take the field — 1 regiment from the seat, 1 held to guard it"
+	)
+	assert_eq(
+		MapPlayArmyPickWords.split_line(2, 1),
+		"the court would take the field — 2 regiments from the seat, 1 held to guard it"
+	)
 	assert_eq(home.count(), 3, "a reading: the seat still holds its three")
 	play.army_layer.free()
 

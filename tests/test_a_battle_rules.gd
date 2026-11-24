@@ -10420,6 +10420,27 @@ func test_the_sea_plate_stands_one_medallion_per_hull_type() -> void:
 	plate.free()
 
 
+## A hand-built report states a count and carries no types: the line under the
+## name reads the count, and a single hull reads in the singular (REQ-P1-07).
+func test_a_typedless_sea_line_counts_its_hull_in_the_singular() -> void:
+	var battle: Dictionary = _sea_battle()
+	battle["attacker_hulls"] = []
+	battle["attacker_before"] = 1
+	var plate := NavalPlate.new()
+	add_child(plate)
+	plate.show_engagement(battle, "Mar Caribe", NAMES)
+	plate.skip()
+	var lines: Array[HBoxContainer] = plate.side_lines()
+	var told: PackedStringArray = PackedStringArray()
+	for line: HBoxContainer in lines:
+		for child: Node in line.get_children():
+			if child is Label:
+				told.append((child as Label).text)
+	assert_true(" ".join(told).contains("1 hull"), " ".join(told))
+	assert_false(" ".join(told).contains("1 hulls"), "one hull, one noun")
+	plate.free()
+
+
 ## The plates are the HUD's, not the chart's: this case rides the suite's one
 ## mount like its neighbours (`_hud()`), so a second `MapScreen` boot under
 ## coverage is not paid to read two queues (docs/testing.md § Speed rules).
