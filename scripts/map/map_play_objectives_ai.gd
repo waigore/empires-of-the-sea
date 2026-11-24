@@ -63,6 +63,9 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	report["goal"] = String(readings["goal"])
 	report["treasury"] = int(readings["treasury"])
 	report["reserve"] = int(readings["reserve"])
+	# The bar the escalation tracker folds with (issue #1484): the spend-down
+	# reset reads it, so a record the valve has answered knows its episode.
+	report["escalate_turns"] = maxi(config.parameter("ledger.escalate_turns"), 1)
 	# The deferred-aim escalations this reading applied (issue #603): the aims
 	# stalled past the escalation bar, with their stall length.
 	report["escalations"] = (readings["escalations"] as Dictionary).duplicate()
