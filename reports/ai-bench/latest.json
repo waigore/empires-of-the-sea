@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": null,
   "commit": null,
-  "submission_hash": "sha256:b844eadade883a9a65e43fc47b8572f6e4d3b6e571f7b568e5ba84e06a6c201d",
-  "submission_git": "fix/issue-1432-labour-floor@b5d348c8",
+  "submission_hash": "sha256:5cbdcde0ffdd8a838014b02fde4f997b293a778c49ef2aeefb4b142271f36761",
+  "submission_git": "main@3a1c02a6+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:1acbe107d4de31a1c07a53fde41cf779efc6f4edb6a2303ff422b47d7049dfb6",
+    "ai_surface_hash": "sha256:bf5b564f5edaa0120b414e957ccb2ea11acf11c2107de612cf577212fb76149e",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T14:23:05Z",
+  "timestamp": "2026-11-24T14:14:15Z",
   "report_version": 1,
-  "signature": "hmac-sha256:af23f5bfe25b4388913cf82925a278b7d964f65c78c3939a634c9c8dcda3b4c2"
+  "signature": "hmac-sha256:3dd2b832cc2ae978ed51d8973ce40d3a895240cfad7be153350cad1cab03b454"
 }
