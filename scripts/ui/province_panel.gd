@@ -213,7 +213,9 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 		model, seat.works, seat.units, seat.faction, province_id, seat.tech_unlocked
 	))
 	_grid.set_estate_roads(data, rows, crown)
-	_orders.set_town_order(model, data, seat.faction, seat.tech_unlocked, seat.stockpile)
+	_orders.set_town_order(
+		model, data, seat.faction, seat.units, seat.tech_unlocked, seat.stockpile
+	)
 	_orders.set_wall_order(
 		model, data, seat.faction, seat.units, seat.tech_unlocked, seat.stockpile
 	)

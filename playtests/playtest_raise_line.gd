@@ -141,6 +141,19 @@ func _order_pass() -> void:
 			working += 1
 	_check(working > 0, "a Builder is on the town's step")
 	_say("%d Builder(s) at the town step after the press" % working)
+	# The step in hand reads as taken: the same dossier, re-read once the Builder
+	# is at the town, offers no second press and prints the Builder raising it
+	# instead of the payoff (wiki: extraction-and-improvements § Town
+	# manufacturing bonus; DR-20261125-05; REQ-P2-03, REQ-P5-07).
+	MapPlaySetup.refresh_dossier(_play)
+	await process_frame
+	town_press = orders.town_press()
+	_check(town_press.disabled, "the ordered town offers no second press")
+	_check(
+		town_press.tooltip_text.contains("already at work"),
+		"and names the Builder raising it: %s" % town_press.tooltip_text
+	)
+	_say("the same press after the order reads: %s" % town_press.tooltip_text)
 
 
 ## One idle Builder at the seat's own town site: the press needs a hand, and a
