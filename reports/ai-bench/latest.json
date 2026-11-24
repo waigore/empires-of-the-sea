@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:625dbfce15c0fdfba11fc477b59a0e3723735e45bcc97d272025c401de6f14ea",
-  "submission_git": "refactor/economy-planner-homes@3d3606e0",
+  "submission_hash": "sha256:474b18b05508e9c95973bd0c0ffbb7fe14f37811d6d82744a64dda16d23b183b",
+  "submission_git": "fix/1383-deed-rung-named-seller@1c7973e0+dirty",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1165.0044220485397,
+      "value": 1076.9786625032527,
       "direction": "max"
     },
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 87.73246336996337,
+      "value": 86.70389194139194,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:fb6e7134c9d84d9d978159c352cf4a48562855b1f98b4187bd3611a954943d50",
+    "ai_surface_hash": "sha256:96086788297bef2573e0ca451f039cf1610e16d73a6ba30b07dc09afeba1de6d",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -64,16 +64,16 @@
       "regiments": 8,
       "ships": 1,
       "workers": 2,
-      "extraction_per_turn": 40.06951871657754,
-      "income_per_turn": 284.86538461538464,
-      "funded_pct": 87.73246336996337
+      "extraction_per_turn": 40.16393442622951,
+      "income_per_turn": 196.65079365079364,
+      "funded_pct": 86.70389194139194
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 87.73246336996337
+    "funded_pct": 86.70389194139194
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T06:26:17Z",
+  "timestamp": "2026-11-24T07:59:39Z",
   "report_version": 1,
-  "signature": "hmac-sha256:8c7a34a092c4cdd9c4e55050b3bbc27a3932a3e3892ad26371f813c2e30002f1"
+  "signature": "hmac-sha256:4fe70484112d721450552d1d5a0df8b71e6bd70827b03e0af507abd623e5c6ce"
 }
