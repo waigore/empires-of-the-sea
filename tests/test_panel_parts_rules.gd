@@ -2428,6 +2428,38 @@ func test_army_roster_block_hides_detach_while_embarked() -> void:
 	panel.free()
 
 
+## An army's dossier names the crown's own ration band under the strength line,
+## and another court's standard prints none: her larder is not the crown's to read
+## (wiki: combat § Feeding modifiers; DR-20261124-02).
+func test_the_army_dossier_names_the_rations_the_field_reads() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(23, 0, 1, ["guards"], false)
+
+	var fed := ArmyDossierOpening.of(army, true)
+	fed.rations = 0.6
+	panel.refresh(model, fed)
+	assert_true(
+		panel.rations_text().contains("60% of the bill fed"),
+		"the row names the share of the bill the granary fed"
+	)
+	assert_true(
+		panel.rations_text().contains("0.75 morale"),
+		"and the morale the next engagement reads off it"
+	)
+
+	var whole := ArmyDossierOpening.of(army, true)
+	whole.rations = 1.0
+	panel.refresh(model, whole)
+	assert_true(panel.rations_text().contains("full morale"), "a whole bill reads full morale")
+
+	var rival := ArmyDossierOpening.of(army, false)
+	panel.refresh(model, rival)
+	assert_eq(panel.rations_text(), "", "another court's standard prints no ration row")
+	panel.free()
+
+
 # --- ledger_frame (the docked ledgers' one chrome) ---
 
 func _ledger_frames() -> Array[LedgerFrame]:

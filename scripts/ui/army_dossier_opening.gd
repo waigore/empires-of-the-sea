@@ -20,6 +20,12 @@ var plan: String = "balanced"
 var hospital: Dictionary = {}
 ## The march the court would order from this dossier (DR-20261121-03).
 var pick: String = ""
+## The crown's own ration coverage — the share of last turn's army bill the
+## granary fed, which the next exchange reads as its morale (wiki: combat
+## § Feeding modifiers; DR-20261124-02). `ArmyRationRead.NO_READING` for another
+## court's standard: her larder is not the crown's to read, so the sheet prints
+## no line.
+var rations: float = ArmyRationRead.NO_READING
 ## The line the court's muster would raise (DR-20261121-03). The pick travels,
 ## not the sentence it words, so the yard marks its rows off the same reading
 ## (DR-20261122-12).
