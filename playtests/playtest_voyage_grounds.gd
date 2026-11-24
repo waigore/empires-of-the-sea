@@ -489,9 +489,9 @@ func _toast() -> String:
 		return "(no despatches)"
 	if not despatches._queue.is_empty():
 		return String(despatches._queue[despatches._queue.size() - 1])
-	if despatches.lane != null and despatches.lane.get_child_count() > 0:
-		var last: Node = despatches.lane.get_child(despatches.lane.get_child_count() - 1)
-		return String(last.get_meta("toast_text", "(no text)"))
+	var live: String = despatches.newest_live_text()
+	if not live.is_empty():
+		return live
 	return "(no toast)"
 
 

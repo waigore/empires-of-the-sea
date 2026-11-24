@@ -3588,7 +3588,7 @@ func test_the_combine_gates_that_never_move_a_hull() -> void:
 func _combine_press(block: FleetCombineBlock, fleet_id: int) -> Button:
 	for entry: Node in block._box.get_children():
 		for press: Button in entry.find_children("*", "Button", true, false):
-			if int(press.get_meta("combine_id", -1)) == fleet_id:
+			if int(FleetDrawer.row_of(press).get("fleet", -1)) == fleet_id:
 				return press
 	return null
 

@@ -127,16 +127,15 @@ func set_covered(covered: bool) -> void:
 ## it, so they join the queue and print in order once the court is visible again.
 func _hold_live() -> void:
 	for child: Node in lane.get_children():
-		var panel := child as PanelContainer
-		if panel == null:
+		var plate := child as HudDespatchPlate
+		if plate == null:
 			continue
-		var text: String = String(panel.get_meta("toast_text", ""))
-		if not text.is_empty():
-			_hold_in_queue(text)
-		# The plate's tween is still running; a cancel mark keeps its callback
+		if not plate.text.is_empty():
+			_hold_in_queue(plate.text)
+		# The plate's fade is still running; a cancel mark keeps its callback
 		# from counting down a plate that is no longer in the lane.
-		panel.set_meta("toast_cancelled", true)
-		panel.queue_free()
+		plate.cancel()
+		plate.queue_free()
 	_live = 0
 	for held: Dictionary in _compact_queue:
 		_hold_in_queue(String(held["text"]))
@@ -153,6 +152,16 @@ func _hold_in_queue(text: String) -> void:
 ## Whether the lane is holding its lines for a plate or a sheet.
 func is_covered() -> bool:
 	return _covered
+
+
+## The newest plate's words, live in the lane: a drive that reads what the court
+## was told asks the lane, not the node's own tags.
+func newest_live_text() -> String:
+	for index in range(lane.get_child_count() - 1, -1, -1):
+		var plate := lane.get_child(index) as HudDespatchPlate
+		if plate != null and not plate.is_queued_for_deletion():
+			return plate.text
+	return ""
 
 
 ## Lines the court has not been told yet, oldest first.
@@ -215,7 +224,7 @@ func _raise(text: String, icon_name: String = "") -> void:
 	if _compact and _live > 0:
 		_compact_queue.append({"text": text, "icon": icon_name})
 		return
-	var panel := PanelContainer.new()
+	var panel := HudDespatchPlate.new()
 	var accent: Color = Palette.GOLD if icon_name.is_empty() else Palette.CRIMSON
 	panel.add_theme_stylebox_override(
 		"panel",
@@ -228,8 +237,7 @@ func _raise(text: String, icon_name: String = "") -> void:
 		)
 	)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.set_meta("toast_text", text)
-	panel.set_meta("toast_icon", icon_name)
+	panel.dress(text, icon_name)
 	var label := Label.new()
 	label.text = text
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -260,7 +268,7 @@ func _raise(text: String, icon_name: String = "") -> void:
 	_live += 1
 
 	var tween := create_tween()
-	panel.set_meta("toast_tween", tween)
+	panel.fade = tween
 	tween.tween_property(panel, "modulate:a", 1.0, 0.25)
 	tween.tween_interval(2.8 if icon_name.is_empty() else 4.4)
 	tween.tween_property(panel, "modulate:a", 0.0, 0.5)
@@ -269,10 +277,8 @@ func _raise(text: String, icon_name: String = "") -> void:
 
 ## A plate finished: the compact lane prints the next held line, unless a sheet
 ## or battle plate still covers the court.
-func _plate_done(panel: PanelContainer) -> void:
-	if not is_instance_valid(panel) or panel.has_meta("toast_cancelled"):
-		return
-	if panel.is_queued_for_deletion():
+func _plate_done(panel: HudDespatchPlate) -> void:
+	if not is_instance_valid(panel) or not panel.is_live():
 		return
 	panel.queue_free()
 	_live = maxi(_live - 1, 0)

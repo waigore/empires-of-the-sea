@@ -73,6 +73,8 @@ var chips: Array[Control] = []
 ## The bar's dressed doors and the caption each one hides on a compact bar, kept
 ## from the build so the fit reads its own parts instead of searching the row
 ## (REQ-P3-02). The pause menu's MENU crest registers here when it mounts.
+## One entry per dressed bar door: `button`, `caption`, `wide_width` and
+## `compact_icon_only` (REQ-P3-02).
 var bar_doors: Array[Dictionary] = []
 var minimap_frame: Control = null
 var zoom_box: Control = null

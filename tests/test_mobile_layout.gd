@@ -225,7 +225,7 @@ func test_phone_chrome_fits_the_screen() -> void:
 			assert_false(caption.is_empty(), "bar door keeps its caption at %s" % size)
 			var caption_label := _caption_label(door)
 			assert_not_null(caption_label, "bar door has a caption label at %s" % size)
-			if door.has_meta("compact_icon_only"):
+			if _collapses_on_a_phone(hud, door):
 				assert_false(caption_label.visible, "command caption yields on a phone %s" % size)
 			else:
 				assert_true(caption_label.visible, "region keeps its label %s" % size)
@@ -305,7 +305,7 @@ func test_the_bar_keeps_the_door_parts_it_dressed() -> void:
 		assert_not_null(button, "a registered door is a button on the bar")
 		assert_not_null(caption, "a registered door keeps the caption it dressed")
 		assert_false(caption.visible, "the compact bar hides that caption")
-		assert_true(button.has_meta("compact_icon_only"), "the door collapses to its medallion")
+		assert_true(bool(door.get("compact_icon_only", false)), "the door collapses to its medallion")
 		assert_true(hud.top_row.is_ancestor_of(button), "the door rides the bar's row")
 	var menu: Button = hud.top_row.find_child("MenuSeal", true, false) as Button
 	assert_not_null(menu, "the pause crest mounts on the bar")
@@ -324,9 +324,9 @@ func test_resize_restores_the_wide_cartouche() -> void:
 	var hud: GameHud = _screen.hud
 	assert_false(_caption_label(hud.chips[0] as Button).visible, "compact drops chip words")
 	var command: Button = null
-	for door: Button in _bar_doors(hud):
-		if door.has_meta("compact_icon_only"):
-			command = door
+	for door: Dictionary in hud.bar_doors:
+		if bool(door.get("compact_icon_only", false)):
+			command = door["button"]
 			break
 	assert_not_null(command, "a command door exists")
 	if command != null:
@@ -1694,6 +1694,15 @@ func _chip(hud: GameHud, name_text: String) -> Button:
 	var button := hud.find_child(name_text, true, false) as Button
 	assert_not_null(button, "%s exists" % name_text)
 	return button
+
+
+## Does this door drop its caption on a phone? The bar's registration says so;
+## the compact fit reads the same entry.
+func _collapses_on_a_phone(hud: GameHud, button: Button) -> bool:
+	for door: Dictionary in hud.bar_doors:
+		if door.get("button") == button:
+			return bool(door.get("compact_icon_only", false))
+	return false
 
 
 func _bar_doors(hud: GameHud) -> Array[Button]:

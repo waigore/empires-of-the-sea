@@ -17,7 +17,6 @@ static func make(
 	button.name = name_text
 	button.custom_minimum_size = TREASURY_SIZE if delta else CHIP_SIZE
 	button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	button.set_meta("chip", true)
 	button.add_theme_stylebox_override(
 		"normal", UiTheme.cartouche(Color(0.16, 0.13, 0.09, 0.70), Palette.with_alpha(Palette.GOLD_DIM, 0.50))
 	)

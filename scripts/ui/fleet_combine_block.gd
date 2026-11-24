@@ -48,5 +48,6 @@ func _build_row(row: Dictionary) -> Control:
 		"label": "Join her",
 		"tip": "Fold this squadron into her" if ok else reason,
 		"action": "combine:%d" % target,
-		"meta": {"combine_id": target},
+		# The squadron the press folds into her, for a drive reading the row.
+		"fleet": target,
 	})
