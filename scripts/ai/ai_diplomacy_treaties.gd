@@ -51,8 +51,10 @@ static func best(
 	# the link the Merchant's purchase waits for — a Minor seller's chain is the
 	# same published purchase the bank was never meant to shut. `chain_openable`
 	# reads the seller's own region through the court's chart, so a deed across
-	# the water prices its chain like a home one.
-	if not chain_matters and target >= 0 and (
+	# the water prices its chain like a home one. The reading is taken even when a
+	# colony chain already matters, so the two are kept apart below (issue #1383).
+	var deed_matters: bool = false
+	if target >= 0 and (
 		FactionCatalog.type_of(target) == FactionCatalog.Type.MINOR_NATION
 		or FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE
 	):
@@ -69,7 +71,8 @@ static func best(
 				seller_model, config.faction,
 				{"diplomacy": state, "visibility": view}, true
 			)
-			chain_matters = not deed_chain.is_empty()
+			deed_matters = not deed_chain.is_empty()
+			chain_matters = chain_matters or deed_matters
 	# The conquest bank (issue #995): a court short of the bar whose host is
 	# still under strength, with its purse one line-cycle short of the
 	# chest, is saving for its next line — and a paid envoy rung is a
@@ -80,9 +83,29 @@ static func best(
 	# muster's own chest kept the line unfunded for the whole campaign
 	# (bench run 2026-11-22: a Maya embassy took the purse the turn the
 	# chest closed, at one regiment and sixteen provinces).
+	#
+	# The deed's rung is an income investment, not a purchase (issue #1383): the
+	# embassy it lands opens ground that clears to the treasury, the same engine the
+	# chest fills from, so it leads from the purse above the court's own cash floor
+	# exactly as the studies and the crews do (#1384's split) — while the colony
+	# chain keeps the bank's face (#1271). The bypass names ONE seller: the court's
+	# own deed partner, the cheapest priced deed its chart carries
+	# (`AiMerchantWork.deed_seller`), because the published nudge walks that partner
+	# alone — a banked court that chained every charted Minor spent its chest on
+	# embassies the deed book could not use (bench: the subject's earned flow fell
+	# 285 → 149 when every seller was let through). A purse that cannot pay the rung
+	# and keep that floor keeps the published wait.
+	var next: String = DiplomacyCatalog.next_stage(state.overture(config.faction, target))
 	var income: Dictionary = context.get("income", {}) as Dictionary
-	if (not chain_matters or bool(income.get("conquest_gap", false))) \
-			and not income.is_empty():
+	var deed_paid: bool = (
+		deed_matters
+		and target == int(context.get("deed_seller", -1))
+		and _deed_rung_funded(config, income, next)
+	)
+	if not income.is_empty() and (
+		not chain_matters
+		or (bool(income.get("conquest_gap", false)) and not deed_paid)
+	):
 		var banked: String = AiIncome.bank_refusal(config, ai_state, income)
 		if not banked.is_empty():
 			return _blocked(banked, AiDiplomacyOffers.KIND_OVERTURE)
@@ -103,7 +126,6 @@ static func best(
 				target,
 				improve + int(config.agenda_traits.get("alliance_bias", 0)),
 			)
-	var next: String = DiplomacyCatalog.next_stage(state.overture(config.faction, target))
 	var colony_raise: int = (
 		int(colony.get("bonus", 0))
 		if String(colony.get("stage", "")) == next
@@ -194,6 +216,23 @@ static func pact_break_leads(
 	) == FactionCatalog.Type.GREAT_POWER:
 		return false
 	return true
+
+
+## True when the deed's next envoy rung is paid from the purse above the court's
+## own cash floor (issue #1383): the embassy a deed's chain lands opens ground
+## that clears to the treasury, so that rung is an income investment and leads
+## while the army's chest fills, as the studies and the crews do (#1384's split).
+## The floor is the one every other claim reads (`economy.min_treasury`); a purse
+## that cannot pay the rung and keep it keeps the published wait (#1271). A
+## caller with no money row reads false, so the bank's face stands as published.
+static func _deed_rung_funded(
+	config: AiConfig, income: Dictionary, stage: String
+) -> bool:
+	if config == null or income.is_empty() or stage.is_empty():
+		return false
+	var floor: int = maxi(config.parameter("economy.min_treasury"), 0)
+	var purse: int = int(income.get("treasury", 0))
+	return purse - DiplomacyCatalog.stage_cost(stage) >= floor
 
 
 static func _offer(kind: String, target: int, utility: int) -> Dictionary:

@@ -1,400 +1,61 @@
 class_name AiEconomyPlanner
 extends RefCounted
-## Full-AI economy policy (wiki: economy-planner, growth-stage-planner).
+## Full-AI economy policy door (wiki: economy-planner, growth-stage-planner).
 ##
-## Scores production recipes by the court's stock deficit, then allocates whole
-## runs greedily under the labour and input budget the next Production phase
-## will enforce. Recruitment spends the same ledger through PlayerEconomy, so a
-## rival never invents resources or bypasses a tech gate (REQ-P2-03, REQ-P3-03).
-## A row that needs a trained hand is no candidate until the pool holds one: the
-## phase would refuse it, and a phantom run would spend the plan's labour and
-## reserve inputs for output that never lands (wiki: production-recipes
-## § Worker-tier gates; DR-20261114-07).
-## The same holds for the bench: a slow row whose workshop already holds three
-## pieces has no room for another run, so the plan spends that labour on the rows
-## the phase will start (wiki: production-recipes § Workshop queue; DR-20261115-02).
-## And for the town's works: the second-stage rows (garments, rum) wait on a town
-## at their level, so a court whose best town is too young is offered none — the
-## phase's own presence test (wiki: production-recipes § Town-works gates;
-## DR-20261116-04; REQ-P2-03).
-## Pure rules: state in, orders out; the map adapter applies them.
+## The workshop plan lives on [AiEconomyProduction]; hire and train orders on
+## [AiEconomyRecruitment]; colonisation ground weights on [AiEconomyAppetite].
+## This owner keeps the published API so map adapters and traces never chase a
+## rename (REQ-P2-03, REQ-P3-01, REQ-P3-03). Pure rules: state in, orders out.
 
-## Outputs that unblock civilian work and industry; they win ties over purely
-## commercial goods because every court needs them to keep building.
-const BUILD_INPUTS: Array[String] = [
-	"lumber", "castIron", "fabric", "paper", "steel", "bronze",
-]
+## Build-input outputs the workshop ranks first — owned by the production home.
+const BUILD_INPUTS: Array[String] = AiEconomyProduction.BUILD_INPUTS
 
 
 ## Production assignments for the next Production phase plus the scored
-## candidates that explain them (wiki: turn-trace-interpretation). `town_level`
-## is the crown's best town in any province: the presence test the second-stage
-## rows' works gate reads, so the plan never offers a run the phase refuses
-## (wiki: production-recipes § Town-works gates; DR-20261116-04).
-##
-## `held` is the raw the muster's and the hull's own material rows claim — the
-## stock the market must keep for the regiment and the yard (issue #484). The
-## plan never promises a run whose inputs would eat that raw, so a court
-## saving for a muster or a hull can still manufacture without costing the
-## launch its timber or cloth; the rows themselves stay the claims' to rank
-## (wiki: economy-planner § Reservations; issue #878). `idle` is the labour the
-## phase will really hand the runs (a striker turns no wheel; issue #1433); the −1
-## sentinel keeps the published roster reading for the frozen baselines.
+## candidates that explain them. See [method AiEconomyProduction.production_orders].
+## `idle` is the labour the phase will really hand the runs (a striker turns no
+## wheel; issue #1433); the −1 sentinel keeps the published roster reading for
+## the frozen baselines.
 static func production_orders(
 	config: AiConfig, economy: PlayerEconomy, town_level: int = 0,
 	held: Dictionary = {}, idle: int = -1
 ) -> Dictionary:
-	var candidates: Array[Dictionary] = []
-	var assignments: Array[Dictionary] = []
-	if config == null or economy == null:
-		return {"assignments": assignments, "candidates": candidates}
-	var target: int = config.parameter("economy.reserve_target")
-	var weight: int = maxi(config.parameter("economy.recipe_weight"), 1)
-	var stock: Dictionary = economy.stockpile.duplicate()
-	for commodity: Variant in held.keys():
-		var id: String = String(commodity)
-		stock[id] = maxi(int(stock.get(id, 0)) - maxi(int(held[commodity]), 0), 0)
-	var budget: int = maxi(idle, 0) if idle >= 0 else economy.workers.labour()
-	# A batch already in the workshop counts toward the target: the court must
-	# not keep assigning alloy runs that are still serving their turns
-	# (DR-20261112-11).
-	var committed: Dictionary = _committed(economy)
-	# The room each slow row's bench has left once this phase's landings are
-	# served: the plan takes effect after the phase resolves, so this is the
-	# same reading `ProductionPhase.plan` will cap the runs with.
-	var bench: Dictionary = _bench_room(economy)
-	for recipe_id: String in ProductionRecipes.available_ids_for(
-		economy.tech_unlocked, economy.workers, town_level
-	):
-		var output: String = ProductionRecipes.output(recipe_id)
-		var deficit: int = maxi(
-			target - int(stock.get(output, 0)) - int(committed.get(output, 0)), 0
-		)
-		var score: int = _score(output, deficit, weight)
-		candidates.append({
-			"recipe": recipe_id,
-			"output": output,
-			"deficit": deficit,
-			"score": score,
-			"assigned": 0,
-		})
-	candidates.sort_custom(_better_candidate)
-	# One run at a time in rank order, cycling while labour and inputs last: the
-	# highest-scoring input must not take the court's whole labour while every
-	# other build input starves. A court whose stores carry iron and wool wove no
-	# cloth at all — castIron's deficit never fell (works spend it every turn), so
-	# it outranked fabric on every turn and the muster starved with a full war
-	# chest (issue #474).
-	var progress: bool = true
-	while progress and budget > 0:
-		progress = false
-		for entry: Dictionary in candidates:
-			if int(entry["deficit"]) <= 0 or budget <= 0:
-				continue
-			var recipe_id: String = String(entry["recipe"])
-			var runs: int = mini(1, ProductionPhase.max_runs(recipe_id, stock, budget))
-			# A slow row's bench holds three pieces: a fourth run waits for a
-			# landing, so the phase would refuse it and the plan would have
-			# spent its labour and inputs on nothing (DR-20261114-12).
-			if bench.has(recipe_id):
-				runs = mini(runs, int(bench[recipe_id]))
-			if runs <= 0:
-				continue
-			entry["assigned"] = int(entry["assigned"]) + runs
-			if bench.has(recipe_id):
-				bench[recipe_id] = int(bench[recipe_id]) - runs
-			_reserve(recipe_id, runs, stock)
-			budget -= runs * ProductionRecipes.labour(recipe_id)
-			# Interchangeable recipes (wool/cotton fabric) must not both fill the
-			# same deficit in one plan.
-			for other: Dictionary in candidates:
-				if String(other["output"]) == String(entry["output"]):
-					other["deficit"] = maxi(int(other["deficit"]) - runs, 0)
-			progress = true
-	for entry: Dictionary in candidates:
-		var units: int = int(entry["assigned"])
-		if units <= 0:
-			continue
-		assignments.append({"recipe": String(entry["recipe"]), "units": units})
-	assignments.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		return String(a["recipe"]) < String(b["recipe"])
+	return AiEconomyProduction.production_orders(
+		config, economy, town_level, held, idle
 	)
-	return {"assignments": assignments, "candidates": candidates}
 
 
-## Units already promised to a recipe's output by the time this plan takes
-## effect: the batches on the anvil plus the multi-turn run this phase still
-## starts from the assignment already queued (the map adapter applies a new plan
-## after the phase resolves). A one-turn run lands in that same phase, so the
-## stockpile already speaks for it. Without the queued allowance a court starts a
-## second alloy batch while one serves, spending two runs against one reserve
-## (DR-20261112-11).
-static func _committed(economy: PlayerEconomy) -> Dictionary:
-	var queued: Dictionary = {}
-	for assignment: Dictionary in economy.production.assignments():
-		var queued_id: String = String(assignment.get("recipe", ""))
-		if ProductionRecipes.turns(queued_id) <= 1:
-			continue
-		queued[queued_id] = int(queued.get(queued_id, 0)) + int(assignment.get("units", 0))
-	var committed: Dictionary = {}
-	var labour: int = economy.workers.labour()
-	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
-		var units: int = economy.production.wip_units(recipe_id)
-		if queued.has(recipe_id):
-			units += mini(
-				int(queued[recipe_id]),
-				ProductionPhase.max_runs(recipe_id, economy.stockpile, labour)
-			)
-		var made: String = ProductionRecipes.output(recipe_id)
-		committed[made] = int(committed.get(made, 0)) + units
-	return committed
-
-
-## Room each slow row's bench has left for the runs this plan sets: recipe id ->
-## pieces, read from the workshop this phase leaves. The plan is applied after
-## the phase resolves, so its runs start a phase later, when every batch on the
-## bench has served another — the bench it meets holds no more than `serve`
-## keeps. A one-turn row never waits, so it is absent and never capped (wiki:
-## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
-static func _bench_room(economy: PlayerEconomy) -> Dictionary:
-	var room: Dictionary = {}
-	if economy == null or economy.production == null:
-		return room
-	var wip: Dictionary = economy.production.wip
-	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
-		var turns: int = ProductionRecipes.turns(recipe_id)
-		if turns <= 1:
-			continue
-		room[recipe_id] = ProductionWorkshop.room(wip, recipe_id, turns)
-	return room
-
-
-## Recruit orders, highest affordable tier first, capped per turn and at the
-## worker target. A copy is spent first, so the live ledger sees only the rows
-## the rules already accepted. Two throttles keep the court growing rather than
-## spent out: training never consumes the court's last peasant, and it never
-## leaves the purse under its cash floor — `economy.min_treasury` or the war
-## chest the caller passes in `floor`, whichever is higher — while the court
-## could still train again next turn (wiki: workers-and-population § Rival
-## training throttle; growth-stage-planner § Recruitment modulation).
-## `fed_slack` is the grain the larder leaves after the army, the navy and the
-## workers eat: a court hires no mouth it cannot feed, because a peasant it
-## cannot feed strikes instead of working (issue #489). A negative reading means
-## the caller has no larder to read, and the gate does not apply.
-## `hands` is the peasant count the muster reservation keeps
-## (`AiArmyReinforce.muster_hands`): a court whose muster is legal-and-funded
-## this turn trains no hand the levy itself would consume (issue #807). 0 keeps
-## the published last-peasant throttle. `conquest_bank` is the win-bar reading
-## (issue #995): a court short of the bar banking for its next line hires its
-## farmhands against the cash floor, because the pool they grow is the levy's
-## own provision — a chest that cannot exist for want of hands never arms a
-## court, and the measured bench froze one at three peasants for a hundred and
-## ninety turns (issue #995's frozen-court reading).
+## Recruit orders, highest affordable tier first. See
+## [method AiEconomyRecruitment.recruitment_orders].
 static func recruitment_orders(
 	config: AiConfig, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1,
 	hands: int = 0, conquest_bank: bool = false,
 	harvest_slack: int = -2
 ) -> Array[Dictionary]:
-	var orders: Array[Dictionary] = []
-	if config == null or economy == null:
-		return orders
-	var target: int = config.parameter("economy.worker_target")
-	if economy.workers.total() >= target:
-		return orders
-	var min_treasury: int = maxi(config.parameter("economy.min_treasury"), 0)
-	# The muster floor a caller hands in is a hard veto: a court saving for its
-	# next regiment buys no workers with that purse (issue #474). The court's own
-	# cash floor keeps its soft throttle, so peace-time growth still takes the
-	# one training a thin purse can pay. The published last-peasant throttle
-	# stands whenever no muster reservation is read (issue #807). A slack the
-	# caller did read blocks below the tier's own ration — a court already
-	# striking for food trains no mouth it cannot feed (#489); the −1 sentinel
-	# keeps the no-reading behaviour.
-	var muster_floor: int = maxi(floor, 0)
-	var hand_floor: int = maxi(hands, 1)
-	# The levy's own floor (issue #995): the pool the conquest bank needs to
-	# even have a chest — `army.min_peasants` plus the levy's own hand spare.
-	var levy_floor: int = maxi(config.parameter("army.min_peasants"), 0) \
-		+ RegimentEconomy.WORKER_COST
-	# The bar the harvest carries (issue #1059): while the court banks for the
-	# army its conquest needs, the pool it hires is the levy's own provision —
-	# the levy floor, not `economy.worker_target`. Every mouth past the levy's
-	# hand eats one of the rations the muster's own gate plans with, and the
-	# measured probe watched the farms' growth (+7 rations a turn by t80) fall
-	# whole into six new mouths — the slack sat at 0 for a hundred turns and
-	# the muster's ration gate with it. The pace reads the harvest slack: a
-	# court whose land cannot carry one more ration hires no mouth this turn.
-	# A caller with no reading keeps the published target.
-	var pool_target: int = (
-		maxi(levy_floor, economy.workers.count(WorkerPool.Tier.PEASANT))
-		if conquest_bank and harvest_slack >= -1
-		else target
+	return AiEconomyRecruitment.recruitment_orders(
+		config, economy, floor, fed_slack, hands, conquest_bank, harvest_slack
 	)
-	var sim: PlayerEconomy = economy.copy()
-	for _turn in maxi(config.parameter("economy.max_recruits"), 0):
-		if sim.workers.total() >= pool_target:
-			break
-		var tier: int = -1
-		if conquest_bank and sim.available_peasants() < levy_floor:
-			# The conquest bank's own provision (issue #995): when the pool
-			# cannot carry the levy's hand, the farmhand comes first — the
-			# chest the restored pool re-opens is the army's, not an optional
-			# build. The measured bench froze a short-of-bar court at three
-			# peasants for a hundred and ninety turns: no hands, no chest, no
-			# line, and every worker it could afford consumed one.
-			tier = WorkerPool.Tier.PEASANT
-		elif conquest_bank and harvest_slack >= -1 \
-				and sim.available_peasants() >= levy_floor:
-			# The pool carries the levy: while the bank holds with a harvest
-			# to pace by, the trained tiers wait — a hire the muster cannot
-			# afford to feed is not the army's provision (issue #1059). A
-			# caller with no reading keeps the published ladder.
-			break
-		else:
-			tier = _best_tier(sim)
-		if tier < 0:
-			break
-		if fed_slack != -1 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
-			break
-		# The harvest carries the mouth (issue #1059): the reading the muster's
-		# own gate plans with — one hire eats one of the rations that gate
-		# wants for the levy. The bank's own pace; a court not banking keeps
-		# the published gate alone. The −2 sentinel keeps the no-reading.
-		if conquest_bank and harvest_slack >= -1 \
-				and harvest_slack < WorkerPool.FOOD_PER_WORKER[tier]:
-			break
-		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
-				and sim.workers.count(WorkerPool.Tier.PEASANT) <= hand_floor:
-			break
-		if muster_floor > min_treasury and sim.treasury - _trains(sim, tier) < muster_floor:
-			# A farmhand the bank hires for its levy is the army's provision
-			# (issue #995): it reads the cash floor like the food it eats.
-			if not (conquest_bank and tier == WorkerPool.Tier.PEASANT):
-				break
-		if sim.treasury - _trains(sim, tier) < min_treasury \
-				and _next_training_affordable(sim, min_treasury):
-			break
-		var result: Dictionary = sim.recruit(tier)
-		if not bool(result.get("ok", false)):
-			break
-		fed_slack -= WorkerPool.FOOD_PER_WORKER[tier]
-		if conquest_bank and harvest_slack >= -1:
-			harvest_slack -= WorkerPool.FOOD_PER_WORKER[tier]
-		orders.append({"tier": tier})
-	return orders
 
 
-## True when the purse could already pay a trained-tier row today, i.e. the
-## court has slack outside `economy.min_treasury` and could train again next
-## turn once its materials land. Peasant count is checked by the caller.
-static func _next_training_affordable(economy: PlayerEconomy, reserve: int) -> bool:
-	for tier in range(1, WorkerPool.TIER_COUNT):
-		if not _techs_open(economy, tier):
-			continue
-		if economy.treasury - reserve >= _trains(economy, tier):
-			return true
-	return false
-
-
-## True when this court's own techs already open `tier`, whatever its materials
-## or peasant count say today.
-static func _techs_open(economy: PlayerEconomy, tier: int) -> bool:
-	return economy != null and WorkerPool.techs_unlocked(tier, economy.tech_unlocked)
-
-
-## Treasury a training of `tier` would cost this court, or -1 for a bad tier.
-static func _trains(economy: PlayerEconomy, tier: int) -> int:
-	if economy == null or tier < 0 or tier >= WorkerPool.TIER_COUNT:
-		return -1
-	return int(WorkerPool.recruit_cost(tier).get("treasury", 0))
-
-
-## Highest tier this court can legally train right now, or -1. Peasants are the
-## fallback: a court with no worker tech still buys one peasant a turn, which is
-## how the pool ever reaches `economy.worker_target` (wiki: workers-and-population
-## § Recruit vs. train).
-static func _best_tier(economy: PlayerEconomy) -> int:
-	for tier in range(WorkerPool.TIER_COUNT - 1, -1, -1):
-		if economy.recruit_blocked_reason(tier).is_empty():
-			return tier
-	return -1
-
-
-## A short store of a build input is worth more than the same shortfall of a
-## luxury line: the base premium keeps civilian work supplied first.
-static func _score(output: String, deficit: int, weight: int) -> int:
-	var score: int = deficit * weight
-	if BUILD_INPUTS.has(output):
-		score += weight
-	return score
-
-
-## Removes the inputs and adds the output for runs already promised, so the
-## next recipe in the same plan cannot spend the same commodity twice.
-static func _reserve(recipe_id: String, runs: int, stock: Dictionary) -> void:
-	var needed: Dictionary = ProductionRecipes.inputs(recipe_id)
-	for commodity: Variant in needed.keys():
-		var id: String = String(commodity)
-		stock[id] = int(stock.get(id, 0)) - int(needed[commodity]) * runs
-	var output: String = ProductionRecipes.output(recipe_id)
-	stock[output] = int(stock.get(output, 0)) + runs
-
-
-## The raws the court's own workshop can turn and does not hold in number:
-## commodity → weight, read by the colonisation planner to choose the ground a
-## colonist lands on (wiki: production-recipes; DR-20261119-05). A row's input is
-## worth the voyage only while the store stands short of `reserve_target`; a
-## mineral is never read, because a chart shows no unprospected ground
-## (DR-20261111-26), so a court crosses the water for sugar cane and tobacco, not
-## for a hill that may or may not hold tin.
-##
-## The treasury rides beside the workshop (issue #1382): once the court charts
-## the New World, the appetite carries the `economy.riches_route_weight` under
-## the `riches` key, and the colonisation planner weighs every charted
-## mineral-bearing coast on it — peaks, hills, swamp and desert, the ground an
-## Explorer can survey. The weight names no commodity and no deposit: what a
-## survey may uncover stays the fog's own read (DR-20261111-26), the court just
-## prefers to land where prospecting can pay. A court that has never charted the
-## New World reads no riches weight — there is no shore to weigh.
+## Raws the workshop still lacks, weighed for colonisation ground. See
+## [method AiEconomyAppetite.ground_appetite].
 static func ground_appetite(
 	config: AiConfig, economy: PlayerEconomy, town_level: int = 0,
 	charts: CourtCharts = null
 ) -> Dictionary:
-	var appetite: Dictionary = {}
-	if config == null or economy == null:
-		return appetite
-	var target: int = maxi(config.parameter("economy.reserve_target"), 0)
-	for recipe_id: String in ProductionRecipes.available_ids_for(
-		economy.tech_unlocked, economy.workers, town_level
-	):
-		for raw: Variant in ProductionRecipes.inputs(recipe_id).keys():
-			var id: String = String(raw)
-			if ImprovementCatalog.MINERAL_COMMODITIES.has(id):
-				continue
-			var deficit: int = maxi(target - economy.quantity(id), 0)
-			if deficit <= 0:
-				continue
-			appetite[id] = int(appetite.get(id, 0)) + deficit
-	var weight: int = maxi(config.parameter("economy.riches_route_weight"), 0)
-	if weight > 0 and _charts_new_world(charts, config.faction):
-		appetite["riches"] = weight
-	return appetite
+	return AiEconomyAppetite.ground_appetite(config, economy, town_level, charts)
 
 
-## True when the court's own chart has reached the New World: its region-1 grid
-## holds at least one charted sea zone. A null chart is the fixture reading —
-## the crown has charted nothing, so no riches coast is named.
-static func _charts_new_world(charts: CourtCharts, owner: int) -> bool:
-	if charts == null:
-		return false
-	var view: VisibilityModel = charts.model_for(owner, WorldMap.NEW_WORLD)
-	if view == null:
-		return false
-	return not charts.known_zones(owner, WorldMap.NEW_WORLD).is_empty()
+## True when the purse could already pay a trained-tier row today.
+static func _next_training_affordable(economy: PlayerEconomy, reserve: int) -> bool:
+	return AiEconomyRecruitment._next_training_affordable(economy, reserve)
 
 
-## Highest score first; recipe id breaks a tie so the plan is deterministic.
-static func _better_candidate(a: Dictionary, b: Dictionary) -> bool:
-	if int(a["score"]) != int(b["score"]):
-		return int(a["score"]) > int(b["score"])
-	return String(a["recipe"]) < String(b["recipe"])
+## True when this court's own techs already open `tier`.
+static func _techs_open(economy: PlayerEconomy, tier: int) -> bool:
+	return AiEconomyRecruitment._techs_open(economy, tier)
+
+
+## Treasury a training of `tier` would cost this court, or -1 for a bad tier.
+static func _trains(economy: PlayerEconomy, tier: int) -> int:
+	return AiEconomyRecruitment._trains(economy, tier)
