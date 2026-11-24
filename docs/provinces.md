@@ -12,8 +12,8 @@ DR-20261123-25.
 
 ## Opening it
 
-**Realm** seals the bar (`T`) and the dossier's foot ([`armies.md`](armies.md),
-the muster roll's sibling). Chart switch **OLD** / **NEW**.
+**Realm** seals the bar (`T`) and the dossier's foot — the muster roll's sibling
+([`armies.md`](armies.md)). Chart switch **OLD** / **NEW**.
 
 ## The three views
 
