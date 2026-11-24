@@ -60,24 +60,29 @@ func build(marks: PressMarks) -> void:
 
 
 ## The town order on the same one press the wall and the ward take: the press
-## greys with the work plan's own refusal and, open, names its price, its wait
-## and what the level pays — the manufacture bonus the Extraction phase grants
-## that level and the works it opens (wiki: extraction-and-improvements § Town
-## manufacturing bonus, § Improvement build costs; DR-20261118-06, DR-20261125-04;
-## REQ-P2-03, REQ-P5-07). `stockpile` is the crown's live purse when the caller
-## knows it; null leaves the money gate to the order that charges it.
+## greys with the work plan's own refusal — the town's ladder, the study, the
+## stores, the Builder already raising it and the hand the press sends — and,
+## open, names its price, its wait and what the level pays — the manufacture
+## bonus the Extraction phase grants that level and the works it opens (wiki:
+## extraction-and-improvements § Town manufacturing bonus, § Improvement build
+## costs; DR-20261118-06, DR-20261125-04, DR-20261125-05; REQ-P2-03, REQ-P5-07).
+## `stockpile` is the crown's live purse when the caller knows it; null leaves
+## the money gate to the order that charges it.
 func set_town_order(
 	model: MapModel,
 	data: ProvinceState,
 	faction: int,
+	units: Array[CivilianState],
 	tech_unlocked: Dictionary,
 	stockpile: Variant = null
 ) -> void:
 	if town_button == null or data == null:
 		return
-	var refusal: String = NOT_HELD if faction >= 0 and data.owner != faction else ""
+	var refusal: String = NOT_HELD if faction < 0 or data.owner != faction else ""
 	if refusal.is_empty():
-		refusal = CivilianWorkRefusals.town_upgrade(data, tech_unlocked, stockpile)
+		refusal = ImprovementOrders.town_refusal(
+			model, units, faction, data.id, tech_unlocked, stockpile
+		)
 	var site: Vector2i = data.town_site()
 	var next: int = CivilianWorkPlan.town_upgrade_level(model, site)
 	_show_step(

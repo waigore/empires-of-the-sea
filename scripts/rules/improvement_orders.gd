@@ -97,7 +97,10 @@ static func upgrade_town(
 	var town: Vector2i = province.town_site()
 	if town.x < 0:
 		return {"ok": false, "message": "This province has no town to upgrade."}
-	if working_builder(units, owner, town) != null:
+	# The step in hand reads as taken: the Builder already raising this town is
+	# the order's own refusal, not a missing hand (wiki: civilian-units § Builder;
+	# DR-20261125-05).
+	if CivilianWork.working_crew(units, owner, town, "builder", "upgrade_town") != null:
 		return {"ok": false, "message": "A Builder is already at work on this town."}
 	var builder: CivilianState = nearest_builder(units, owner, town)
 	if builder == null:
@@ -119,6 +122,39 @@ static func upgrade_town(
 			CivilianWorkPlan.town_upgrade_level(model, town),
 		],
 	}
+
+
+## Why the province dossier's town press cannot run now, or "" when it can: the
+## town's own ladder, study and stores, the Builder already raising it, and the
+## hand the press would send — in the order's own words (wiki: civilian-units
+## § Builder, § Per-player tile exclusivity; extraction-and-improvements § Town
+## manufacturing bonus; DR-20261125-05; REQ-P2-03). The wall and the ward on the
+## same rail read through their own refusals, so one rail offers three presses
+## one way, and the town ledger's row and this press name one wait.
+static func town_refusal(
+	model: MapModel,
+	units: Array[CivilianState],
+	owner: int,
+	province_id: int,
+	tech_unlocked: Dictionary = {},
+	stockpile: Variant = null
+) -> String:
+	var province: ProvinceState = model.province_data(province_id) if model != null else null
+	if province == null or not province.has_town():
+		return "This province has no town to upgrade."
+	var why: String = CivilianWorkRefusals.town_upgrade(province, tech_unlocked, stockpile)
+	if not why.is_empty():
+		return why
+	var site: Vector2i = province.town_site()
+	# The step in hand reads as taken: a town a Builder is already raising has
+	# no level to price and no second press (the towns ledger's AT WORK state).
+	if CivilianWork.working_crew(units, owner, site, "builder", "upgrade_town") != null:
+		return "A Builder is already at work on this town."
+	var builder: CivilianState = nearest_builder(units, owner, site)
+	if builder == null:
+		return RaiseLedger.no_crew_note("Builder")
+	# The town tile is shared with the wall and the ward: one crew works it.
+	return CivilianWorkRefusals.tile_busy(units, builder, site)
 
 
 ## Why the province dossier's wall press cannot run now, or "" when it can: the

@@ -9,7 +9,8 @@ P3 (pure projection), P5 (one press, not thirty).
 **Wiki:** [extraction-and-improvements](https://github.com/waigore/empires-of-the-sea/wiki/extraction-and-improvements)
 § Town manufacturing bonus, § Improvement build costs;
 [civilian-units](https://github.com/waigore/empires-of-the-sea/wiki/civilian-units)
-§ Builder `upgrade_town`. Decision: DR-20261115-12.
+§ Builder `upgrade_town`. Decision: DR-20261115-12, DR-20261125-04,
+DR-20261125-05.
 
 ## Where it reads
 
@@ -35,8 +36,9 @@ wait before the tap.
 **Upgrade Town** on the province dossier sends the nearest idle Builder through
 `ImprovementOrders.upgrade_town`. The order's message reaches the court as the
 toast, and the dossier's gate repaints as `AT WORK`. An order that cannot run
-carries no press: the note names the wait — stores short, or another crew on the
-town tile — in the order's own words.
+carries no press: the note names the wait — no idle Builder, the Builder already
+raising the town, another crew on the town tile, stores short — in the order's
+own words.
 
 ## Architecture
 
@@ -47,10 +49,14 @@ town tile — in the order's own words.
 | `scripts/ui/province_raise_presses.gd` | the dossier's `Upgrade Town` order |
 
 No figure is recomputed: price is `CivilianWork.cost_for`, wait
-`CivilianWorkPlan.duration_for`, gate `town_upgrade_refusal`, crew the work
-record (`REQ-P2-03`).
+`CivilianWorkPlan.duration_for`, gate `ImprovementOrders.town_refusal` (the town's
+ladder, study, stores and the hand the press sends), crew the work record
+(`REQ-P2-03`).
 
 ## Tests
 
 `tests/test_ledgers.gd` — the towns cases read the projection over both charts,
 every state, the tallies and the reading order.
+`tests/test_panel_parts_rules.gd` — the press's price, tip, payoff and refusal,
+and the hand it waits for. `playtests/playtest_raise_line.gd` presses the real
+order and re-reads the same press.
