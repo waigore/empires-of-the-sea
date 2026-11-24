@@ -130,11 +130,19 @@ static func refresh_dossier(play: PlaySession) -> void:
 	# reseated here with every dossier refresh (wiki: fog-and-exploration
 	# § Order-of-battle readings; DR-20261123-13, DR-20261123-14).
 	MapPlayProvinceHosts.seat(play)
-	play.hud.panels.panel.set_data(
-		play.model, play.land_works, play.civilian_layer.units, play.visibility,
-		play.capital_tile, play.player_faction, play.tech_caps(),
-		play.tech_unlocked(), play.stockpile(), MapPlayBlockades.crown(play)
+	# One named seat, so a longer dossier adds a field instead of a tenth
+	# positional table (ProvinceDossierOpening; REQ-P3-02).
+	var seat := ProvinceDossierOpening.of(
+		play.model, play.land_works, play.civilian_layer.units
 	)
+	seat.visibility = play.visibility
+	seat.capital_tile = play.capital_tile
+	seat.faction = play.player_faction
+	seat.tech_caps = play.tech_caps()
+	seat.tech_unlocked = play.tech_unlocked()
+	seat.stockpile = play.stockpile()
+	seat.blockade = MapPlayBlockades.crown(play)
+	play.hud.panels.panel.set_opening(seat)
 
 
 ## Chips and the estates ledger follow the region on screen. A muted HUD — the
