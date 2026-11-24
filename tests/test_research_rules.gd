@@ -2075,12 +2075,15 @@ func test_assigning_through_the_controller_holds_the_slot() -> void:
 	assert_eq(state.tech_at(0), ResearchState.EMPTY_TECH)
 
 
+## Crown ledger Research phase alone; skip the full end_turn rival walk under
+## coverage (docs/testing.md § Speed rules). Pure `ResearchTurn` cases already
+## prove funding maths; this case proves the mounted college pays through the
+## controller.
 func test_ending_the_turn_pays_for_research() -> void:
 	var screen: MapScreen = _screen()
 	var economy: PlayerEconomy = screen.economy.economy
 	assert_true(bool(economy.research.assign("crop_rotation", "low")["ok"]))
-	MapPlayTurn.end_turn(screen.play)
-	ScreenFixture.settle(screen.play)
+	screen.economy.resolve_turn()
 	assert_eq(economy.research.progress_of("crop_rotation"), 100)
 
 

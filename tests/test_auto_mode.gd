@@ -200,24 +200,28 @@ func _drain(play: PlaySession) -> int:
 # --- lifecycle ---------------------------------------------------------------
 
 
+## Turn-boundary handoff alone; skip a full end_turn rival walk under coverage
+## (docs/testing.md § Speed rules). The suite's before_all already drained one
+## paced Auto turn for log cases.
 func test_arming_waits_for_the_turn_to_close() -> void:
 	var play: PlaySession = screen.play
 	assert_false(play.auto_active, "a campaign starts with the court in hand")
 	MapPlayAuto.arm(play)
 	assert_true(play.auto_armed, "the seal asks for the seat")
 	assert_false(MapPlayAuto.active(play), "arming does not seize the turn in flight")
-	_play_turn(play)
+	MapPlayAuto.settle_turn_end(play)
 	assert_true(play.auto_active, "the AI takes the seat at the turn's close")
 	assert_true(MapPlayAuto.blocks_orders(play), "and the court is read-only from then on")
 
 
+## Discharge at the boundary alone; skip draining another paced Auto turn under
+## coverage. The seat capture already holds the AI mid-turn.
 func test_disarming_returns_the_court_at_the_turn_boundary() -> void:
 	var play: PlaySession = _seat_the_ai()
 	MapPlayAuto.disarm(play)
 	assert_true(play.auto_active, "a discharge still serves out the turn in flight")
 	assert_false(play.auto_armed, "the seat is already marked for release")
-	MapPlayAuto.tick(play)
-	_drain(play)
+	MapPlayAuto.settle_turn_end(play)
 	assert_false(play.auto_active, "the court answers the turn after the discharge")
 	assert_true(play.auto_log.has("The court returns to your hand."), "the release is told")
 

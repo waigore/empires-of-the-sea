@@ -2219,7 +2219,10 @@ func test_the_arm_guard_window_runs_out_on_its_own() -> void:
 	guard.expired.connect(func() -> void: rung.append(true))
 
 	guard.arm("colours", 0.05)
-	await get_tree().create_timer(0.15).timeout
+	# Fire the guard's own clock instead of sleeping past the window under
+	# coverage (docs/testing.md § Speed rules — no create_timer padding).
+	guard.stop()
+	guard.timeout.emit()
 
 	assert_eq(guard.key(), "", "the window forgets the first tap")
 	assert_eq(rung, [true] as Array[bool], "and tells the owner to repaint")
