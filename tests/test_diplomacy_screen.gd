@@ -220,29 +220,23 @@ func test_a_march_into_foreign_land_needs_a_declared_war() -> void:
 	assert_eq(army.province, target, "war lets the same march through")
 
 
-## A Tribe's shore another crown has bought land in is barred by that deed, so
-## the refusal names the crown instead of blaming a peace the crown may not be
-## under (wiki: factions § Tribe — "unless another GP has invested in the
-## province"; DR-20261120-05; REQ-P5-05).
-func test_the_march_into_a_tribes_bought_land_names_the_deed() -> void:
+## A Tribe's land needs a declaration like any other foreign province, so a newly
+## contacted Tribe at peace is no march (wiki: diplomacy § War required for
+## hostile actions; DR-20261124-07; REQ-P5-05).
+func test_a_march_into_a_tribes_land_needs_a_declaration() -> void:
 	var model: MapModel = _screen.play.model
 	var tribe: int = 9
-	var bought: ProvinceState = model.provinces[0]
-	bought.owner = tribe
+	var province: ProvinceState = model.provinces[0]
+	province.owner = tribe
 	_screen.play.diplomacy.ensure_relation(0, tribe)
-	assert_true(model.purchase_tile(bought.tiles[0], 1), "a rival's deed")
-	var fallback: String = "Peace holds with the Aztec; declare war before invading."
-	assert_eq(
-		MapPlayArmies.refusal(_screen.play, bought.id, fallback),
-		"Deeds in %s bar an undeclared march — %s has bought land there; declare war before invading."
-		% [model.province_name(bought.id), FactionCatalog.name_of(1)]
+	assert_false(
+		MapPlayArmies.may_invade(_screen.play, province.id),
+		"peace refuses a Tribe's land"
 	)
-	var bare: ProvinceState = model.provinces[1]
-	bare.owner = tribe
-	assert_eq(
-		MapPlayArmies.refusal(_screen.play, bare.id, fallback),
-		fallback,
-		"no deed, the order's own words"
+	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, tribe)
+	assert_true(
+		MapPlayArmies.may_invade(_screen.play, province.id),
+		"the declaration opens the same land"
 	)
 
 

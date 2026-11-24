@@ -46,10 +46,10 @@ static func deed_count(world: WorldMap, court: int, target: int) -> int:
 
 
 ## True when any crown other than `except_court` has bought a tile of this
-## province. A Tribe province with a foreign deed may not be invaded without a
-## declaration (wiki: factions § Tribe — "unless another GP has invested in the
-## province"). Reads the province's own tiles, so a deed in a neighbouring
-## province never bars the march.
+## province. The stake the intervention trial reads (wiki: diplomacy § GP–Minor
+## Rules § Intervention), never a war gate: a march needs the declaration
+## whatever deeds the province holds (DR-20261124-07). Reads the province's own
+## tiles, so a deed in a neighbouring province never counts.
 static func invested_in_province(
 	model: MapModel, province_id: int, except_court: int
 ) -> bool:

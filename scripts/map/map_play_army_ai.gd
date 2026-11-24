@@ -151,12 +151,12 @@ static func _apply_marches(
 		if army == null:
 			continue
 		var province: int = int(order["province"])
-		# The rival marches through the same gate the crown does: a Tribe needs
-		# no declaration, but a Tribe province a crown has bought land in does.
+		# The rival marches through the same gate the crown does: war with the
+		# province's owner, whatever its type (wiki: diplomacy § War required).
 		var owner: int = model.province_owner(province)
 		var may_enter: bool = (
 			owner == MapModel.NO_ID or owner == faction
-			or DiplomacyRules.invadable(play.diplomacy, faction, owner, model, province)
+			or DiplomacyRules.invadable(play.diplomacy, faction, owner)
 		)
 		var march: Dictionary = ArmyMovement.apply_move(model, army, province, may_enter)
 		if not bool(march.get("ok", false)):
