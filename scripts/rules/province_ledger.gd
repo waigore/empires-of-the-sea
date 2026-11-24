@@ -184,29 +184,27 @@ static func _row(
 	}
 
 
+## The province's harbour text for a sheet: the water the harbour opens on, or
+## plain "Harbour" when the chart names none, and "Inland" for a province with
+## no port tile. The water is `NavalMovement.harbour_zone`'s own read — the port
+## tile's zone, else the zone beside the quay — so the realm row, the province
+## dossier and the observatory name one water (wiki: capital-and-connectivity
+## § Blockade; ships-and-naval § Missions and Movement; DR-20261124-05).
+static func harbour_name(model: MapModel, province: ProvinceState) -> String:
+	if model == null or province == null:
+		return ""
+	var zone: int = NavalMovement.harbour_zone(model, province.id)
+	if zone == MapModel.NO_ID:
+		return ""
+	return model.sea_zone_name(zone)
+
+
 ## Where the province stands: its harbour's water, or that it has none.
 static func _place(model: MapModel, province: ProvinceState) -> String:
-	var port: Vector2i = province.port_tile
-	if port.x < 0:
+	if province.port_tile.x < 0:
 		return "Inland"
-	var water: String = model.sea_zone_name(_water(model, port))
+	var water: String = harbour_name(model, province)
 	return ("Harbour — %s" % water) if not water.is_empty() else "Harbour"
-
-
-## The water a harbour opens on: the port tile's own zone, or the first zone
-## beside it when the chart keeps the zone on the water rather than the quay.
-static func _water(model: MapModel, port: Vector2i) -> int:
-	var zone: int = model.sea_zone_at(port.x, port.y)
-	if zone != MapModel.NO_ID:
-		return zone
-	for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP]:
-		var next: Vector2i = port + offset
-		if not model.in_bounds(next.x, next.y):
-			continue
-		var beside: int = model.sea_zone_at(next.x, next.y)
-		if beside != MapModel.NO_ID:
-			return beside
-	return MapModel.NO_ID
 
 
 ## What the province is built to: its town, its wall and its ward.

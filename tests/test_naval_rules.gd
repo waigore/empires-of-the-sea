@@ -2223,6 +2223,68 @@ func test_home_harbour_prefers_the_seat_then_the_lowest_id() -> void:
 	assert_eq(NavalMovement.home_harbour(model, 0), 1, "an inland seat falls back to a port")
 
 
+## The chart keeps the sea zone on the water, not on the quay, so a sheet that
+## reads the port tile's own zone names no water at all. One reading answers the
+## water the harbour opens on — the zone beside the quay — and the realm row, the
+## province dossier and the observatory all name it (wiki:
+## capital-and-connectivity § Blockade; DR-20261124-05).
+func test_harbour_zone_reads_the_water_beside_the_quay() -> void:
+	_setup_naval_movement()
+	var model: MapModel = _naval_movement_model
+	assert_eq(model.sea_zone_at(1, 0), MapModel.NO_ID, "the quay sits on land")
+	assert_eq(NavalMovement.harbour_zone(model, 0), 0, "the Mar Caribe beside it")
+	assert_eq(
+		ProvinceLedger.harbour_name(model, model.province_data(0)), "Mar Caribe",
+		"the sheet names the water, not a bare separator"
+	)
+	assert_eq(NavalMovement.port_sea_zones(model, 0), [0], "and the gate stands there")
+	# A province with no port tile opens on no water at all.
+	model.province_data(0).port_tile = Vector2i(-1, -1)
+	assert_eq(NavalMovement.harbour_zone(model, 0), MapModel.NO_ID)
+	assert_eq(ProvinceLedger.harbour_name(model, model.province_data(0)), "")
+	assert_eq(NavalMovement.harbour_zone(null, 0), MapModel.NO_ID)
+	assert_eq(NavalMovement.harbour_zone(model, 99), MapModel.NO_ID)
+
+
+## A quay the chart keeps in the water faces the water it stands in: the sheet
+## names that zone and a blockade may stand in it, though no orthogonal tile of
+## the quay is water (wiki: ships-and-naval § Missions and Movement — the
+## blockading fleet stands in a sea zone adjacent to the port; DR-20261124-05).
+func test_a_quay_in_the_water_faces_its_own_zone() -> void:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	var land: Array[Vector2i] = []
+	for y in 3:
+		for x in 5:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			if tile == Vector2i(2, 1):
+				continue
+			model.province[model.index_of(x, y)] = 0
+			land.append(tile)
+	# A channel one tile wide: its water touches land on every side.
+	model.terrain[model.index_of(2, 1)] = MapModel.Terrain.OCEAN
+	model.sea_zone[model.index_of(2, 1)] = 0
+	var province := ProvinceState.create(0, "Riva", land, Vector2(2.0, 1.0), land.size(), 0, true)
+	province.port_tile = Vector2i(2, 1)
+	model.provinces = [province]
+	model.sea_zones = [
+		SeaZoneState.create(0, "Canal", [Vector2i(2, 1)], Vector2(2.0, 1.0), 1)
+	]
+	assert_eq(NavalMovement.harbour_zone(model, 0), 0, "the quay's own water")
+	assert_eq(ProvinceLedger.harbour_name(model, province), "Canal")
+	assert_eq(
+		NavalMovement.port_sea_zones(model, 0), [0],
+		"a quay in the water faces the water it stands in"
+	)
+	assert_true(
+		bool(FleetMissions.can_assign(
+			model, FleetState.at_sea(1, 1, 0), FleetState.Mission.BLOCKADE, 0, _war
+		)["ok"]),
+		"the blockade stands in that water"
+	)
+
+
 func test_sea_fleet_moves_one_adjacent_zone() -> void:
 	_setup_naval_movement()
 	var fleet := FleetState.at_sea(1, 0, 0)
