@@ -624,12 +624,11 @@ func test_an_unreadable_slot_never_replaces_the_running_campaign() -> void:
 
 ## The campaign length is fixed at creation, so the row that offers a load names
 ## it and loading an Endless save keeps its open calendar (wiki:
-## campaign-persistence § Load and resume, DR-20261111-08).
+## campaign-persistence § Load and resume, DR-20261111-08). Rides the suite
+## chart — no Main title→setup→capital walk under coverage (docs/testing.md
+## § Speed rules). Main's load router is `test_menu_save_load_and_return_flow`.
 func test_a_slot_row_names_its_campaign_length() -> void:
-	await _start_game()
-	var screen: MapScreen = main.current_screen
-	if screen == null:
-		return
+	var screen: MapScreen = chart
 	screen.game_menu.open()
 	screen.game_menu.open_save()
 	screen.game_menu.browser.slot_chosen.emit(1)
@@ -641,12 +640,14 @@ func test_a_slot_row_names_its_campaign_length() -> void:
 	label = screen.game_menu.browser.slot_buttons[1].text
 	assert_true(label.contains("Endless"), "an endless row names it: %s" % label)
 
-	screen.game_menu.load_chosen.emit(2)
-	var loaded: MapScreen = main.current_screen
+	var data: Dictionary = SaveStore.read(SaveStore.path_for(2, DIR))
+	assert_true(SaveCodec.is_valid(data), "the endless slot is readable")
+	var loaded: MapScreen = Fixture.open_save(self, data, DIR)
 	assert_not_null(loaded, "the endless save loads")
 	if loaded == null:
 		return
 	assert_true(loaded.play.infinite_mode, "an endless campaign loads endless")
+	loaded.free()
 
 
 func _start_game() -> void:
