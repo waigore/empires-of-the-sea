@@ -66,7 +66,7 @@ static func counsel(
 	# crown could open today. The door's study is the one row the policy may
 	# refuse outright — a crown that cannot pay the cheapest preset over half its
 	# floor is told the next study the policy would open instead of a door it
-	# would leave shut (issue #484; `AiResearchPlanner._funding_of`).
+	# would leave shut (issue #484; `AiResearchPlan.funding_of`).
 	var read: Dictionary = AiResearchPlanner.read_free_slot(config, economy, {
 		"at_war": at_war,
 		"door": door_tech,

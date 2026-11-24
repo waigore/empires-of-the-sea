@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:d7c1bb9ef5c567feb1bb5f3f3db92a07ae5c41e6b9936eac7ace160297edea91",
-  "submission_git": "fix/bank-releases-at-the-hosts-price-1488@0d318b1b",
+  "submission_hash": "sha256:80eee944cf708f8e3bc7257a9f0d5c50e3dbcd9f18a8d6e4c77314c8675cc348",
+  "submission_git": "refactor/ai-research-purse-home@328972b4+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:bebe640211aa29e785500c024d9761cd903f9a9f96cabbf14fae7993c01913b2",
+    "ai_surface_hash": "sha256:dcd25b44a6ad29c3571a2808bcf4b05b57886bd4d4bd68436d4507b26dfe701d",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -87,7 +87,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T16:42:19Z",
+  "timestamp": "2026-11-24T19:17:11Z",
   "report_version": 1,
-  "signature": "hmac-sha256:3c73c1b58f4ddc1e67ebbb3c5963d1937820cc038b7e8486685e9dbcfe047d2d"
+  "signature": "hmac-sha256:4ed86c5fb284b2112cbd11c0b20d00dcc8b80bd268df687668a0153a16d97d61"
 }

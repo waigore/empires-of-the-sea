@@ -804,21 +804,34 @@ func test_the_opening_briefing_names_the_campaigns_own_year() -> void:
 ## skip `suite_reset` under coverage (docs/testing.md § Speed rules).
 func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
 	var plate := _opening_plate(0.05)
+	plate.fade_seconds = 0.01
 	plate.process_mode = Node.PROCESS_MODE_DISABLED
-	plate.lift(0.02)
-	await get_tree().create_timer(0.05).timeout
+	plate.lift(0.01)
+	await _await_plate_hidden(plate)
 	assert_false(plate.visible, "a plate whose node cannot process still lifts")
 	plate.queue_free()
 
 
 func test_an_opening_that_never_lifts_is_lifted_on_its_deadline() -> void:
 	var plate := _opening_plate(0.05)
-	# Nobody calls lift: this is the screen that faulted before `intro`. The
-	# deadline lifts on the plate's own short fade (hold + fade, not a real
-	# opening's 0.9 s parchment).
-	await get_tree().create_timer(0.15).timeout
+	plate.fade_seconds = 0.01
+	# Nobody calls lift: this is the screen that faulted before `intro`. Fire the
+	# plate's own deadline instead of sleeping past hold + fade under coverage
+	# (docs/testing.md § Speed rules — no create_timer padding).
+	var deadline: Timer = plate.get_node("Deadline") as Timer
+	deadline.stop()
+	deadline.timeout.emit()
+	await _await_plate_hidden(plate)
 	assert_false(plate.visible, "the deadline reveals the chart it was hiding")
 	plate.queue_free()
+
+
+## Wait for the parchment fade instead of sleeping past it under coverage.
+func _await_plate_hidden(plate: OpeningPlate, frames: int = 30) -> void:
+	for _frame in frames:
+		if not plate.visible:
+			return
+		await get_tree().process_frame
 
 
 func test_the_map_screen_opens_on_a_lifted_plate() -> void:
@@ -3070,14 +3083,20 @@ func test_the_civilian_chip_opens_the_whole_empire_roster() -> void:
 
 
 func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
-	var tile: Vector2i = _screen.model.provinces[0].tiles[0]
-	var unit: CivilianState = _screen.civilian_layer.add_unit(
-		_screen.play.player_faction, "merchant", tile
-	)
-	_screen._cycle_region()
+	# Stage the merchant on the far chart's roster without a `_cycle_region`
+	# round-trip (~1 s under coverage); Visit still mounts the New World.
 	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD)
+	var far: MapModel = _screen.play.world.region(FactionCatalog.NEW_WORLD)
+	var tile: Vector2i = far.provinces[0].tiles[0]
+	var unit: CivilianState = CivilianState.create(
+		_screen.civilian_layer.next_id, _screen.play.player_faction, "merchant", tile
+	)
+	_screen.civilian_layer.next_id += 1
+	var stored: Array = (
+		_screen.civilian_layer.regions.value(FactionCatalog.NEW_WORLD, []) as Array
+	).duplicate()
+	stored.append(unit)
+	_screen.civilian_layer.regions.set_region(FactionCatalog.NEW_WORLD, stored)
 
 	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster

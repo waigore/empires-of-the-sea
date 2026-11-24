@@ -37,21 +37,10 @@ var _rail: ProvinceRailBlock = null
 var _shell: ProvinceSheetShell = null
 var _orders_index: int = -1
 
-## Live state the dossier reads (set by MapPlaySetup, like the estates ledger).
-var _model: MapModel = null
-var _works: LandWorks = null
-var _units: Array[CivilianState] = []
-var _visibility: VisibilityModel = null
-var _capital_tile: Vector2i = CivilianState.NO_TILE
-var _faction: int = -1
-var _tech_caps: Dictionary = {}
-var _tech_unlocked: Dictionary = {}
-## The crown's live purse, or null when the caller keeps no stores: the town
-## order reads one money gate with the order itself (REQ-P2-03).
-var _stockpile: Variant = null
-## The crown's sealed coasts: a blockaded harbour's estates read cut here exactly
-## as the Extraction phase cuts them (wiki: capital-and-connectivity § Blockade).
-var _blockade: Blockades = null
+## The live tables the dossier paints from (set by MapPlaySetup, like the
+## estates ledger): one opening, so a longer seat adds a named field instead of
+## another loose table on the panel (ProvinceDossierOpening; REQ-P3-02).
+var _opening: ProvinceDossierOpening = null
 var _province_id: int = -1
 
 
@@ -83,7 +72,8 @@ func _build() -> void:
 	# what its staff would do with this province's ground this turn (CounselLine;
 	# DR-20261121-19). A dossier with no province on show asks nothing.
 	_counsel = CounselLine.make(_shell.column)
-	_counsel.gate = func() -> bool: return _model != null and _province_id >= 0
+	_counsel.gate = func() -> bool:
+		return _opening != null and _opening.model != null and _province_id >= 0
 
 	_grid = ProvinceFactsGrid.new()
 	_shell.add_section(_grid)
@@ -107,42 +97,25 @@ func _build() -> void:
 	_fit_to_viewport()
 
 
-## Live tables for the survey rows and the town gate. The panel keeps the
-## references, so a turn that changes works or research re-renders the open
-## dossier without the map layer handing it over again. `stockpile` is the
-## crown's live purse (null when the caller has none), so the town order greys
-## out for the materials it cannot pay as well as the study it lacks.
-## `blockade` is the court's sealed coasts, so a blockaded colony's estates read
-## the cut the Extraction phase pays (wiki: capital-and-connectivity § Blockade).
-func set_data(
-	model: MapModel,
-	works: LandWorks,
-	units: Array[CivilianState],
-	visibility: VisibilityModel,
-	capital_tile: Vector2i,
-	faction: int,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	stockpile: Variant = null,
-	blockade: Blockades = null
-) -> void:
-	var same_map: bool = model != null and model == _model
-	_model = model
-	_works = works
-	_units = units
-	_visibility = visibility
-	_capital_tile = capital_tile
-	_faction = faction
-	_tech_caps = tech_caps
-	_tech_unlocked = tech_unlocked
-	_stockpile = stockpile
-	_blockade = blockade
+## The live tables the survey rows and the town gate read (ProvinceDossierOpening;
+## set by `MapPlaySetup.refresh_dossier`). The panel keeps the opening, so a turn
+## that changes works or research re-renders the open dossier without the map
+## layer handing it over again. The opening carries the purse the town order
+## prices against and the court's sealed coasts, so a blockaded colony's estates
+## read the cut the Extraction phase pays (wiki: capital-and-connectivity
+## § Blockade).
+func set_opening(opening: ProvinceDossierOpening) -> void:
+	var same_map: bool = (
+		opening != null and opening.model != null
+		and _opening != null and opening.model == _opening.model
+	)
+	_opening = opening
 	if not same_map:
 		# A region switch invalidates the province id it was showing.
 		_province_id = -1
 		return
 	if _province_id >= 0:
-		refresh(model, _province_id)
+		refresh(opening.model, _province_id)
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
@@ -198,40 +171,51 @@ func refresh_crown(crown: Dictionary) -> void:
 ## town reaches the capital. When omitted, the roads row falls back to the
 ## estate survey (DossierCopy).
 func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
-	_model = model
+	if _opening == null:
+		# A bare panel (a suite's, or one whose boot seats it later) paints the
+		# same defaults a seat with no tables always did.
+		_opening = ProvinceDossierOpening.new()
+	# The repaint's chart is the one on show from here on, exactly as the old
+	# per-panel model field was: a later crown-link repaint reads the same chart.
+	_opening.model = model
 	_province_id = province_id
+	var seat: ProvinceDossierOpening = _opening
 	var data: ProvinceState = model.province_data(province_id)
 	if data == null:
 		return
 	_head.show_province(data)
 	# The grid reads the wall's storm off the crown's own studies, so a rival's
 	# wall prints the published envelope (DR-20261123-20).
-	_grid.show_province(model, province_id, data, _faction, _tech_unlocked)
+	_grid.show_province(model, province_id, data, seat.faction, seat.tech_unlocked)
 	_grid.set_hosts(_hosts_line(model, province_id))
 	# The harbour reads off the same seated session; the module answers "" for a
 	# sheet the boot never seated (DR-20261123-14).
 	_grid.set_harbour(MapPlayProvinceHarbour.line(play, model, province_id))
 	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
-		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
-		_tech_caps, _blockade
+		model, seat.works, seat.units, seat.faction, province_id, seat.visibility,
+		seat.capital_tile, seat.tech_caps, seat.blockade
 	)
 	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
-		model, _works, _faction, province_id, _visibility
+		model, seat.works, seat.faction, province_id, seat.visibility
 	).size()
 	_resources.render(
 		rows, unsurveyed, _road_plans(model, rows),
 		MapPlayProvinceHarvest.line(play, model, province_id)
 	)
 	_rail.render(RailWorks.province_plans(
-		model, _works, _units, _faction, province_id, _tech_unlocked
+		model, seat.works, seat.units, seat.faction, province_id, seat.tech_unlocked
 	))
 	_grid.set_estate_roads(data, rows, crown)
-	_orders.set_town_order(data, _faction, _tech_unlocked, _stockpile)
-	_orders.set_wall_order(model, data, _faction, _units, _tech_unlocked, _stockpile)
-	_orders.set_ward_order(model, data, _faction, _units, _tech_unlocked, _stockpile)
-	_orders.set_training(_tech_unlocked)
+	_orders.set_town_order(data, seat.faction, seat.tech_unlocked, seat.stockpile)
+	_orders.set_wall_order(
+		model, data, seat.faction, seat.units, seat.tech_unlocked, seat.stockpile
+	)
+	_orders.set_ward_order(
+		model, data, seat.faction, seat.units, seat.tech_unlocked, seat.stockpile
+	)
+	_orders.set_training(seat.tech_unlocked)
 	_orders.set_shipyard_visible(
-		data.owner == _faction and data.capital and data.port_tile.x >= 0
+		data.owner == seat.faction and data.capital and data.port_tile.x >= 0
 	)
 	_sync_counsel()
 
@@ -245,7 +229,8 @@ func _sync_counsel() -> void:
 	if _counsel == null:
 		return
 	_counsel.source = counsel_source
-	_counsel.args = [_model, _province_id]
+	var model: MapModel = _opening.model if _opening != null else null
+	_counsel.args = [model, _province_id]
 	_counsel.sync()
 	if _orders != null:
 		_orders.set_court_marks(_counsel.keys())
@@ -296,8 +281,9 @@ func press_text(key: String) -> String:
 ## the crown network is resolved once for the whole province, so a dossier of
 ## five estates costs one BFS (REQ-P4-01).
 func _road_plans(model: MapModel, rows: Array[Dictionary]) -> Dictionary:
+	var seat: ProvinceDossierOpening = _opening
 	return RoadWorks.province_plans(
-		model, _works, _units, _faction, _capital_tile, rows
+		model, seat.works, seat.units, seat.faction, seat.capital_tile, rows
 	)
 
 

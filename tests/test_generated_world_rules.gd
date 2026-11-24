@@ -173,20 +173,25 @@ func test_warp_zones_pair_the_two_maps() -> void:
 		)
 
 
+## Same seed rebuilds the Old World's terrain, provinces and owners — not a
+## second full `generate_world` (~2 s under coverage) that also redraws the New
+## World and re-pairs warps. Landform determinism is
+## `test_same_seed_is_deterministic`; NW seating and warps are covered elsewhere
+## (docs/testing.md § Speed rules).
 func test_same_seed_reproduces_the_world() -> void:
-	var other: WorldMap = MapGenerator.new().generate_world(SEED, WIDTH, HEIGHT)
-	for region_index in world.region_count():
-		var first: MapModel = world.region(region_index)
-		var second: MapModel = other.region(region_index)
-		assert_eq(first.terrain, second.terrain)
-		assert_eq(first.province, second.province)
-		var first_owners: Array[int] = []
-		var second_owners: Array[int] = []
-		for province: ProvinceState in first.provinces:
-			first_owners.append(province.owner)
-		for province: ProvinceState in second.provinces:
-			second_owners.append(province.owner)
-		assert_eq(first_owners, second_owners)
+	var first: MapModel = world.region(FactionCatalog.OLD_WORLD)
+	var second: MapModel = MapGenerator.new().generate_region(
+		SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT
+	)
+	assert_eq(first.terrain, second.terrain)
+	assert_eq(first.province, second.province)
+	var first_owners: Array[int] = []
+	var second_owners: Array[int] = []
+	for province: ProvinceState in first.provinces:
+		first_owners.append(province.owner)
+	for province: ProvinceState in second.provinces:
+		second_owners.append(province.owner)
+	assert_eq(first_owners, second_owners)
 
 
 func test_the_map_seats_the_published_roster() -> void:
