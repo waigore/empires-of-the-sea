@@ -1073,6 +1073,13 @@ domain = "muster"
 match = "scripts/rules/province_ledger.gd*"
 domain = "muster"
 
+# The province ledger's one printed row (figures and count words): the ledgers
+# suite mounts it. Map and phone boots stay on the muster domain via the panel
+# and projection, so a row wording edit stays inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/ui/province_ledger_row.gd*"
+domain = "eyes"
+
 [[rules]]
 match = "scripts/ui/province_ledger_*.gd*"
 domain = "muster"
@@ -1360,6 +1367,13 @@ domain = "people_pick"
 match = "scripts/ui/civilian_roster_row.gd*"
 domain = "people_pick"
 
+# The roster head's region line and chips: presentation over the people reading,
+# same two-suite slice as the row — never the civilian_*.gd catch-all's battle
+# and map boots (tier-1 5 min budget).
+[[rules]]
+match = "scripts/ui/civilian_roster_head.gd*"
+domain = "people_pick"
+
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
 domain = "muster"
@@ -1515,9 +1529,18 @@ domain = "auto"
 match = "scripts/ui/auto_log_plate.gd*"
 domain = "auto"
 
+# The Auto log sheet's kept-lines list: the seat suite proves the note copy and
+# the rows. Phone and observer boots stay on the wider auto domain via the
+# plate, prompt and driver — so a sheet wording edit never pulls them past the
+# tier-1 5 min budget.
+[domains.auto_log]
+suites = [
+  "test_auto_mode.gd",
+]
+
 [[rules]]
 match = "scripts/ui/auto_log_sheet.gd*"
-domain = "auto"
+domain = "auto_log"
 
 [[rules]]
 match = "scripts/ui/auto_prompt.gd*"
@@ -2691,6 +2714,18 @@ domain = "fold_map_screen"
 
 [[rules]]
 match = "tests/map_fixture.gd"
+domain = "map_fixture"
+
+[[rules]]
+match = "tests/census_fixture.gd*"
+domain = "map_fixture"
+
+[[rules]]
+match = "tests/data/census_world_160.bin"
+domain = "map_fixture"
+
+[[rules]]
+match = "tests/write_census_fixture.gd*"
 domain = "map_fixture"
 
 [[rules]]
@@ -4217,9 +4252,12 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_market_orders.gd*"
 domain = "economy_ui"
 
+# Market offers head copy (seller/good chips and the status line): the market
+# suite mounts the head. Broader economy_ui boots stay on the ledger pages that
+# own the sheet chrome, so a count-word edit stays inside the tier-1 budget.
 [[rules]]
 match = "scripts/ui/market_offers_head.gd"
-domain = "economy_ui"
+domain = "fold_market"
 
 # The Minor Nations & Tribes book on the market tab: the chip strip, the
 # reading it selects and the rows it narrows. Presentation over the published

@@ -225,18 +225,12 @@ static func at_war_with(state: DiplomacyState, a: int, b: int) -> bool:
 	return record != null and record.at_war
 
 
-## Land a Great Power may enter: a declared enemy's, or a Tribe's without a
-## declaration (wiki: factions § Tribe). A Tribe province another crown has
-## bought land in is the exception: the investment is a stake, so the march
-## needs a declaration like any other foreign land (wiki: factions § Tribe —
-## "unless another GP has invested in the province"; DR-20261110-20).
-## `model`/`province` are optional so the coarse war query (combat, beachhead
-## targeting) keeps its two-argument reading.
-static func invadable(
-	state: DiplomacyState, attacker: int, target: int,
-	model: MapModel = null, province: int = -1
-) -> bool:
-	return bool(InvasionBar.read(state, attacker, target, model, province).get("ok", false))
+## Land a Great Power may enter: a declared enemy's, and no other — Great Power,
+## Minor Nation and Tribe alike (wiki: diplomacy § War required for hostile
+## actions; DR-20261124-07). The coarse war query (combat, beachhead targeting)
+## reads the same answer as an army order.
+static func invadable(state: DiplomacyState, attacker: int, target: int) -> bool:
+	return bool(InvasionBar.read(state, attacker, target).get("ok", false))
 
 
 static func provinces_owned(world: WorldMap, faction: int) -> int:

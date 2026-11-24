@@ -13,6 +13,7 @@ extends GdToolsTest
 ## front half of the alphabet, never back into `w…`/`x…`/`y…`/`z…`.
 
 const Fixture = preload("res://tests/map_fixture.gd")
+const Census = preload("res://tests/census_fixture.gd")
 
 const SEED: int = Fixture.SEED
 const WIDTH: int = Fixture.WORLD_WIDTH
@@ -29,9 +30,9 @@ func before_all() -> void:
 	_generator_before_all()
 	# Advanced-live chart + MapScreens mount lazily in `_open` so ~250 pure
 	# cases never pay a clone or two mounts (~0.5–2 s each under coverage;
-	# docs/testing.md § Speed rules). Census Standard chart warms on first
-	# census read — not here — so bootstrap stays the only heavy before_all
-	# generate on this suite's critical path.
+	# docs/testing.md § Speed rules). Census Standard loads from the packed
+	# fixture on first census read — not here — so bootstrap stays the only
+	# heavy before_all generate on this suite's critical path.
 	_advanced_live_host = self
 
 
@@ -1324,36 +1325,19 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 
 
 ## One Standard chart carries every published census below (placement rate, mean
-## tiles/province, Minor book volume, and the price-weighted draw). `static` is
-## what makes that true: gd-tools runs each case on a fresh instance, so an
-## instance dictionary would redraw the chart per case. Seed 160 passes the
-## fair-split gate on its first attempt, keeps the means in the wiki bands,
-## gold ahead of gems, and every pool inside its three-deviation band — so the
-## suite pays one Standard draw under coverage instead of Standard plus a
-## second Small chart (docs/testing.md § Speed rules).
+## tiles/province, Minor book volume, and the price-weighted draw). Seed 160
+## keeps the means in the wiki bands, gold ahead of gems, and every pool inside
+## its three-deviation band. Coverage multiplies a cold Standard
+## `generate_world` by ~10×, so the suite loads the packed fixture instead
+## (docs/testing.md § Speed rules; regenerate via tests/write_census_fixture.gd).
 ##
 ## A case that only needs two owned towns still builds a pocket world instead of
 ## regenerating Standard.
-static var _drawn_charts: Dictionary = {}
-
-## Seed whose Standard draw satisfies every census assert on the first attempt.
-const CENSUS_SEED: int = 160
-
-
-func _chart(seed_value: int, width: int, height: int) -> WorldMap:
-	var key: String = "%d/%d/%d" % [seed_value, width, height]
-	if not _drawn_charts.has(key):
-		_drawn_charts[key] = MapGenerator.new().generate_world(seed_value, width, height)
-	return _drawn_charts[key]
-
-
-func _standard_world(seed_value: int) -> WorldMap:
-	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
-	return _chart(seed_value, int(preset["width"]), int(preset["height"]))
+const CENSUS_SEED: int = Census.SEED
 
 
 func _census_world() -> WorldMap:
-	return _standard_world(CENSUS_SEED)
+	return Census.world()
 
 
 ## One packed-row pass over the published Standard census chart. Placement rate

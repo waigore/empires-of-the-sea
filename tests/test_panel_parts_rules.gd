@@ -430,10 +430,9 @@ func test_the_dossier_lists_every_estate_not_just_the_headline() -> void:
 	assert_true(tiles.has(Fixture.TIMBER_TILE), "the province's other timber tile")
 
 
-## The province sheet's Deeds row names the crown that bought land here — the bar
-## an undeclared march meets — and leaves the grid when nobody has (wiki:
-## factions § Tribe — "unless another GP has invested in the province";
-## DR-20261120-05).
+## The province sheet's Deeds row names the crown that bought land here — the
+## stake the intervention trial reads — and leaves the grid when nobody has
+## (wiki: diplomacy § GP–Minor Rules § Intervention; DR-20261120-05).
 func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	_setup_province_panel()
 	_province_panel_panel.set_data(
@@ -2426,6 +2425,38 @@ func test_army_roster_block_hides_detach_while_embarked() -> void:
 		2,
 		"medallion and name only while aboard"
 	)
+	panel.free()
+
+
+## An army's dossier names the crown's own ration band under the strength line,
+## and another court's standard prints none: her larder is not the crown's to read
+## (wiki: combat § Feeding modifiers; DR-20261124-02).
+func test_the_army_dossier_names_the_rations_the_field_reads() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(23, 0, 1, ["guards"], false)
+
+	var fed := ArmyDossierOpening.of(army, true)
+	fed.rations = 0.6
+	panel.refresh(model, fed)
+	assert_true(
+		panel.rations_text().contains("60% of the bill fed"),
+		"the row names the share of the bill the granary fed"
+	)
+	assert_true(
+		panel.rations_text().contains("0.75 morale"),
+		"and the morale the next engagement reads off it"
+	)
+
+	var whole := ArmyDossierOpening.of(army, true)
+	whole.rations = 1.0
+	panel.refresh(model, whole)
+	assert_true(panel.rations_text().contains("full morale"), "a whole bill reads full morale")
+
+	var rival := ArmyDossierOpening.of(army, false)
+	panel.refresh(model, rival)
+	assert_eq(panel.rations_text(), "", "another court's standard prints no ration row")
 	panel.free()
 
 
