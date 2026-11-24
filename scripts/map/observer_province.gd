@@ -93,12 +93,15 @@ static func _terrain(model: MapModel, province_id: int) -> String:
 	return DossierCopy.terrain(model, province_id)
 
 
-## A harbour names the sea zone it opens on; landlocked ground says so.
+## A harbour names the sea zone it opens on; landlocked ground says so, and a
+## chart that names no water for the quay prints the plain word (the reading is
+## the province dossier's own — `ProvinceLedger.harbour_name` over
+## `NavalMovement.harbour_zone` — so the two sheets cannot name two waters).
 static func _port(model: MapModel, province: ProvinceState) -> String:
-	var tile: Vector2i = province.port_tile
-	if tile.x < 0:
+	if province.port_tile.x < 0:
 		return "Landlocked"
-	return "Harbour · %s" % model.sea_zone_name(model.sea_zone_at(tile.x, tile.y))
+	var water: String = ProvinceLedger.harbour_name(model, province)
+	return ("Harbour · %s" % water) if not water.is_empty() else "Harbour"
 
 
 ## The host standing in the province: the owner's own regiments and their

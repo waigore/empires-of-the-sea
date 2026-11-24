@@ -71,8 +71,8 @@ func show_province(
 	terrain.text = _terrain_row(model, province_id)
 	var port_tile: Vector2i = data.port_tile
 	if port_tile.x >= 0:
-		var zone: int = model.sea_zone_at(port_tile.x, port_tile.y)
-		port.text = "Harbour · %s" % model.sea_zone_name(zone)
+		var water: String = ProvinceLedger.harbour_name(model, data)
+		port.text = ("Harbour · %s" % water) if not water.is_empty() else "Harbour"
 	else:
 		port.text = "Landlocked"
 	town.text = DossierCopy.town(data)
