@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1489 (REQ-P2-02). Largest gap, then REQ/wiki.
+Audited through #1500 (REQ-P2-02).
 
 ## Already live
 
@@ -36,7 +36,7 @@ Audited through #1489 (REQ-P2-02). Largest gap, then REQ/wiki.
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face; muster; fan; capital chart | `RaiseBatchPress`; `FleetMuster`/`FleetLanes`; `CapitalChoiceScreen` |
 | Rival priced overtures; AI win/front | `DiplomacyProposals`; `AiBorderFronts` |
-| Passengers; raid/catch prices | `EmbarkBatch`; `NavalRaid`/`NavalInterception` |
+| Passengers; raid/catch; deck room | `EmbarkBatch`; `NavalRaid`; `DeckRead` |
 | Harbour hulls + aboard | `ProvinceHarbour` (+`.aboard`, DR-14/18) |
 | Wall storm; fee; riches; bank | `WallRead`; `ArmyAttackCost`; `ground_appetite`; `AiIncome.invests` |
 | Harvest; college turns; Engineer port | `MapPlayProvinceHarvest`; `ResearchSlotPrice`; `VoyageRead.needs_port` |
@@ -64,8 +64,6 @@ None; see `docs/rubric.md` / wiki.
 
 ## Wiki drift
 
-`DR-20261111-05` Tribe contact / fleetless crowns — stale (live).
-`capital-choice-phase` “UI deferred” — stale. Soft weight / treasury seed
-(DR-13-15 / DR-16-09) — stale. #1444–#1489 not backlog. #1382 / #1422 /
-#1433 / #1434 / #1435 closed. Open defects: #1429, #1383, #1432, #1484
-(not ranked gaps).
+`DR-20261111-05` / capital UI / soft weight — stale (live). #1444–#1500
+not backlog. Closed: #1382/#1422/#1433–#1435. Open bugs (not gaps):
+#1429, #1383, #1432, #1484, #1488, #1492. #1499 open (navy rations).

@@ -440,11 +440,7 @@ func _last_toast(play: PlaySession) -> String:
 	var waiting: PackedStringArray = despatches.waiting()
 	if not waiting.is_empty():
 		return waiting[waiting.size() - 1]
-	var newest: String = ""
-	for child: Node in despatches.box.get_children():
-		var text: String = String(child.get_meta("toast_text", ""))
-		if not text.is_empty():
-			newest = text
+	var newest: String = despatches.newest_live_text()
 	return newest if not newest.is_empty() else "no despatch"
 
 

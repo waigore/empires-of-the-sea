@@ -61,6 +61,21 @@ func _setup_province_panel() -> void:
 	_province_panel_panel = ProvincePanel.new()
 	add_child(_province_panel_panel)
 
+
+## Seats the suite's sheet the way the boot does, on its own chart: the cases
+## differ only in the studies and the purse they name, so the seat is one named
+## opening instead of ten positional tables (ProvinceDossierOpening; REQ-P3-02).
+func _seat_province_sheet(
+	tech_unlocked: Dictionary = {}, stockpile: Variant = null
+) -> void:
+	var seat := ProvinceDossierOpening.of(_model, _works, _units)
+	seat.capital_tile = Vector2i(0, 0)
+	seat.faction = 0
+	seat.tech_unlocked = tech_unlocked
+	seat.stockpile = stockpile
+	_province_panel_panel.set_opening(seat)
+
+
 func _setup_diplomacy_panel() -> void:
 	_suite_setup = "diplomacy_panel"
 	state = DiplomacyState.new()
@@ -435,9 +450,7 @@ func test_the_dossier_lists_every_estate_not_just_the_headline() -> void:
 ## (wiki: diplomacy § GP–Minor Rules § Intervention; DR-20261120-05).
 func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	_setup_province_panel()
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
-	)
+	_seat_province_sheet()
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	var grid: ProvinceFactsGrid = _province_panel_panel._grid
 	assert_false(grid.deeds.visible, "nobody has bought land here")
@@ -452,9 +465,7 @@ func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 ## (wiki: fog-and-exploration § Order-of-battle readings; DR-20261123-13).
 func test_the_province_sheet_names_the_hosts_that_stand_on_its_ground() -> void:
 	_setup_province_panel()
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
-	)
+	_seat_province_sheet()
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	var grid: ProvinceFactsGrid = _province_panel_panel._grid
 	assert_false(grid.hosts.visible, "a sheet with no session invents no host")
@@ -472,9 +483,7 @@ func test_the_province_sheet_names_the_hosts_that_stand_on_its_ground() -> void:
 ## readings; DR-20261123-14).
 func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
 	_setup_province_panel()
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
-	)
+	_seat_province_sheet()
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	var grid: ProvinceFactsGrid = _province_panel_panel._grid
 	assert_false(grid.harbour.visible, "a sheet with no session invents no squadron")
@@ -500,9 +509,7 @@ func test_the_province_sheet_names_the_squadrons_in_its_harbour() -> void:
 ## nothing after it, because the row asked the port tile's own zone.
 func test_the_province_sheet_names_the_water_its_harbour_opens_on() -> void:
 	_setup_province_panel()
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
-	)
+	_seat_province_sheet()
 	_province_panel_panel.refresh(_model, Fixture.PLAYER_PROVINCE)
 	var grid: ProvinceFactsGrid = _province_panel_panel._grid
 	assert_eq(_model.sea_zone_at(Fixture.COAST_TILE.x, Fixture.COAST_TILE.y), MapModel.NO_ID,
@@ -525,9 +532,7 @@ func test_the_province_sheet_names_the_water_its_harbour_opens_on() -> void:
 ## DR-20261120-06, DR-20261123-20).
 func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_setup_province_panel()
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
-	)
+	_seat_province_sheet()
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	var grid: ProvinceFactsGrid = _province_panel_panel._grid
 	assert_false(grid.wall.visible, "open ground says nothing")
@@ -766,7 +771,7 @@ func test_the_town_row_names_the_path_that_province_offers() -> void:
 	)
 	_model.provinces[1].owner = 6
 	_model.provinces[1].town_tile = Fixture.RIVAL_GRAIN_TILE
-	_province_panel_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, {})
+	_seat_province_sheet()
 	_province_panel_panel.refresh(_model, 1)
 	assert_true(
 		_province_panel_panel._grid.town.tooltip_text.contains("Merchant"),
@@ -831,10 +836,7 @@ func test_the_town_order_shuts_for_the_stores_it_cannot_pay() -> void:
 	_setup_province_panel()
 	_model.provinces[0].town_development = 1
 	var stock: Dictionary = {}
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {},
-		{"national_bureaucracy": true}, stock
-	)
+	_seat_province_sheet({"national_bureaucracy": true}, stock)
 	_province_panel_panel.refresh(_model, 0)
 	assert_true(_province_panel_panel._orders.town_press().disabled, "an empty purse offers no order")
 	assert_true(
@@ -856,10 +858,7 @@ func test_a_fully_developed_town_closes_the_order() -> void:
 func test_a_foreign_province_offers_no_town_order() -> void:
 	_setup_province_panel()
 	_model.provinces[1].town_tile = Fixture.RIVAL_GRAIN_TILE
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {},
-		{"national_bureaucracy": true}
-	)
+	_seat_province_sheet({"national_bureaucracy": true})
 	_province_panel_panel.refresh(_model, 1)
 	assert_true(_province_panel_panel._orders.town_press().disabled)
 	assert_true(_province_panel_panel._orders.town_press().tooltip_text.contains("not held by your crown"))
@@ -921,20 +920,14 @@ func test_the_ward_order_names_the_study_and_the_ward_it_raises() -> void:
 		ward_press.tooltip_text.contains("Organised Regiments"),
 		ward_press.tooltip_text
 	)
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {},
-		{"organised_regiments": true}, {}
-	)
+	_seat_province_sheet({"organised_regiments": true}, {})
 	_province_panel_panel.refresh(_model, 0)
 	assert_true(ward_press.disabled, "an empty store offers no ward")
 	assert_true(
 		ward_press.tooltip_text.contains("Stores are short of"),
 		ward_press.tooltip_text
 	)
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {},
-		{"organised_regiments": true}, Fixture.stockpile()
-	)
+	_seat_province_sheet({"organised_regiments": true}, Fixture.stockpile())
 	_province_panel_panel.refresh(_model, 0)
 	assert_false(ward_press.disabled, "paid, the press opens")
 	var ward_note: Label = ward["note"]
@@ -954,10 +947,7 @@ func test_a_crew_on_the_town_tile_refuses_a_ward_but_never_a_wall() -> void:
 	)
 	_units.append(busy)
 	busy.start_work("build_improvement", Fixture.BARE_TILE, 1)
-	_province_panel_panel.set_data(
-		_model, _works, _units, null, Vector2i(0, 0), 0, {},
-		{"organised_regiments": true}, Fixture.stockpile()
-	)
+	_seat_province_sheet({"organised_regiments": true}, Fixture.stockpile())
 	_province_panel_panel.refresh(_model, 0)
 	var rail: ProvinceOrdersSection = _province_panel_panel._orders
 	var ward: Dictionary = rail.ward_order()
@@ -1033,7 +1023,7 @@ func test_the_dossier_shell_prints_its_sections_in_reading_order() -> void:
 	assert_eq(heard.size(), 1, "the shell's seal asks the panel to change sides")
 
 func _show(tech: Dictionary = {}) -> void:
-	_province_panel_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, tech)
+	_seat_province_sheet(tech)
 	_province_panel_panel.refresh(_model, 0)
 
 
@@ -2219,7 +2209,10 @@ func test_the_arm_guard_window_runs_out_on_its_own() -> void:
 	guard.expired.connect(func() -> void: rung.append(true))
 
 	guard.arm("colours", 0.05)
-	await get_tree().create_timer(0.15).timeout
+	# Fire the guard's own clock instead of sleeping past the window under
+	# coverage (docs/testing.md § Speed rules — no create_timer padding).
+	guard.stop()
+	guard.timeout.emit()
 
 	assert_eq(guard.key(), "", "the window forgets the first tap")
 	assert_eq(rung, [true] as Array[bool], "and tells the owner to repaint")
@@ -5259,6 +5252,28 @@ func test_a_hidden_hud_keeps_no_toast_plates() -> void:
 	_hud.visible = false
 	_hud.toast(LINE, "silenced_gun")
 	assert_eq(_hud.despatches.box.get_child_count(), 0)
+
+## The lane reads its own plates: the newest line is the plate's to tell, and a
+## plate the lane took back stops its fade and never counts down again
+## (REQ-P3-02).
+func test_the_lane_reads_its_newest_plate_and_forgets_a_cancelled_one() -> void:
+	_setup_hud_toast()
+	var lane: HudDespatches = _hud.despatches
+	assert_eq(lane.newest_live_text(), "", "a quiet lane tells nothing")
+	_hud.toast("The turn opens")
+	var plate := lane.box.get_child(0) as HudDespatchPlate
+	assert_eq(lane.newest_live_text(), "The turn opens", "the lane reads the plate it raised")
+	assert_true(plate.is_live(), "a fresh plate is the lane's to count")
+	assert_true(plate.fade != null, "the plate rises on a fade")
+	plate.cancel()
+	assert_false(plate.is_live(), "a plate taken back no longer counts")
+	assert_true(plate.fade == null, "its fade is killed where it stands")
+	lane._plate_done(plate)
+	assert_false(plate.is_queued_for_deletion(), "a late callback leaves it alone")
+	_hud.toast("After the plate")
+	var next := lane.box.get_child(lane.box.get_child_count() - 1) as HudDespatchPlate
+	lane._plate_done(next)
+	assert_true(next.is_queued_for_deletion(), "a finished plate leaves the lane")
 
 ## The lane is the despatches' alone: the HUD keeps no copy, so unmounting it
 ## leaves nothing to read, and a missing battle plate never queues a fight

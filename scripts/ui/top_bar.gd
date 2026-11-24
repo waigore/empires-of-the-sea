@@ -151,7 +151,7 @@ static func _seal(
 	var button := Button.new()
 	button.pressed.connect(action)
 	var skin := dress(button, icon_kind, caption, tip, compact_icon_only)
-	register_door(hud, button, skin.caption)
+	register_door(hud, button, skin.caption, compact_icon_only)
 	return button
 
 
@@ -172,10 +172,18 @@ static func _lens_seal(hud: GameHud) -> Button:
 ## A door the bar dresses, kept with the caption the compact fit hides. The pause
 ## menu mounts its own MENU crest after the bar is built, so it registers here
 ## too instead of the layout walking the row for a caption (REQ-P3-02).
-static func register_door(hud: GameHud, button: Button, caption: Label) -> void:
+static func register_door(
+	hud: GameHud, button: Button, caption: Label, compact_icon_only: bool = true
+) -> void:
 	if hud == null or button == null:
 		return
-	hud.bar_doors.append({"button": button, "caption": caption, "wide_width": SEAL_SIZE.x})
+	hud.bar_doors.append({
+		"button": button,
+		"caption": caption,
+		"wide_width": SEAL_SIZE.x,
+		# A command door drops its caption on a phone; the region keeps its word.
+		"compact_icon_only": compact_icon_only,
+	})
 
 
 ## Paints a bar door: plaque states, a medallion and a one-word caption. Seals
@@ -205,9 +213,6 @@ static func dress(
 	button.add_theme_stylebox_override(
 		"focus", UiTheme.cartouche(Color(0.0, 0.0, 0.0, 0.0), Palette.GOLD_PALE)
 	)
-	if compact_icon_only:
-		button.set_meta("compact_icon_only", true)
-
 	var box := VBoxContainer.new()
 	box.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	box.add_theme_constant_override("separation", 0)
