@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:8dbae4974656bc8aff637982203c35ded11f02260b37c32ed8a3294b798fcbdf",
-  "submission_git": "fix/1433-famine-order@4cba9967",
+  "submission_hash": "sha256:f94f8d8e6390c764c2ea64fb54e068c019a2b737fcfd0a1df2e4c0b1586f3120",
+  "submission_git": "refactor/colonisation-planner-homes@8be98786+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:5c7c0c46da1c958515c805966398be224bf9e15d60d2effa4e1ed5cc3ed3d12e",
+    "ai_surface_hash": "sha256:16bb3c901b126013b761452bfe2ed4bb4e0836b3c72487379e62312f415a72a4",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T08:53:26Z",
+  "timestamp": "2026-11-24T09:29:14Z",
   "report_version": 1,
-  "signature": "hmac-sha256:8385b3e1e37d4345709e871ea977113ff13fe52b65511e49c5adbce9fc6f9c08"
+  "signature": "hmac-sha256:97267a8509dffc8b3dae7a79fdddb1042970b02d6d52acbf9b0abc2d2f90fe0c"
 }
