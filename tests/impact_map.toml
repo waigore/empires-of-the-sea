@@ -1558,6 +1558,17 @@ suites = [
 match = "scripts/map/map_play_auto.gd*"
 domain = "auto"
 
+# Auto household pass and land/sea despatch wording extracted from MapPlayAuto
+# (REQ-P3-01): keep them on the seat's own domain so a wording edit stays in
+# the Auto slice.
+[[rules]]
+match = "scripts/map/map_play_auto_household.gd*"
+domain = "auto"
+
+[[rules]]
+match = "scripts/map/map_play_auto_despatch.gd*"
+domain = "auto"
+
 [[rules]]
 match = "scripts/ui/auto_bar.gd*"
 domain = "auto"

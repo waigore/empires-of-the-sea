@@ -16,8 +16,9 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
-## The verbs the seat's household pass files its lines under (MapPlayAuto's own
-## despatch vocabulary), so a case can name what the pass said.
+## The verbs the seat's household pass files its lines under
+## (MapPlayAutoHousehold's despatch vocabulary), so a case can name what the
+## pass said.
 const HOUSEHOLD_VERBS: Array[String] = [
 	"Studies ", "Sets ", "Recruits ", "Hires — ", "Bids at the mart",
 	"Offers at the mart", "Trades at the mart",
@@ -373,7 +374,7 @@ func test_a_crown_with_no_planner_says_it_files_nothing() -> void:
 	play.ai_mode = mode
 	assert_eq(play.auto_log.size(), before + 1, "the quiet pass still answers")
 	assert_eq(
-		String(play.auto_log.back()), MapPlayAuto.NO_PLAN_LINE, "and names the reason"
+		String(play.auto_log.back()), MapPlayAutoHousehold.NO_PLAN_LINE, "and names the reason"
 	)
 
 
@@ -384,7 +385,7 @@ func test_a_crown_with_no_planner_says_it_files_nothing() -> void:
 func test_the_household_words_every_kind_it_files() -> void:
 	var play: PlaySession = _seat_the_ai()
 	play.auto_log.clear()
-	MapPlayAuto._describe_household(play, {
+	MapPlayAutoHousehold.describe(play, {
 		"research": {"assignments": [{"tech": "printing_press"}, {"tech": ""}]},
 		"recruits": [
 			{"tier": WorkerPool.Tier.PEASANT}, {"tier": WorkerPool.Tier.PEASANT},
@@ -413,14 +414,14 @@ func test_the_household_words_every_kind_it_files() -> void:
 	)
 	# A row that files one side of the ledger or the mart still speaks.
 	play.auto_log.clear()
-	MapPlayAuto._describe_household(play, {
+	MapPlayAutoHousehold.describe(play, {
 		"production": {"assignments": [{"recipe": "lumber", "units": 1}]},
 		"trade": {"staged": [{"kind": "bid", "commodity": "grain", "quantity": 1}]},
 	})
 	assert_true(play.auto_log.has("Sets 1 production run"), "a lone run prints")
 	assert_true(play.auto_log.has("Bids at the mart — 1 good"), "a lone bid prints")
 	play.auto_log.clear()
-	MapPlayAuto._describe_household(play, {
+	MapPlayAutoHousehold.describe(play, {
 		"civilians": {"orders": [{"action": "build_road"}]},
 		"trade": {"staged": [{"kind": "offer", "commodity": "timber", "quantity": 1}]},
 	})
@@ -430,7 +431,7 @@ func test_the_household_words_every_kind_it_files() -> void:
 	# adds nothing: a court that sheds says so, and one that does not stays
 	# quiet (wiki: military-armies § Dismissing regiments; issue #1433).
 	play.auto_log.clear()
-	MapPlayAuto._describe_household(play, {
+	MapPlayAutoHousehold.describe(play, {
 		"shed": {"lines": ["Dismisses 2 regiments — 2 peasants return to the fields"]},
 		"production": {"assignments": [{"recipe": "lumber", "units": 1}]},
 	})
@@ -438,19 +439,19 @@ func test_the_household_words_every_kind_it_files() -> void:
 		"the famine order is the turn's first despatch")
 	assert_true(play.auto_log.has("Sets 1 production run"), "and the rest of the book follows")
 	play.auto_log.clear()
-	MapPlayAuto._describe_household(play, {
+	MapPlayAutoHousehold.describe(play, {
 		"shed": {"lines": []},
 		"production": {"assignments": [{"recipe": "lumber", "units": 1}]},
 	})
 	assert_eq(play.auto_log.size(), 1, "an empty receipt adds no line")
 	# A plan that files nothing says so; a seat with no session files nothing.
 	play.auto_log.clear()
-	MapPlayAuto._describe_household(play, {})
+	MapPlayAutoHousehold.describe(play, {})
 	assert_true(
 		play.auto_log.has("The household files no order this turn."),
 		"an empty plan still answers"
 	)
-	MapPlayAuto.household(null)
+	MapPlayAutoHousehold.run(null)
 
 
 ## Every tile of every region the crown's crews stand in, for the seeding check.
