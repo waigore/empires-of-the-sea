@@ -2577,6 +2577,27 @@ func test_a_projection_does_not_record_the_phase() -> void:
 	assert_eq(economy.production.made, {}, "a preview is not a phase")
 
 
+## The ceiling the PRODUCTION tab's "+" is capped by reads the court's studies,
+## so the page can never offer a run the phase would skip for want of a
+## technology (wiki: production-recipes § Technology-gated recipes — the gate is
+## enforced wherever availability is evaluated, order projections included).
+func test_the_ledger_ceiling_reads_the_courts_studies() -> void:
+	var economy: PlayerEconomy = _economy(2)
+	economy.stockpile = {"cotton": 12}
+	var labour: int = economy.workers.labour()
+	assert_eq(
+		ProductionBatch.allowance(economy, "fabric_from_cotton", 0, economy.stockpile, labour, []),
+		0,
+		"a locked row is offered no run"
+	)
+	economy.tech_unlocked["cotton_weaving"] = true
+	assert_eq(
+		ProductionBatch.allowance(economy, "fabric_from_cotton", 0, economy.stockpile, labour, []),
+		1,
+		"two idle points buy one run once the study lands"
+	)
+
+
 ## The record rides the save, and a damaged row drops instead of aborting the
 ## load (wiki: production-recipes § Acceptance Criteria).
 func test_the_workshop_record_round_trips_and_drops_junk() -> void:

@@ -3287,6 +3287,41 @@ func test_allowance_holds_back_the_other_rows_claims() -> void:
 	)
 
 
+## A row's study is the phase's own gate: a recipe the court has not researched
+## is offered no runs, and its assignment claims neither inputs nor labour from
+## the rows that do run (wiki: production-recipes § Technology-gated recipes —
+## the gate is enforced wherever availability is evaluated, order projections
+## included; § Worker-tier gates — no caller is offered a run the phase refuses).
+func test_a_locked_row_is_offered_no_runs() -> void:
+	var store: Dictionary = {"cotton": 12, "wool": 4}
+	# The ceiling the PRODUCTION tab prints for the cotton row: nothing without
+	# the study, six whole runs once the court has researched it.
+	assert_eq(ProductionPhase.allowance("fabric_from_cotton", store, 20, []), 0)
+	assert_eq(
+		ProductionPhase.allowance(
+			"fabric_from_cotton", store, 20, [], null, {}, 0, {"cotton_weaving": true}
+		),
+		6
+	)
+	# A locked cotton row claims nothing: the wool row keeps every point of
+	# labour its own two runs need.
+	var board: Array = [{"recipe": "fabric_from_cotton", "units": 4}]
+	assert_eq(ProductionPhase.allowance("fabric_from_wool", store, 10, board), 2)
+	# The same board with the study open: the cotton claim eats eight of the ten
+	# points, so the wool row's ceiling reads one run — what the phase starts.
+	assert_eq(
+		ProductionPhase.allowance(
+			"fabric_from_wool", store, 10, board, null, {}, 0, {"cotton_weaving": true}
+		),
+		1
+	)
+	var planned: Dictionary = ProductionPhase.plan(
+		[{"recipe": "fabric_from_cotton", "units": 4}, {"recipe": "fabric_from_wool", "units": 1}],
+		store.duplicate(), 10, {"cotton_weaving": true}
+	)
+	assert_eq(planned["started"], {"fabric_from_cotton": 4, "fabric_from_wool": 1})
+
+
 func test_plan_runs_whole_recipes_and_scales_io() -> void:
 	var stock: Dictionary = {"timber": 5}
 	var report: Dictionary = ProductionPhase.plan(
