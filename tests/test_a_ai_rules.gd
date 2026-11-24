@@ -4991,6 +4991,43 @@ func test_an_occupied_slot_follows_the_purse() -> void:
 	)
 
 
+## The purse and the walk own their homes (#1494): the planner books from
+## `AiResearchPurse.read` and `AiResearchPlan.walk`, and the door beside it
+## prices the same studies, so a split file proves the same answer.
+func test_the_research_purse_and_walk_book_the_same_slots() -> void:
+	var config: AiConfig = _research_config()
+	var booked: PlayerEconomy = _purse(3000)
+	var read_purse: Dictionary = AiResearchPurse.read(config, booked, {})
+	var candidates: Array[Dictionary] = AiResearchScores.candidates(
+		config, booked, false, String(read_purse["door"])
+	)
+	var rows: Array[Dictionary] = AiResearchPlanner.book(booked, read_purse, candidates)
+	assert_eq(rows.size(), ResearchState.DEFAULT_SLOTS, "every empty slot is walked")
+	for row: Dictionary in rows:
+		assert_eq(
+			booked.research.tech_at(int(row["slot"])), String(row["tech"]),
+			"the walk's row is the slot the rules opened"
+		)
+	assert_eq(
+		AiResearchPurse.funding_for(config, booked, 0),
+		AiResearchPlanner.funding_for(config, booked, 0),
+		"the planner door keeps the purse's own preset read"
+	)
+	assert_eq(
+		AiResearchPurse.research_floor(config),
+		AiResearchPlanner.research_floor(config),
+		"and its own cash floor"
+	)
+	assert_true(
+		AiResearchPlan.book_slot(0, -1, true),
+		"a still-free book pays its first slot the standing preset"
+	)
+	assert_false(
+		AiResearchPlan.book_slot(1, 0, true),
+		"a later slot takes the ladder's preset"
+	)
+
+
 func test_the_muster_floor_closes_at_target_and_without_workers() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
