@@ -28,6 +28,11 @@ var _strength: Label = null
 ## the granary fed and the morale the next engagement reads off it, or no row for
 ## another court's standard (wiki: combat § Feeding modifiers; DR-20261124-02).
 var _rations: Label = null
+## The land-battle price under the ration band: what each fight this crown
+## attacks charges her treasury, and the studies that have cut it, or no row for
+## another court's standard (wiki: tech-tree-military § Economy modifiers;
+## DR-20261124-11).
+var _attack: Label = null
 var _command: Label = null
 var _command_row: HBoxContainer = null
 var _command_icon: TextureRect = null
@@ -89,6 +94,14 @@ func _build() -> void:
 	_rations.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_rations.visible = false
 	shell.add_child(_rations)
+
+	# The battle price sits under the ration band: both are the field's own
+	# arithmetic, and the crown orders the storm that spends it (wiki:
+	# tech-tree-military § Economy modifiers; DR-20261124-11).
+	_attack = UiRowBuilder.line(12, Palette.TEXT_DIM)
+	_attack.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_attack.visible = false
+	shell.add_child(_attack)
 
 	# The crown's commanders: a general's medallion beside every name and medal,
 	# the same shell frame a roster row wears (REQ-P1-08).
@@ -230,6 +243,7 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 		]
 	_strength.text = ArmyPanelStrength.line(model, army)
 	_show_rations(opening.rations)
+	_show_attack(opening.attack_unlocked, is_player)
 	_command.text = _command_head(command)
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
@@ -279,6 +293,26 @@ func _show_rations(coverage: float) -> void:
 ## holds no reading for the standard on show.
 func rations_text() -> String:
 	return "" if _rations == null or not _rations.visible else _rations.text
+
+
+## The battle price under the ration band, off the crown's own studies: what each
+## land battle she attacks charges and which of her studies have cut it, so she
+## prices three storms before she orders them (wiki: tech-tree-military
+## § Economy modifiers; DR-20261124-11). Another court's studies are not hers to
+## read, so her standard prints no row.
+func _show_attack(unlocked: Dictionary, is_player: bool) -> void:
+	if _attack == null:
+		return
+	var text: String = AttackPriceRead.line(unlocked) if is_player else ""
+	_attack.text = text
+	_attack.visible = not text.is_empty()
+	_attack.tooltip_text = AttackPriceRead.tip(unlocked) if is_player else ""
+
+
+## The battle price row's text for tests and tooling (REQ-P3-02). Empty when the
+## standard on show is not the crown's.
+func attack_text() -> String:
+	return "" if _attack == null or not _attack.visible else _attack.text
 
 
 ## The dossier names the crown's commanders in one line; what a medal buys in

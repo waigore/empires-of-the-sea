@@ -24,6 +24,13 @@ static func step(run) -> void:
 		screen.hud.panels.army_panel.rations_text().contains("Rations ·"),
 		"the dossier names the crown's ration band"
 	)
+	# The land-battle price the next storm charges her treasury (wiki:
+	# tech-tree-military § Economy modifiers; DR-20261124-11): the row stands on
+	# the crown's own sheet, priced off the charge's own figures.
+	run.check(
+		screen.hud.panels.army_panel.attack_text().begins_with("Battles · each land battle costs "),
+		"the dossier prices the land battle the crown would fight"
+	)
 	var field_before: int = home_army.count()
 	MapPlayArmies.on_action(screen.play, "detach:%s" % home_army.regiments[0])
 	await run.tree.process_frame

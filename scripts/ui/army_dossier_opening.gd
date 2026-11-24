@@ -26,6 +26,11 @@ var pick: String = ""
 ## court's standard: her larder is not the crown's to read, so the sheet prints
 ## no line.
 var rations: float = ArmyRationRead.NO_READING
+## The crown's own studies, for the land-battle price her next storm pays
+## (wiki: tech-tree-military § Economy modifiers; DR-20261124-11). Empty for
+## another court's standard: her studies are not the crown's to read, so the
+## sheet prices no battle.
+var attack_unlocked: Dictionary = {}
 ## The line the court's muster would raise (DR-20261121-03). The pick travels,
 ## not the sentence it words, so the yard marks its rows off the same reading
 ## (DR-20261122-12).

@@ -242,6 +242,21 @@ suites = [
 match = "scripts/rules/convoy_read.gd*"
 domain = "convoy"
 
+# The crown's land-battle price (wiki: tech-tree-military § Economy modifiers;
+# DR-20261124-11): one pure reading over the charge's own figures, printed under
+# the army dossier's ration band. The battle suite proves the worded price
+# against `ArmyAttackCost` and the panel suite mounts the row, so a wording change
+# never pays for the army domain's battle boot twice.
+[domains.attack_price]
+suites = [
+  "test_a_battle_rules.gd",
+  "test_panel_parts_rules.gd",
+]
+
+[[rules]]
+match = "scripts/rules/attack_price_read.gd*"
+domain = "attack_price"
+
 
 
 # Fog of war (wiki: fog-and-exploration): the rules, the layer, the save and the
