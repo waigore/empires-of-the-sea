@@ -2463,6 +2463,41 @@ func test_ai_economy_respects_labour_and_inputs() -> void:
 	assert_eq(recipes, ["fabric_from_wool", "lumber", "paper"] as Array[String])
 
 
+## A pool of strikers counts its hands but turns no wheel: the plan books its
+## runs against the idle labour the phase will really have, so the crown's seat
+## stops logging a run the Production phase refuses (issue #1433). The −1
+## sentinel keeps the published reading for a caller with no larder to read.
+func test_the_production_plan_spends_only_the_hands_the_phase_will_have() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"timber": 10, "wool": 4}
+	economy.workers = WorkerPool.make(2)
+	var config: AiConfig = AiConfig.build(1, 1500)
+
+	var paid: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+	assert_false(
+		(paid["assignments"] as Array).is_empty(),
+		"a pool of two fed hands books a run"
+	)
+	var striking: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {}, 0
+	)
+	assert_true(
+		(striking["assignments"] as Array).is_empty(),
+		"the same two hands on strike book nothing: the phase would refuse the run"
+	)
+	assert_false(
+		(striking["candidates"] as Array).is_empty(),
+		"and the rows still stand, so the ledger can name the hands that are missing"
+	)
+	var published: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {}, -1
+	)
+	assert_eq(
+		published["assignments"], paid["assignments"],
+		"the −1 sentinel keeps the roster's whole labour"
+	)
+
+
 func test_ai_economy_spreads_the_labour_across_the_build_inputs() -> void:
 	# Iron and wool both in store, castIron's deficit as deep as fabric's: a
 	# greedy plan wove no cloth at all, because castIron (which works spend
@@ -13427,20 +13462,25 @@ func test_a_banking_court_waits_a_minor_deeds_chain() -> void:
 ## The deed's rung is an income investment (issue #1383): the embassy it lands
 ## opens ground that clears to the treasury, so it leads from the purse above the
 ## court's cash floor while the army banks — the split the studies and the crews
-## already read (#1384). The colony chain keeps the bank's face on the same purse
-## (#1271), because its rung buys territory and not the income the chest fills
-## with.
+## already read (#1384). The bypass names the court's own deed partner alone (the
+## published nudge walks that seller, wiki: civilian-units § Merchant), and the
+## colony chain keeps the bank's face on the same purse (#1271), because its rung
+## buys territory and not the income the chest fills with.
 func test_a_funded_deed_rung_leads_over_the_armys_bank() -> void:
 	_setup_ai_diplomacy_offers()
 	var minor: int = FactionCatalog.minor_ids()[0]
+	var other: int = FactionCatalog.minor_ids()[1]
 	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
 	ai_diplomacy_offers_state.relation(2, minor).score = 60.0
-	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([2, minor])
+	ai_diplomacy_offers_state.ensure_relation(2, other, 1)
+	ai_diplomacy_offers_state.relation(2, other).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([2, minor, other])
 	var model: MapModel = world.region(0)
-	model.resource[model.index_of(1, 0)] = 0
-	var seller: ProvinceState = model.provinces[1]
-	seller.resource = 0
-	seller.resource_tile = Vector2i(1, 0)
+	for index in [1, 2]:
+		model.resource[model.index_of(index, 0)] = 0
+		var sold: ProvinceState = model.provinces[index]
+		sold.resource = 0
+		sold.resource_tile = Vector2i(index, 0)
 	var context: Dictionary = campaign__context({2: 100, 3: 100})
 	context["treasury"] = {2: 4000, 3: 100}
 	# The purse stands under the storm chest, so the court still banks — and it
@@ -13450,6 +13490,7 @@ func test_a_funded_deed_rung_leads_over_the_armys_bank() -> void:
 		"treasury": 4000, "regiments": 1, "conquest_gap": true,
 	}
 	context["regiments"] = {2: 1}
+	context["deed_seller"] = minor
 	assert_true(
 		AiIncome.banking(
 			ai_diplomacy_offers_config, ai_diplomacy_offers_ai_state,
@@ -13464,6 +13505,18 @@ func test_a_funded_deed_rung_leads_over_the_armys_bank() -> void:
 	assert_true(
 		_utility_of(entries, AiDiplomacyOffers.KIND_OVERTURE) >= 0,
 		"a funded deed rung leads while the army banks"
+	)
+	# The second seller is no partner of this court's ledger, so the bank's face
+	# stands for its rung: one chain, not every charted Minor.
+	var other_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, other, 20, context
+	)
+	assert_true(
+		_offer_blocked_kind(other_entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a seller the ledger does not fund keeps the bank's face"
 	)
 	# The colony chain on the same purse keeps the bank's face (#1271).
 	var tribe: int = FactionCatalog.tribe_ids()[0]

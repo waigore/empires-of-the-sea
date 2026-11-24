@@ -30,10 +30,12 @@ const BUILD_INPUTS: Array[String] = [
 ## plan never promises a run whose inputs would eat that raw, so a court
 ## saving for a muster or a hull can still manufacture without costing the
 ## launch its timber or cloth; the rows themselves stay the claims' to rank
-## (wiki: economy-planner § Reservations; issue #878).
+## (wiki: economy-planner § Reservations; issue #878). `idle` is the labour the
+## phase will really hand the runs (a striker turns no wheel; issue #1433); the −1
+## sentinel keeps the published roster reading for the frozen baselines.
 static func production_orders(
 	config: AiConfig, economy: PlayerEconomy, town_level: int = 0,
-	held: Dictionary = {}
+	held: Dictionary = {}, idle: int = -1
 ) -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	var assignments: Array[Dictionary] = []
@@ -45,7 +47,7 @@ static func production_orders(
 	for commodity: Variant in held.keys():
 		var id: String = String(commodity)
 		stock[id] = maxi(int(stock.get(id, 0)) - maxi(int(held[commodity]), 0), 0)
-	var labour: int = economy.workers.labour()
+	var budget: int = maxi(idle, 0) if idle >= 0 else economy.workers.labour()
 	# A batch already in the workshop counts toward the target: the court must
 	# not keep assigning alloy runs that are still serving their turns
 	# (DR-20261112-11).
@@ -77,13 +79,13 @@ static func production_orders(
 	# it outranked fabric on every turn and the muster starved with a full war
 	# chest (issue #474).
 	var progress: bool = true
-	while progress and labour > 0:
+	while progress and budget > 0:
 		progress = false
 		for entry: Dictionary in candidates:
-			if int(entry["deficit"]) <= 0 or labour <= 0:
+			if int(entry["deficit"]) <= 0 or budget <= 0:
 				continue
 			var recipe_id: String = String(entry["recipe"])
-			var runs: int = mini(1, ProductionPhase.max_runs(recipe_id, stock, labour))
+			var runs: int = mini(1, ProductionPhase.max_runs(recipe_id, stock, budget))
 			# A slow row's bench holds three pieces: a fourth run waits for a
 			# landing, so the phase would refuse it and the plan would have
 			# spent its labour and inputs on nothing (DR-20261114-12).
@@ -95,7 +97,7 @@ static func production_orders(
 			if bench.has(recipe_id):
 				bench[recipe_id] = int(bench[recipe_id]) - runs
 			_reserve(recipe_id, runs, stock)
-			labour -= runs * ProductionRecipes.labour(recipe_id)
+			budget -= runs * ProductionRecipes.labour(recipe_id)
 			# Interchangeable recipes (wool/cotton fabric) must not both fill the
 			# same deficit in one plan.
 			for other: Dictionary in candidates:

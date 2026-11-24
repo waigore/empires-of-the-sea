@@ -87,7 +87,7 @@ func _retitle_dismiss(count: int) -> void:
 		return
 	var armed: bool = _dismiss_arm != null and _dismiss_arm.holds(DISMISS_ALL)
 	dismiss_all.text = (
-		"Confirm — dismiss all %d regiments" % count
+		"Confirm — dismiss all %s" % MoneyText.counted(count, "regiment")
 		if armed
 		else "Dismiss all regiments"
 	)

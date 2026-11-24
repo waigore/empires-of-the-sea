@@ -14,9 +14,11 @@ static func split_line(going: int, guard: int) -> String:
 	if going <= 0:
 		return ""
 	if guard <= 0:
-		return "the court would take the field — %d regiments from the seat" % going
-	return "the court would take the field — %d regiments from the seat, %d held to guard it" % [
-		going, guard
+		return "the court would take the field — %s from the seat" % MoneyText.counted(
+			going, "regiment"
+		)
+	return "the court would take the field — %s from the seat, %d held to guard it" % [
+		MoneyText.counted(going, "regiment"), guard
 	]
 
 ## A march the pass books, with the reason the ground gives it. Empty when the
