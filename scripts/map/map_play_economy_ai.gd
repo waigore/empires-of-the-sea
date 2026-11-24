@@ -50,4 +50,19 @@ static func _court_row(play: PlaySession, faction: int, market: WorldMarket) -> 
 		)
 	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.open(play, faction, market)
 	court.plan_turn()
-	return court.apply_turn()
+	# The famine order is the rival pass's own too: a court that would leave its
+	# pool unfed a second turn running sheds the mouths its harvest cannot carry
+	# through the rules' own Dismiss and breaker's yard, so its hands work again
+	# (wiki: workers-and-population § Phase placement; DR-20261124-09; issue
+	# #1433). The crown's own court keeps its Auto seat's route
+	# (`MapPlayAuto.household`), so one turn never sheds a court twice.
+	var shed: Dictionary = {}
+	if play.observer_mode or faction != play.player_faction:
+		shed = MapPlayLarderRecovery.shed(court)
+		if int(shed.get("peasants", 0)) > 0:
+			# The phase bills the force the court now holds: the mouths that
+			# left must not eat another turn.
+			court.reread_force()
+	var row: Dictionary = court.apply_turn()
+	row["shed"] = shed
+	return row
