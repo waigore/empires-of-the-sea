@@ -3017,6 +3017,38 @@ func test_a_banking_court_paces_the_hires_to_the_harvest() -> void:
 	)
 
 
+## One floor, not two (issue #1432): while the conquest bank holds, the hire
+## ladder hires toward the muster's own labour floor — the levy's hand plus the
+## workshop's pair — so a court banking for its storm never sits one hand short
+## of the muster it banks for. The measured freeze: every court pinned at two
+## peasants from turn 21 to the age's end while its muster asked three.
+func test_a_banking_court_hires_to_the_muster_own_floor() -> void:
+	var config: AiConfig = _work_config()
+	# The workshop's raw in store (the opening wool 4): the muster's floor
+	# holds the recipe pair plus the levy's own hand — three.
+	var economy: PlayerEconomy = _work_economy(8000, 2)
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.add("paper", 10)
+	assert_eq(
+		AiArmyReinforceLine.labour_floor(config, economy), 3,
+		"the muster's own floor: the levy's hand plus the recipe pair"
+	)
+	# A court at the levy floor alone (2) hires the farmhand the muster's own
+	# floor asks for — past the levy floor the old ladder stopped at.
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, 4
+	)
+	assert_eq(orders.size(), 1, "the hire ladder targets the muster's floor")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.PEASANT)
+	# And the two readings agree: the pool the ladder hired to is the pool the
+	# muster drafts from — the muster stands, never one hand short.
+	economy.workers = WorkerPool.make(3)
+	assert_true(
+		AiArmyReinforceLine.labour_floor_ok(config, economy),
+		"the pool the ladder hired stands at the muster's own floor"
+	)
+
+
 ## The reserve is a floor for a court with slack, not a veto: a purse that can no
 ## longer fund the next row (and more) still takes the one training it can.
 func test_ai_economy_spends_the_last_affordable_training() -> void:

@@ -48,8 +48,16 @@ static func recruitment_orders(
 	var hand_floor: int = maxi(hands, 1)
 	# The levy's own floor (issue #995): the pool the conquest bank needs to
 	# even have a chest — `army.min_peasants` plus the levy's own hand spare.
+	# While the bank holds, the muster's own labour floor stands above it: a
+	# court hiring only to the levy floor froze at two hands while its muster
+	# asked three — no muster, no chest, no line, for the rest of the age
+	# (issue #1432). One floor, read from the muster's own home
+	# (`AiArmyReinforceLine.labour_floor`), never a second reading.
 	var levy_floor: int = maxi(config.parameter("army.min_peasants"), 0) \
 		+ RegimentEconomy.WORKER_COST
+	var bank_floor: int = maxi(
+		levy_floor, AiArmyReinforceLine.labour_floor(config, economy)
+	)
 	# The bar the harvest carries (issue #1059): while the court banks for the
 	# army its conquest needs, the pool it hires is the levy's own provision —
 	# the levy floor, not `economy.worker_target`. Every mouth past the levy's
@@ -60,7 +68,7 @@ static func recruitment_orders(
 	# court whose land cannot carry one more ration hires no mouth this turn.
 	# A caller with no reading keeps the published target.
 	var pool_target: int = (
-		maxi(levy_floor, economy.workers.count(WorkerPool.Tier.PEASANT))
+		maxi(bank_floor, economy.workers.count(WorkerPool.Tier.PEASANT))
 		if conquest_bank and harvest_slack >= -1
 		else target
 	)
@@ -69,16 +77,16 @@ static func recruitment_orders(
 		if sim.workers.total() >= pool_target:
 			break
 		var tier: int = -1
-		if conquest_bank and sim.available_peasants() < levy_floor:
+		if conquest_bank and sim.available_peasants() < bank_floor:
 			# The conquest bank's own provision (issue #995): when the pool
-			# cannot carry the levy's hand, the farmhand comes first — the
-			# chest the restored pool re-opens is the army's, not an optional
-			# build. The measured bench froze a short-of-bar court at three
-			# peasants for a hundred and ninety turns: no hands, no chest, no
-			# line, and every worker it could afford consumed one.
+			# cannot carry the muster's own floor, the farmhand comes first —
+			# the chest the restored pool re-opens is the army's, not an
+			# optional build. The measured bench froze a short-of-bar court at
+			# three peasants for a hundred and ninety turns: no hands, no
+			# chest, no line, and every worker it could afford consumed one.
 			tier = WorkerPool.Tier.PEASANT
 		elif conquest_bank and harvest_slack >= -1 \
-				and sim.available_peasants() >= levy_floor:
+				and sim.available_peasants() >= bank_floor:
 			# The pool carries the levy: while the bank holds with a harvest
 			# to pace by, the trained tiers wait — a hire the muster cannot
 			# afford to feed is not the army's provision (issue #1059). A
