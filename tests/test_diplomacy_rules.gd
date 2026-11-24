@@ -3038,7 +3038,7 @@ func test_standing_aside_without_an_embassy_leaves_the_deed_alone() -> void:
 ## A Tribe province is entered only under a declaration, like a Great Power's or
 ## a Minor Nation's (wiki: diplomacy § War required for hostile actions;
 ## DR-20261124-07). A rival's deed there is a stake in the intervention trial,
-## not a bar on the march: one declaration opens the shore to every court.
+## not a bar on the march: the deed changes nothing the declaration decides.
 func test_a_tribe_province_needs_a_declaration_like_any_foreign_land() -> void:
 	_setup_intervention()
 	var tribe: int = 9
@@ -3061,17 +3061,13 @@ func test_a_tribe_province_needs_a_declaration_like_any_foreign_land() -> void:
 	)
 	assert_false(
 		DiplomacyRules.invadable(intervention_state, buyer, tribe),
-		"the buyer marches in on the declaration too"
+		"a buyer at peace is barred like any court"
 	)
 	intervention_state.ensure_relation(0, tribe)
 	DiplomacyRules.declare_war(intervention_state, 0, tribe, false)
 	assert_true(
 		DiplomacyRules.invadable(intervention_state, 0, tribe),
 		"a declaration opens the shore"
-	)
-	assert_true(
-		DiplomacyRules.invadable(intervention_state, buyer, tribe),
-		"and the same declaration opens it to every court"
 	)
 
 ## The bar says which cause it is for every owner type: own land, a declaration

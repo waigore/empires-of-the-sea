@@ -11169,7 +11169,10 @@ func campaign__config() -> AiConfig:
 func _war(target: int = -1) -> DiplomacyState:
 	var state := DiplomacyState.new()
 	state.reset(1)
-	var owners: Array[int] = [target] if target >= 0 else [RIVAL, TRIBE]
+	var owners: Array[int] = []
+	owners.append(target if target >= 0 else RIVAL)
+	if target < 0:
+		owners.append(TRIBE)
 	for owner: int in owners:
 		state.ensure_relation(campaign_OWNER, owner, 1)
 		state.relation(campaign_OWNER, owner).at_war = true
@@ -11761,7 +11764,7 @@ func test_a_charted_coast_is_the_only_landing_target() -> void:
 	fleet.sea_zone = 0
 	fleet.province = MapModel.NO_ID
 	var blind: Dictionary = AiInvasionPlanner.plan(
-		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army], 0, charts
 	)
 	assert_true(
 		String(blind.get("kind", "")) != AiInvasionPlanner.KIND_BEACHHEAD,
@@ -11769,7 +11772,7 @@ func test_a_charted_coast_is_the_only_landing_target() -> void:
 	)
 	charts.reveal_sea_zone(campaign_OWNER, 1, 0)
 	var ready: Dictionary = AiInvasionPlanner.plan(
-		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+		campaign__config(), _war(TRIBE), world, 1, new_world, [fleet], [army], 0, charts
 	)
 	assert_eq(String(ready.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
 	assert_eq(int(ready.get("province", -1)), 0)
