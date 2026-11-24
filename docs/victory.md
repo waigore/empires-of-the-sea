@@ -55,7 +55,7 @@ Rules need no nodes (`REQ-P3-03`).
 ## Tests
 
 Suites: `test_campaign_rules` (standings, capital falls and plate),
-`test_campaign_end` (the victory, cap and defeat plates),
+`test_campaign_rules` (the victory, cap and defeat plates),
 `test_menu_flow` (the crown's charge).
 
 ```bash

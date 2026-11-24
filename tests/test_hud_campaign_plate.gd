@@ -5,7 +5,7 @@ extends GdToolsTest
 ## counsel-pick prose, playtest capture, and the mix / director / soundtrack
 ## (REQ-P3-01, REQ-P1-02/03/06/08, REQ-P3-02, REQ-P3-04). Folded from
 ## test_audio_rules so coverage pays one Godot process instead of two. The
-## full calendar-cap MapScreen theme lives in test_campaign_end; this suite
+## full calendar-cap MapScreen theme lives in test_campaign_rules; this suite
 ## stays the leftovers boot (docs/testing.md).
 
 const MapFixture = preload("res://tests/map_fixture.gd")

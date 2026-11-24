@@ -54,10 +54,10 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Heaviest first**: `test_a_battle_rules`, `test_a_ai_rules`,
   `test_a_army_orders`, `test_a_map_screen` lead under `parallel = 4`.
 - One Godot boot per theme — coverage ~15–35 s/suite; fold micros into a
-  neighbour (naval → fleet; audio → chrome; order motion → map) so
-  `parallel = 4` stays ≤5 min. Court-words at rules; suspending /
-  campaign-end use `AiControl.NOOP`; plate saves reload in-place.
-  Smoke/auto: short boot, no sleeps; `view_live=false`.
+  neighbour (naval → fleet; audio → chrome; Auto → observer; end →
+  campaign; motion → map) so `parallel = 4` stays ≤5 min. Court-words
+  at rules; end use `AiControl.NOOP`; plates reload in-place.
+  Smoke/auto: no sleeps; `view_live=false`.
 
 ## Local
 

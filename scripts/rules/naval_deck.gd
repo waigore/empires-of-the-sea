@@ -67,7 +67,9 @@ static func trim_aboard(fleet: FleetState, army: ArmyState) -> Dictionary:
 ## The bar's lines for a squadron that drowned her surplus, one per kind, and
 ## none when nobody went down (REQ-P5-05, wiki: hud-toasts). Read from a row of
 ## [method ArmyTransport.reconcile_aboard], so the news names the same loss the
-## roster lost.
+## roster lost. A loss of several hands reads as one line with its count, the
+## same way the regiments' line does (REQ-P3-01 — a count never hides behind
+## "a"), and the hand's own noun takes [method MoneyText.plural].
 static func drown_news(row: Dictionary) -> Array[String]:
 	var lines: Array[String] = []
 	var men: Array = row.get("regiments", [])
@@ -76,8 +78,12 @@ static func drown_news(row: Dictionary) -> Array[String]:
 			"%d regiment%s went down with the sunk hulls — the deck could not hold them"
 			% [men.size(), "" if men.size() == 1 else "s"]
 		)
-	if not (row.get("civilians", []) as Array).is_empty():
-		lines.append("A colonist went down with a sunk hull")
+	var hands: int = (row.get("civilians", []) as Array).size()
+	if hands > 0:
+		lines.append(
+			"%d colonist%s went down with the sunk hulls — the deck could not hold them"
+			% [hands, "" if hands == 1 else "s"]
+		)
 	return lines
 
 
