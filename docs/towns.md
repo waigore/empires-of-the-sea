@@ -22,13 +22,13 @@ through the same `ImprovementOrders.upgrade_town` the sheet used to press.
 
 | Line | Reads |
 |------|-------|
-| Level | the numeral the realm prints — `I`–`IV` |
-| Gate | `READY`, `AT WORK`, `NO BUILDER`, `LOCKED`, `DEVELOPED` |
-| Note | `Next: II · 4 lumber + 4 cast iron · 2 turns`, the crew's own record, or the study the order waits on |
-| Payoff | `L2 pays 1 manufacture per 4 raw its own estates deliver · the Garments works need a level-2 town` (`TownTerms`) |
+| Caption | `Upgrade Town · 4 lumber + 4 cast iron` — the plan's price while open, plain while shut |
+| Tip | `Upgrade Town — 4 lumber + 4 cast iron, 2 turns`, then what a town does for the province |
+| Note | what the level pays — `L2 pays 1 manufacture per 4 raw its own estates deliver · the Garments works need a level-2 town` (`TownTerms`) — or the order's own refusal, in the gate's ink |
 
 A level that pays nothing says so: `L3 pays no manufacture — it is the road to
-L4`.
+L4`. The note stands printed, not in a hover, so a phone reads the payoff or the
+wait before the tap.
 
 ## Raise
 

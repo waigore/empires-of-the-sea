@@ -28,6 +28,7 @@ const PRESS_KEYS: Array[String] = [KEY_TOWN, KEY_WALL, KEY_WARD]
 const NOT_HELD: String = "This land is not held by your crown."
 
 var town_button: Button = null
+var town_note: Label = null
 var wall_button: Button = null
 var wall_note: Label = null
 var ward_button: Button = null
@@ -49,6 +50,7 @@ func build(marks: PressMarks) -> void:
 		return
 	_marks = marks
 	town_button = _press("Upgrade Town", "upgrade_town", DossierCopy.TOWN_TIP, KEY_TOWN)
+	town_note = _note()
 	# The wall and the ward: the sheet that reads them carries the one press
 	# that raises each (DR-20261120-12).
 	wall_button = _press("Raise Wall", "raise_wall", "", KEY_WALL)
@@ -57,21 +59,40 @@ func build(marks: PressMarks) -> void:
 	ward_note = _note()
 
 
-## The town order is offered, not refused: the press greys out with the rule's
-## own reason until the crown can actually raise the town (REQ-P2-03).
-## `stockpile` is the crown's live purse when the caller knows it; null leaves
-## the money gate to the order that charges it.
+## The town order on the same one press the wall and the ward take: the press
+## greys with the work plan's own refusal and, open, names its price, its wait
+## and what the level pays — the manufacture bonus the Extraction phase grants
+## that level and the works it opens (wiki: extraction-and-improvements § Town
+## manufacturing bonus, § Improvement build costs; DR-20261118-06, DR-20261125-04;
+## REQ-P2-03, REQ-P5-07). `stockpile` is the crown's live purse when the caller
+## knows it; null leaves the money gate to the order that charges it.
 func set_town_order(
-	data: ProvinceState, faction: int, tech_unlocked: Dictionary,
+	model: MapModel,
+	data: ProvinceState,
+	faction: int,
+	tech_unlocked: Dictionary,
 	stockpile: Variant = null
 ) -> void:
-	if town_button == null:
+	if town_button == null or data == null:
 		return
 	var refusal: String = NOT_HELD if faction >= 0 and data.owner != faction else ""
 	if refusal.is_empty():
 		refusal = CivilianWorkRefusals.town_upgrade(data, tech_unlocked, stockpile)
-	town_button.disabled = not refusal.is_empty()
-	town_button.tooltip_text = DossierCopy.TOWN_TIP if refusal.is_empty() else refusal
+	var site: Vector2i = data.town_site()
+	var next: int = CivilianWorkPlan.town_upgrade_level(model, site)
+	_show_step(
+		town_button, town_note, "Upgrade Town", refusal,
+		TownTerms.level_line(next),
+		CivilianWork.cost_text(CivilianWork.cost_for("upgrade_town", next)),
+		CivilianWorkPlan.duration_for(model, "upgrade_town", site, null),
+		KEY_TOWN
+	)
+	# The press now carries its price and wait; the tip behind it still says what
+	# the town does for the province, which the price alone cannot (REQ-P2-03).
+	if refusal.is_empty():
+		town_button.tooltip_text = "%s\n%s" % [
+			town_button.tooltip_text, DossierCopy.town_tip(data)
+		]
 
 
 ## The province's wall order: the fort table's level, study and stores, or the
@@ -165,6 +186,13 @@ func ward_order() -> Dictionary:
 
 func town_press() -> Button:
 	return town_button
+
+
+## The town press and the note under it, as one reading — what the level pays
+## while the order is open, the order's own refusal while it is shut
+## (REQ-P5-07).
+func town_order() -> Dictionary:
+	return {"button": town_button, "note": town_note}
 
 
 ## One raise press: the caption names the step and its price while the press is

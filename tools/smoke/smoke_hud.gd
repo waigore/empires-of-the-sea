@@ -149,6 +149,16 @@ static func _province(run, screen: MapScreen) -> void:
 		screen.play.economy.economy.recruits.is_empty(),
 		"the hire reading queues nothing"
 	)
+	# The dossier's own town press prints its reading instead of hiding it in a
+	# hover: the level's payoff while the order is open, the gate's own refusal
+	# while it is shut (wiki: extraction-and-improvements § Town manufacturing
+	# bonus; DR-20261125-04; REQ-P5-07).
+	var town: Dictionary = screen.hud.panels.panel.town_order()
+	var town_note: Label = town.get("note") as Label
+	run.check(
+		town_note != null and town_note.visible and not town_note.text.is_empty(),
+		"the province sheet prints why its town step stands or waits"
+	)
 	# The dossier also names the orders the court would give on this province's
 	# ground: the work its civilian pass would put crews to here and the hosts
 	# its land pass would send here, or nothing (wiki: world-model § The crown's

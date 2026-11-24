@@ -855,6 +855,60 @@ func test_a_fully_developed_town_closes_the_order() -> void:
 	assert_true(_province_panel_panel._orders.town_press().disabled)
 	assert_true(_province_panel_panel._orders.town_press().tooltip_text.contains("fully developed"))
 
+
+## The town press reads like the wall and the ward beside it: open, it names its
+## own price in the caption and its wait in the tip, and the note under it prints
+## what the level pays — the manufacture bonus the Extraction phase grants and
+## the works that level opens. Shut, the note carries the order's own refusal in
+## the gate's ink, so a phone reads why without a hover (wiki:
+## extraction-and-improvements § Town manufacturing bonus; DR-20261118-06,
+## DR-20261125-04; REQ-P2-03, REQ-P5-07).
+func test_the_town_press_names_its_price_and_what_the_level_pays() -> void:
+	_setup_province_panel()
+	_model.provinces[0].town_development = 1
+	var stock: Dictionary = Fixture.stockpile()
+	_seat_province_sheet({"national_bureaucracy": true}, stock)
+	_province_panel_panel.refresh(_model, 0)
+	var press: Button = _province_panel_panel._orders.town_press()
+	assert_false(press.disabled, "a paid town step offers its press")
+	# The caption carries the plan's own price for the level the order lands on.
+	assert_true(press.text.contains("Upgrade Town · 4 lumber + 4 cast iron"), press.text)
+	assert_true(press.tooltip_text.contains("2 turns"), press.tooltip_text)
+	assert_true(
+		press.tooltip_text.contains("Estates that reach the crown only through the town"),
+		"the tip behind the price still says what a town does: %s" % press.tooltip_text
+	)
+	# The note under it prices the level: the bonus and the works it opens.
+	var note: Label = _province_panel_panel.town_order()["note"]
+	assert_true(note.visible, "an open town step prints what the level pays")
+	assert_true(note.text.contains("L2 pays 1 manufacture per 4 raw"), note.text)
+	assert_true(note.text.contains("the Garments works need a level-2 town"), note.text)
+	# A town at the third level pays no manufacture of its own: the step to four
+	# says so before the crown pays for it.
+	_model.provinces[0].town_development = 3
+	_province_panel_panel.refresh(_model, 0)
+	assert_true(
+		note.text.contains("L4 pays 2 manufactures per 4 raw"), note.text
+	)
+	_model.provinces[0].town_development = 2
+	_province_panel_panel.refresh(_model, 0)
+	assert_eq(
+		note.text, TownTerms.level_line(3),
+		"the note is the town table's own line, never a second wording"
+	)
+	assert_true(note.text.contains("L3 pays no manufacture"), note.text)
+	# Shut, the same note carries the refusal — the reason a phone cannot hover
+	# to find (REQ-P5-07).
+	stock.clear()
+	_province_panel_panel.refresh(_model, 0)
+	assert_true(press.disabled, "an empty purse shuts the press")
+	assert_true(note.visible, "the refusal stands printed under the press")
+	assert_true(note.text.contains("Stores are short of"), note.text)
+	assert_true(
+		note.get_theme_color("font_color").r < Palette.GOLD.r,
+		"a refusal wears the gate's ink, not the payoff's gold"
+	)
+
 func test_a_foreign_province_offers_no_town_order() -> void:
 	_setup_province_panel()
 	_model.provinces[1].town_tile = Fixture.RIVAL_GRAIN_TILE
