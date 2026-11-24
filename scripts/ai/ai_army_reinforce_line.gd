@@ -43,13 +43,15 @@ const RECIPE_HANDS: int = 2
 static func labour_floor_ok(config: AiConfig, economy: PlayerEconomy) -> bool:
 	if config == null or economy == null:
 		return false
-	return economy.available_peasants() >= _labour_floor(config, economy)
+	return economy.available_peasants() >= labour_floor(config, economy)
 
 
 ## The free hands the muster leaves: the levy's own floor, plus the recipe pair
 ## while the pool still has room to grow and the workshop has raw to work
-## (issue #1375).
-static func _labour_floor(config: AiConfig, economy: PlayerEconomy) -> int:
+## (issue #1375). The conquest bank's hire ladder reads this same figure — the
+## muster's own floor — as the pool it hires toward, so a court arming for its
+## storm is never one hand short of the muster it banks for (issue #1432).
+static func labour_floor(config: AiConfig, economy: PlayerEconomy) -> int:
 	var levy: int = maxi(int(config.parameter("army.min_peasants")), 0)
 	if economy.workers.total() >= maxi(
 		int(config.parameter("economy.worker_target")), levy

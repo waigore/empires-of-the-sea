@@ -36,12 +36,19 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# (DR-20261113-19). Defence still comes first on its own soil, which
 			# the planner guards.
 			var earning: bool = MapPlaySeaStep.earning(play, faction, kind, config)
+			# The colony chain's claim on the hull (issue #1429): a muster
+			# waiting for its next voyage keeps the free squadron, so the
+			# second voyage gets the hull the ledger priced for it and the
+			# crossing force reads the claim too. An expedition already afloat
+			# keeps sailing.
+			var waits: bool = _voyage_waits(play, faction, kind, config, earning)
 			touched = _split(
-				play, model, fleets, armies, faction, config, kind, trace, earning
+				play, model, fleets, armies, faction, config, kind, trace, earning,
+				waits
 			) or touched
 			var order: Dictionary = AiBindCampaign.invasion_plan(
 				kind, config, play.diplomacy, play.world, region, model, fleets, armies,
-				play.turn, play.court_charts, earning
+				play.turn, play.court_charts, earning, waits
 			)
 			if order.is_empty():
 				continue
@@ -56,7 +63,45 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 	return trace
 
 
+## True when the court's own muster waits for its next voyage, so the crossing
+## force leaves the free squadron for it (issue #1429): the same gate the
+## muster answers (`CivilianMuster.wants_voyage` — a crew still to send, a hull
+## claimed, a harbour), read on the court's home region. The voyage must also
+## be able to sail this phase, exactly as the colonisation pass reads it: a war
+## footing keeps its hulls for the fleet unless the funded parent claim
+## (DR-20261113-15, #491 T4) or the **earn** posture (DR-20261113-19) opens the
+## slot.
+static func _voyage_waits(
+	play: PlaySession, faction: int, kind: String, config: Variant, earning: bool
+) -> bool:
+	# A baseline court keeps its published crossing: the mainline planners
+	# read no voyage_waits, so the adapter must not half-yield either.
+	if kind == AiControl.KIND_BASELINE:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	var model: MapModel = play.world.region(home)
+	if model == null:
+		return false
+	if not CivilianMuster.wants_voyage(play, faction, home, model):
+		return false
+	if AiPhasePlanner.opens(
+		AiBind.phase_for(kind, config, play.diplomacy), AiPhasePlanner.SLOT_VOYAGE
+	) or earning:
+		return true
+	if play.ai == null:
+		return false
+	var claim: Dictionary = play.ai.objectives_for(faction)
+	return not claim.is_empty() and (
+		(claim.get("funded_ids", []) as Array).has("colonise.new_world")
+	)
+
+
 ## Detaches the crossing army through ArmyRoster.split, keeping the Home Army.
+## `voyage_waits` is the colony chain's claim on the hull (issue #1429): a
+## muster waiting for its voyage detaches no crossing army either — the host
+## stays home until the hull it would sail is free again.
 static func _split(
 	play: PlaySession,
 	model: MapModel,
@@ -66,9 +111,12 @@ static func _split(
 	config: Variant,
 	kind: String,
 	trace: Array[Dictionary],
-	wants_income: bool = false
+	wants_income: bool = false,
+	voyage_waits: bool = false
 ) -> bool:
 	var split_any: bool = false
+	if voyage_waits:
+		return split_any
 	for action: Dictionary in AiBindCampaign.invasion_split(
 		kind, config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
 		wants_income

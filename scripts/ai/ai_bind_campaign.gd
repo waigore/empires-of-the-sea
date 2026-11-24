@@ -88,13 +88,17 @@ static func invasion_plan(
 	armies: Array,
 	turn: int,
 	charts: Variant,
-	earning: bool
+	earning: bool,
+	voyage_waits: bool = false
 ) -> Dictionary:
+	# Mainline invasion has no voyage_waits arg yet: the baseline keeps its
+	# published boarding (issue #1429).
 	return _call(
 		kind, "ai_invasion_planner.gd", "plan",
 		[config, diplomacy, world, region, model, fleets, armies, turn, charts, earning],
 		func() -> Dictionary: return AiInvasionPlanner.plan(
-			config, diplomacy, world, region, model, fleets, armies, turn, charts, earning
+			config, diplomacy, world, region, model, fleets, armies, turn, charts,
+			earning, voyage_waits
 		)
 	)
 
@@ -108,13 +112,17 @@ static func invasion_split(
 	fleets: Array,
 	armies: Array,
 	charts: Variant,
-	wants_income: bool
+	wants_income: bool,
+	voyage_waits: bool = false
 ) -> Array:
+	# Mainline invasion has no voyage_waits arg yet: the baseline keeps its
+	# published crossing (issue #1429).
 	return _call(
 		kind, "ai_invasion_planner.gd", "split_orders",
 		[config, diplomacy, world, model, fleets, armies, charts, wants_income],
 		func() -> Array: return AiInvasionPlanner.split_orders(
-			config, diplomacy, world, model, fleets, armies, charts, wants_income
+			config, diplomacy, world, model, fleets, armies, charts, wants_income,
+			voyage_waits
 		)
 	)
 

@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through #1474 (REQ-P2-02). Largest gap, then REQ/wiki.
+Audited through #1478 (REQ-P2-02). Largest gap, then REQ/wiki.
 
 ## Already live
 
@@ -64,8 +64,8 @@ None; see `docs/rubric.md` / wiki.
 
 ## Wiki drift
 
-`DR-20261111-05` still names Tribe contact and fleetless crowns (both live).
+`DR-20261111-05` Tribe contact / fleetless crowns — stale (live).
 `capital-choice-phase` “UI deferred” — stale. Soft weight / treasury seed
-(DR-13-15 / DR-16-09) — stale. #1444–#1474 not backlog. #1382 / #1422 /
+(DR-13-15 / DR-16-09) — stale. #1444–#1478 not backlog. #1382 / #1422 /
 #1433 / #1434 closed. Open defects: #1429, #1383, #1432, #1435
 (not ranked gaps).
