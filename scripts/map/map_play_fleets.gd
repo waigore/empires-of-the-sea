@@ -80,7 +80,8 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		strength = NavalStrength.dossier(
 			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
 			MapPlayNavalTurn.strength_multipliers(play), play.leaders,
-			MapPlayFleetIntel.intel_filter(play), chart
+			MapPlayFleetIntel.intel_filter(play), chart,
+			MapPlayNavalTurn.navy_feeding(play)
 		)
 	var opening := FleetDossierOpening.new()
 	opening.fleet = fleet
