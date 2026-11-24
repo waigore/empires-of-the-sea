@@ -262,6 +262,17 @@ func apply_turn() -> Dictionary:
 	return row
 
 
+## Re-reads the force this turn's Consumption bills, after the famine order shed
+## a hull or a colour: the plan's own reads priced the force it found, and the
+## mouths that left must not eat another turn (wiki: workers-and-population
+## § Phase placement; DR-20261124-09).
+func reread_force() -> void:
+	regiments = MapPlayCourt.regiments(play, faction)
+	ships = MapPlayCourt.ships(play, faction)
+	warships = MapPlayCourt.warships(play, faction)
+	army_food = MapPlayEconomyLarder.army_food(play, faction)
+
+
 ## Books every order the plan files — the production runs, the workers the
 ## Build/work phase buys and the crews' work orders — and closes no ledger. The
 ## Auto seat books the crown's household through this and lets the crown's own

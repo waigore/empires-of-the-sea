@@ -3760,6 +3760,49 @@ func test_map_phase_files_the_research_report_the_turn_close_reads() -> void:
 	play.civilian_layer.free()
 
 
+## The famine order is the rival pass's own, as the crown's Auto seat runs it for
+## her own court: a court whose pool has struck past a thin turn sheds the mouths
+## its harvest cannot carry — the thinnest colours through Dismiss, one peasant
+## back each — so its hands work again (wiki: workers-and-population
+## § Phase placement; DR-20261124-09; issue #1433). A rival that only noted the
+## strike left its pool at `0 idle` and its army standing for the whole campaign
+## (measured: seed 1551, 90 turns, two courts struck 75 and 55 turns).
+func test_map_phase_sheds_a_rival_famine() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var types: Array[String] = []
+	for _index in 8:
+		types.append("peasant_levies")
+	var home: ArmyState = ArmyState.muster(1, 1, 0, true, types, 1)
+	var roster: Array[ArmyState] = [home]
+	var armies := ArmyLayer.new()
+	armies.model = play.model
+	armies.next_army = 100
+	armies.armies.assign(roster)
+	armies.regions.set_region(0, roster)
+	play.army_layer = armies
+	var economy: PlayerEconomy = play.ledger_for(1)
+	# An empty pantry: the plan turn notes the strike every turn it runs.
+	economy.stockpile = {}
+	economy.workers = WorkerPool.make(2)
+
+	var pantry: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]
+	assert_false(bool((pantry["shed"] as Dictionary)["ok"]), "one thin turn is a pantry")
+	assert_eq(home.count(), 8, "the colours stay while the pantry can still carry them")
+
+	var famine: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]
+	var shed: Dictionary = famine["shed"]
+	assert_true(bool(shed["ok"]), "the rival pass sheds its famine")
+	var gone: int = int(shed["regiments"])
+	assert_true(gone > 0, "the thinnest colours leave")
+	assert_eq(home.count(), 8 - gone, "the dismissed colours leave the standard")
+	assert_eq(int(shed["peasants"]), gone, "each dismissed regiment returns one peasant")
+	assert_eq(
+		economy.workers.count(WorkerPool.Tier.PEASANT), 2 + gone,
+		"and the hands are back in the fields"
+	)
+	armies.free()
+
+
 ## The economy pass reads the footing's market slot: a court at war bids only
 ## the rows its commitments claim, and the report names the top-up it withheld
 ## (DR-20261117-01).
