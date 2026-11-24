@@ -202,7 +202,34 @@ static func market(play: PlaySession) -> WorldMarket:
 static func food_demand(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> int:
-	var read: Dictionary = LarderRead.reading(
+	var appetites: Dictionary = _reading(play, faction, economy)["appetites"]
+	return (
+		int(appetites["army"]) + int(appetites["navy"])
+		+ int(appetites["pool"]) + int(appetites["wards"])
+	)
+
+
+## The hands the coming Production phase will see: the pool the Consumption
+## phase leaves idle — fed hands, less those on strike for food or a tier's
+## luxury. A court of two strikers still counts two workers, and a plan that
+## spent that labour booked a run the phase refused, which the seat then logged
+## as a run it had set (issue #1433). The reading is the phase's own dry run
+## (`LarderRead`), asked over copies: nothing is spent to answer it.
+static func idle_labour(
+	play: PlaySession, faction: int, economy: PlayerEconomy
+) -> int:
+	var report: Dictionary = _reading(play, faction, economy).get("report", {})
+	return int(report.get("idle_labour", 0))
+
+
+## The larder the coming close will see, in the phase's own deduction order: the
+## store, the pool and every mouth this court feeds. One reading, so the food
+## demand, the idle hands and the famine order's shortfall cannot name three
+## different larders (REQ-P2-03).
+static func _reading(
+	play: PlaySession, faction: int, economy: PlayerEconomy
+) -> Dictionary:
+	return LarderRead.reading(
 		economy.workers,
 		economy.stockpile,
 		{
@@ -210,11 +237,6 @@ static func food_demand(
 			"ships": MapPlayCourt.ships(play, faction),
 			"wards": HospitalRules.demand_list(play.world, faction),
 		}
-	)
-	var appetites: Dictionary = read["appetites"]
-	return (
-		int(appetites["army"]) + int(appetites["navy"])
-		+ int(appetites["pool"]) + int(appetites["wards"])
 	)
 
 

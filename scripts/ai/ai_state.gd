@@ -50,6 +50,14 @@ var objective_claims: Dictionary = {}
 ## no copy. A faction the pass has not noted has no reading, and the gates
 ## that read it stand down.
 var food_slack: Dictionary = {}
+## Faction id -> the turns running the coming close would leave the pool unfed:
+## zero while the larder covers every mouth, one more each turn the phase would
+## starve a hand. Noted by the economy pass every turn (`note_strike_streak`),
+## so a court can tell a thin pantry from a famine before it sheds the mouths
+## its land cannot carry (wiki: workers-and-population § Strike workers;
+## military-armies § Dismissing regiments; issue #1433). Transient: the pass
+## re-notes it every turn, so a save needs no copy.
+var strike_streak: Dictionary = {}
 ## Difficulty layer this run plays at; rival ledgers are founded at its level
 ## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
 var difficulty: String = Difficulty.DEFAULT
@@ -245,6 +253,15 @@ func objectives_for(faction: int) -> Dictionary:
 ## Notes the harvest slack the economy pass just read for this court.
 func note_food_slack(faction: int, slack: int) -> void:
 	food_slack[faction] = slack
+
+
+## Notes whether the coming close would leave the court's pool unfed, counting
+## the turns it has run: a fed larder clears the streak, a striking one extends
+## it (wiki: workers-and-population § Strike workers; issue #1433).
+func note_strike_streak(faction: int, starving: bool) -> int:
+	var streak: int = (int(strike_streak.get(faction, 0)) + 1) if starving else 0
+	strike_streak[faction] = streak
+	return streak
 
 
 ## Plain data for local saves — see [AiStatePersist.pack].
