@@ -21,6 +21,17 @@ var army_label: Label = null
 
 var _treasury_value: int = 0
 var _income_value: int = 0
+## What the per-turn figure leaves out, so the plaque never promises the whole
+## purse movement: the orders staged for the next clearing, the ducats the last
+## clearing moved, and how far the purse actually went over the turn just
+## closed (REQ-P5-05).
+var _staged_orders: int = 0
+var _clearing_value: int = 0
+var _purse_moved: int = 0
+## False until a close books its movement, so a fresh bar names no last turn.
+var _moved_known: bool = false
+## True when the closed turn's move beat the label it promised.
+var _moved_wider: bool = false
 var _treasury_tween: Tween = null
 var _flash_tween: Tween = null
 var _flash_label: Label = null
@@ -142,6 +153,27 @@ func set_income(value: int) -> void:
 			Palette.GOLD_PALE if value > 0 else Palette.CRIMSON.lerp(Color.WHITE, 0.35)
 		)
 	)
+	_refresh_treasury_tooltip()
+
+
+## What the per-turn figure does not include: the orders the court has staged for
+## the next clearing and the ducats the last clearing moved. The label is the
+## phases alone, so the plaque names the two passes that settle after them
+## (wiki: world-market § Trade orders; REQ-P5-05).
+func set_income_scope(staged_orders: int, clearing: int) -> void:
+	_staged_orders = maxi(staged_orders, 0)
+	_clearing_value = clearing
+	_refresh_treasury_tooltip()
+
+
+## How far the purse actually moved over the turn just closed. Called before the
+## new turn's label lands, so the move is judged against the figure the player
+## read during that turn; a turn wider than it promised is named on the bar,
+## never left for the ledger to explain (REQ-P5-05).
+func set_purse_moved(amount: int) -> void:
+	_purse_moved = amount
+	_moved_known = true
+	_moved_wider = amount != _income_value
 	_refresh_treasury_tooltip()
 
 
@@ -311,14 +343,44 @@ func _chip(
 	}
 
 
-## Estates and college only — the world market clears after them (world-market).
-## A negative purse is named as debt, so a crown in the lending floor's shadow
-## reads why it cannot fund a study (REQ-P5-05).
+## Estates and college only — the world market clears after them
+## (world-market). A negative purse is named as debt, so a crown in the
+## lending floor's shadow reads why it cannot fund a study (REQ-P5-05).
+## The per-turn figure is the phases' alone: the court's staged orders and the
+## last clearing settle after it, and the purse's own move is named whenever the
+## turn came out wider than the label, so no swing is silent on the bar.
 func _refresh_treasury_tooltip() -> void:
 	if treasury_chip == null:
 		return
-	treasury_chip.tooltip_text = "Treasury %s ducats%s · %s per turn before the auction — open the ledger" % [
+	var text: String = "Treasury %s ducats%s · %s per turn from the phases" % [
 		TextFormat.thousands(_treasury_value),
 		" (in debt)" if _treasury_value < 0 else "",
 		TextFormat.delta(_income_value),
 	]
+	text += _after_phases_clause()
+	if _moved_known and _moved_wider:
+		text += " · last turn the purse moved %s" % MoneyText.signed(_purse_moved)
+	treasury_chip.tooltip_text = text + " — open the ledger"
+
+
+## The one clause naming what the label leaves out: the staged orders and the
+## last clearing, in the ledger's own voice (wiki: world-market § Trade orders).
+func _after_phases_clause() -> String:
+	var orders: String = ""
+	if _staged_orders > 0:
+		orders = "%d staged order%s" % [
+			_staged_orders, "" if _staged_orders == 1 else "s",
+		]
+	var clearing: String = ""
+	if _clearing_value != 0:
+		clearing = "the last clearing (%s)" % MoneyText.signed(_clearing_value)
+	if orders.is_empty() and clearing.is_empty():
+		return "; nothing is staged for the auction after them"
+	var subject: String = orders if clearing.is_empty() else clearing
+	var settling: int = (1 if not clearing.is_empty() else 0)
+	if not orders.is_empty():
+		settling += _staged_orders
+		if not clearing.is_empty():
+			subject = orders + " and " + clearing
+	# "1 staged order moves", "3 staged orders move", "a and b move".
+	return "; %s %s the purse after the phases" % [subject, "move" if settling > 1 else "moves"]
