@@ -3351,7 +3351,8 @@ match = "scripts/ai/ai_builder_work.gd*"
 domain = "ai_works"
 
 [[rules]]
-match = "scripts/ai/ai_economy_planner.gd*"
+# Workshop plan, hire ladder, and ground appetite share the economy-planner door.
+match = "scripts/ai/ai_economy_*.gd*"
 domain = "ai_economy"
 
 [[rules]]
