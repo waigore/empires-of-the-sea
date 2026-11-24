@@ -406,8 +406,8 @@ func test_uncharted_ground_stays_parchment_without_ink() -> void:
 	assert_almost_eq(pixel.r, Palette.PAPER.r, 0.01)
 	assert_almost_eq(pixel.g, Palette.PAPER.g, 0.01)
 	assert_almost_eq(pixel.b, Palette.PAPER.b, 0.01)
-	assert_true(_minimap._coast.is_empty(), "no coastline ink off the chart")
-	assert_true(_minimap._country_borders.is_empty(), "no crown ink off the chart")
+	assert_true(_minimap.coast_paths().is_empty(), "no coastline ink off the chart")
+	assert_true(_minimap.border_paths().is_empty(), "no crown ink off the chart")
 
 ## A paint that never ran (a mount whose inset build was missed, or one made
 ## before its region existed) must not leave the frame's near-black panel
@@ -434,9 +434,9 @@ func test_charted_region_draws_coast_and_crown_ink() -> void:
 	_setup_minimap()
 	_visibility.apply_initial()
 	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
-	assert_gt(_minimap._coast.size(), 0, "the charted coast is inked")
-	assert_gt(_minimap._country_borders.size(), 0, "owners' borders are inked")
-	for owner: int in _minimap._country_borders.keys():
+	assert_gt(_minimap.coast_paths().size(), 0, "the charted coast is inked")
+	assert_gt(_minimap.border_paths().size(), 0, "owners' borders are inked")
+	for owner: int in _minimap.border_paths().keys():
 		assert_true(FactionCatalog.has_faction(owner))
 
 ## The projection is what keeps strokes crisp: ink is cached in world units and
@@ -446,13 +446,13 @@ func test_projected_ink_lands_inside_the_inset() -> void:
 	_visibility.apply_initial()
 	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
 	var bounds: Rect2 = _minimap._fit_rect().grow(1.0)
-	assert_gt(_minimap._ink_coast.size(), 0)
-	for path: PackedVector2Array in _minimap._ink_coast:
+	assert_gt(_minimap.projected_coast().size(), 0)
+	for path: PackedVector2Array in _minimap.projected_coast():
 		assert_gt(path.size(), 1)
 		for point: Vector2 in path:
 			assert_true(bounds.has_point(point), "ink stays inside the inset")
-	for owner: int in _minimap._ink_borders.keys():
-		for path: PackedVector2Array in _minimap._ink_borders[owner]:
+	for owner: int in _minimap.projected_borders().keys():
+		for path: PackedVector2Array in _minimap.projected_borders()[owner]:
 			for point: Vector2 in path:
 				assert_true(bounds.has_point(point), "crown ribbons stay inside the inset")
 
@@ -518,10 +518,10 @@ func test_a_second_bake_of_the_same_chart_draws_nothing() -> void:
 	_visibility.levels.fill(VisibilityModel.Level.FULLY_VISIBLE)
 	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
 	var baked: ImageTexture = _minimap._texture
-	var borders: Dictionary = _minimap._country_borders
+	var borders: Dictionary = _minimap.border_paths()
 	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
 	assert_eq(_minimap._texture, baked, "the same chart is not baked again")
-	assert_eq(_minimap._country_borders, borders, "the ink is the one already drawn")
+	assert_eq(_minimap.border_paths(), borders, "the ink is the one already drawn")
 	_visibility.lower_to(_model.index_of(1, 1), VisibilityModel.Level.FOGGED)
 	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
 	assert_ne(_minimap._texture, baked, "a chart that moved bakes again")
