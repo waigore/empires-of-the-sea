@@ -58,7 +58,7 @@ var _province_id: int = -1
 func _ready() -> void:
 	add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
 	)
 	_build()
 	get_viewport().size_changed.connect(_fit_to_viewport)

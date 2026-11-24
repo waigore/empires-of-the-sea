@@ -22,7 +22,7 @@ static func build(hud: GameHud, row: HBoxContainer) -> void:
 	hud._glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hud._glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var glow_style := UiTheme.box(Color(0, 0, 0, 0), Palette.GOLD, 2, 4, Vector4.ZERO)
-	glow_style.shadow_color = Color(0.83, 0.69, 0.22, 0.45)
+	glow_style.shadow_color = Palette.with_alpha(Palette.GOLD_RULE, 0.45)
 	glow_style.shadow_size = 6
 	hud._glow.add_theme_stylebox_override("panel", glow_style)
 	wrap.add_child(hud._glow)

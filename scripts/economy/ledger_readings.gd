@@ -75,7 +75,22 @@ func trade_cargo() -> Dictionary:
 	status["clear_free"] = gross
 	status["free"] = maxi(gross - pending, 0)
 	status["crossing"] = CargoRead.reading(plan)
+	# What the crown's warships buy the convoy: the escort cover the raid pass
+	# reads, over the same home squadron (wiki: ships-and-naval § Trade and
+	# Transport Interception; DR-20261124-04).
+	status["convoy"] = ConvoyRead.read(home_fleet())
 	return status
+
+
+## The crown's squadron in port at its seat: the hulls a commerce raid works and
+## the escorts that cover them. Read through the raid pass's own walk, so the
+## convoy line and the turn's raids price one squadron — a squadron moored in a
+## colony port is no home fleet on either side (wiki: ships-and-naval § Home
+## Fleet; REQ-P2-03).
+func home_fleet() -> FleetState:
+	if host == null or host.play == null:
+		return null
+	return MapPlayRaids.home_fleet(host.play, host.player_faction)
 
 
 ## Holds the crown's home squadron carries for a crossing this turn: its merchant

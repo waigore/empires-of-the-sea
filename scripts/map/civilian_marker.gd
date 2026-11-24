@@ -98,7 +98,7 @@ func _draw() -> void:
 			Color(0.99, 0.93, 0.72, 0.95), 2.4, true
 		)
 		draw_arc(
-			step, DISC + 2.6, 0, TAU, 32, Color(0.83, 0.69, 0.22, 0.30), 1.2, true
+			step, DISC + 2.6, 0, TAU, 32, Palette.with_alpha(Palette.GOLD_RULE, 0.30), 1.2, true
 		)
 
 	if selected:

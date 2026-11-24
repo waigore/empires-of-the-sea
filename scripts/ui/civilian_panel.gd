@@ -38,7 +38,7 @@ var _viewer: int = FactionCatalog.PLAYER_FACTION
 func _ready() -> void:
 	add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 16, 20, 16))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(20, 16, 20, 16))
 	)
 	_build()
 
@@ -123,7 +123,7 @@ func _build() -> void:
 
 	_stock_line = Label.new()
 	_stock_line.add_theme_font_size_override("font_size", 11)
-	_stock_line.add_theme_color_override("font_color", Color(0.74, 0.68, 0.55, 0.7))
+	_stock_line.add_theme_color_override("font_color", Palette.with_alpha(Palette.TEXT_DIM, 0.7))
 	_stock_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_stock_line)
 

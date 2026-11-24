@@ -49,6 +49,27 @@ static func share_credit(report: Dictionary, faction: int) -> int:
 	return roundi(float(by_gp.get(faction, by_gp.get(str(faction), 0.0))))
 
 
+## Ducats one clearing moved for one crown: what its fills paid and earned, plus
+## the share its deeds and embassies drew (wiki: world-market § Trade orders,
+## § First right of refusal). 0 for a court the clearing did not serve, so a bar
+## naming the last clearing never prints a rival's trade as the crown's own
+## (REQ-P5-05). A report whose `fills` is not a per-court map (an old save, a
+## fixture that never traded) reads as no fills rather than as a cast failure.
+static func clearing_net(report: Dictionary, faction: int) -> int:
+	var fills: Variant = report.get("fills", {})
+	var mine: Dictionary = {}
+	if typeof(fills) == TYPE_DICTIONARY:
+		var row: Variant = (fills as Dictionary).get(
+			faction, (fills as Dictionary).get(str(faction), {})
+		)
+		if typeof(row) == TYPE_DICTIONARY:
+			mine = row
+	return (
+		int(mine.get("earned", 0)) - int(mine.get("spent", 0))
+		+ share_credit(report, faction)
+	)
+
+
 ## The fills that paid the crown's share, one row per deal: the owner's cut of a
 ## rival's buy on its sold ground first, then the embassy kickbacks (wiki:
 ## world-market-first-right-of-refusal § Profit formula, § Eligibility). The
