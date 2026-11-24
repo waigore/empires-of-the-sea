@@ -13,11 +13,16 @@ const BUILD_INPUTS: Array[String] = AiEconomyProduction.BUILD_INPUTS
 
 ## Production assignments for the next Production phase plus the scored
 ## candidates that explain them. See [method AiEconomyProduction.production_orders].
+## `idle` is the labour the phase will really hand the runs (a striker turns no
+## wheel; issue #1433); the −1 sentinel keeps the published roster reading for
+## the frozen baselines.
 static func production_orders(
 	config: AiConfig, economy: PlayerEconomy, town_level: int = 0,
-	held: Dictionary = {}
+	held: Dictionary = {}, idle: int = -1
 ) -> Dictionary:
-	return AiEconomyProduction.production_orders(config, economy, town_level, held)
+	return AiEconomyProduction.production_orders(
+		config, economy, town_level, held, idle
+	)
 
 
 ## Recruit orders, highest affordable tier first. See

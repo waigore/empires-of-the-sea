@@ -23,12 +23,12 @@ static func _call(
 ## (issue #484, #878); the baseline has no reading.
 static func production_orders(
 	kind: String, config: Variant, economy: PlayerEconomy, town_level: int = 0,
-	held: Dictionary = {}
+	held: Dictionary = {}, labour: int = -1
 ) -> Dictionary:
 	return _call(
 		kind, "ai_economy_planner.gd", "production_orders", [config, economy],
 		func() -> Dictionary: return AiEconomyPlanner.production_orders(
-			config, economy, town_level, held
+			config, economy, town_level, held, labour
 		)
 	)
 

@@ -13,6 +13,10 @@ extends RefCounted
 ## New World land sends an Explorer to chart it. The existing civilian planner
 ## takes over once the colonist is ashore.
 ##
+## Ground ranking lives on [AiColonisationGround]; voyage steps on
+## [AiColonisationVoyage]. This owner keeps the published API so map adapters
+## and traces never chase a rename (REQ-P3-01).
+##
 ## **The ground is read, not picked by the compass** (DR-20261119-05): a landing
 ## is the one tile a court takes overseas, and the published walk landed on the
 ## north-easternmost charted coast whatever it grew — so no rival court ever held
@@ -25,8 +29,8 @@ extends RefCounted
 ## **The treasury is read beside the workshop** (issue #1382): the appetite may
 ## also carry a `riches` weight (`economy.riches_route_weight`, set by
 ## `AiEconomyPlanner.ground_appetite` once the court charts the New World), which
-## `_ground_weight` puts on mineral-bearing terrain — the ground an Explorer can
-## survey — without ever naming a mineral.
+## [method AiColonisationGround.ground_weight] puts on mineral-bearing terrain —
+## the ground an Explorer can survey — without ever naming a mineral.
 ##
 ## **Riches are ground, not a mineral** (issue #1382 / #1386): a court on **earn**
 ## sails for cash, and the one New World ground that clears straight to the
@@ -36,20 +40,13 @@ extends RefCounted
 ## swamp, hills, peak or desert — over bare ground its workshop has no use for,
 ## and a raw the workshop is short of still leads it. The deposit is never named:
 ## every prospectable tile weighs the same until its survey lands (REQ-P2-03).
-const RICHES_KEY: String = "riches"
 
-## The one crew that may read ground: only an Explorer digs a deposit out of the
-## chart, so only an Explorer's landing is worth aiming at hills (issue #1382).
-const EXPLORER: String = "explorer"
-
-## Weight one prospectable tile carries while the court sails for income: enough
-## to outrank bare ground and a crop nobody is short of, never a raw the
-## workshop wants (a wanted raw counts its own shortfall, one point a unit).
-const RICHES_GROUND: int = 1
-## The shift that puts a wanted raw's shortfall above every riches weight: the
-## richest configured bet (1000) still loses to one unit of workshop need, so the
-## treasury read never starves a recipe the court feeds (issue #1382).
-const WANTED_SHIFT: int = 1001
+## Constants the voyage and ground homes publish — kept here so callers that
+## already read the planner door keep one name.
+const RICHES_KEY: String = AiColonisationGround.RICHES_KEY
+const EXPLORER: String = AiColonisationGround.EXPLORER
+const RICHES_GROUND: int = AiColonisationGround.RICHES_GROUND
+const WANTED_SHIFT: int = AiColonisationGround.WANTED_SHIFT
 
 
 ## One order for this court in this region, or an empty dictionary.
@@ -90,19 +87,21 @@ static func plan(
 		return {}
 	var fleet: FleetState = VoyageRead.carrying(fleets, owner, true)
 	if fleet != null:
-		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
+		var carried: CivilianState = AiColonisationVoyage.by_id(
+			civilians, AiColonisationVoyage.carried_id(fleet)
+		)
 		if carried == null:
 			return {}
-		return _voyage(
+		return AiColonisationVoyage.voyage(
 			world, region, model, fleet, carried, target, charts, appetite, wants_income
 		)
 	if region != home:
 		# No colonist aboard: a squadron left across the water sails home, so the
 		# court's hulls are not stranded there for the rest of the campaign (they
 		# carry the next voyage and an overseas invasion).
-		var stranded: FleetState = _stranded_fleet(fleets, owner)
+		var stranded: FleetState = AiColonisationVoyage.stranded_fleet(fleets, owner)
 		if stranded != null:
-			return _homeward(world, region, model, stranded, charts)
+			return AiColonisationVoyage.homeward(world, region, model, stranded, charts)
 		return {}
 	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE) and not wants_income:
 		return {}
@@ -112,7 +111,7 @@ static func plan(
 	fleet = VoyageRead.free_squadron(fleets, owner)
 	if fleet == null:
 		return {}
-	return _board_step(model, fleet, unit, charts)
+	return AiColonisationVoyage.board_step(model, fleet, unit, charts)
 
 
 ## The harbour a rival's expedition musters at: its seat when the seat has a
@@ -169,219 +168,16 @@ static func _idle_of(
 	return VoyageRead.idle_colonist(civilians, owner, kind)
 
 
-## Boards at the crown's own harbour. The squadron is sent to that port — not to
-## whatever province the colonist happens to stand in, which the port and dock
-## rules would refuse — and the colonist musters there (AiExplorerWork holds it
-## at the muster port while a voyage is pending).
-static func _board_step(
-	model: MapModel, fleet: FleetState, unit: CivilianState, charts: CourtCharts = null
-) -> Dictionary:
-	var port: int = harbour(model, unit.owner)
-	if port < 0:
-		return {}
-	var province: int = model.province_at(unit.tile.x, unit.tile.y)
-	if fleet.is_in_port():
-		if fleet.province != port:
-			var berth: int = _sail(
-				model, fleet, NavalMovement.province_sea_zones(model, port), charts,
-				unit.owner
-			)
-			if berth < 0:
-				return {}
-			return {"kind": "sail", "fleet": fleet.id, "zone": berth}
-		if province != port:
-			return {}
-		return {"kind": "embark", "fleet": fleet.id, "unit": unit.id}
-	if _zone_borders_province(model, fleet.sea_zone, port):
-		return {"kind": "dock", "fleet": fleet.id, "province": port}
-	var zone: int = _sail(
-		model, fleet, NavalMovement.province_sea_zones(model, port), charts, unit.owner
-	)
-	if zone < 0:
-		return {}
-	return {"kind": "sail", "fleet": fleet.id, "zone": zone}
-
-
-## One voyage step: cross at a Passage, otherwise sail toward the next waypoint,
-## and land as soon as the coast is in reach. `wants_income` is the court's own
-## purse footing: an earn court's Explorer aims at the ground worth surveying
-## (issue #1382), while every other landing keeps the workshop's appetite.
-static func _voyage(
-	world: WorldMap,
-	region: int,
-	model: MapModel,
-	fleet: FleetState,
-	unit: CivilianState,
-	target: int,
-	charts: CourtCharts,
-	appetite: Dictionary = {},
-	wants_income: bool = false
-) -> Dictionary:
-	var riches: int = 0
-	if wants_income and unit.type_id == EXPLORER:
-		riches = RICHES_GROUND
-	if region != target:
-		if fleet.is_at_sea() and world.is_warp_zone(region, fleet.sea_zone):
-			return {"kind": "cross", "fleet": fleet.id}
-		var warp: int = _sail(
-			model, fleet, world.warp_zones(region), charts, unit.owner
-		)
-		if warp < 0:
-			return {}
-		return {"kind": "sail", "fleet": fleet.id, "zone": warp}
-	var tiles: Array[Vector2i] = CivilianVoyage.landing_tiles(model, unit, fleet)
-	if charts != null:
-		tiles = charts.charted_tiles(unit.owner, model.region_id, tiles)
-	if not tiles.is_empty():
-		tiles.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
-			var left: int = _ground_weight(model, a, appetite, riches)
-			var right: int = _ground_weight(model, b, appetite, riches)
-			if left != right:
-				return left > right
-			# The published compass order breaks every tie, so a court that reads
-			# no appetite lands exactly where it did before (DR-20261119-05).
-			if a.y != b.y:
-				return a.y < b.y
-			return a.x < b.x
-		)
-		return {
-			"kind": "land", "fleet": fleet.id, "unit": unit.id, "tile": tiles[0],
-		}
-	var coast: int = _sail(
-		model, fleet, _landing_zones(model, unit.type_id, unit.owner, charts, appetite, riches),
-		charts, unit.owner
-	)
-	if coast < 0:
-		return {}
-	return {"kind": "sail", "fleet": fleet.id, "zone": coast}
-
-
-## A squadron the court left across the water with nothing aboard: afloat,
-## un-moved, no colonists and no army. It is free to sail home.
-static func _stranded_fleet(fleets: Array, owner: int) -> FleetState:
-	var best: FleetState = null
-	for raw: Variant in fleets:
-		var fleet: FleetState = raw
-		if fleet == null or fleet.owner != owner or fleet.moved:
-			continue
-		if not fleet.is_at_sea() or not VoyageRead.is_free(fleet):
-			continue
-		if best == null or fleet.id < best.id:
-			best = fleet
-	return best
-
-
-## One step home: cross at the Passage, otherwise sail toward the next waypoint.
-## The squadron docks at its own harbour once it is back in the home region.
-static func _homeward(
-	world: WorldMap, region: int, model: MapModel, fleet: FleetState,
-	charts: CourtCharts
-) -> Dictionary:
-	if world.is_warp_zone(region, fleet.sea_zone):
-		return {"kind": "cross", "fleet": fleet.id}
-	var warp: int = _sail(model, fleet, world.warp_zones(region), charts, fleet.owner)
-	if warp < 0:
-		return {}
-	return {"kind": "sail", "fleet": fleet.id, "zone": warp}
-
-
-## Next zone toward `goals` on water this court charts (see
-## [method AiSeaRoute.sail_charted]); the shared voyage rule keeps the invasion
-## and colonisation planners walking the same route (DR-20261110-21).
-static func _sail(
-	model: MapModel, fleet: FleetState, goals: Array[int], charts: CourtCharts, owner: int
-) -> int:
-	return AiSeaRoute.sail_charted(model, fleet, goals, charts, owner)
-
-
-## Sea zones with at least one land tile this type may land on, and whose water
-## the court has charted. A zone that fronts a ground the court's workshop turns
-## comes first, so the expedition sails for the coast that grows what it needs
-## (DR-20261119-05); a zone fronting ground worth surveying follows `riches`
-## while the court sails for income (issue #1382); the zone id breaks every tie,
-## so a caller with no appetite keeps the published order.
+## Published private doors the suites already call — thin forwards so the
+## ground and voyage homes own the bodies without renaming every assert.
 static func _landing_zones(
 	model: MapModel, type_id: String, owner: int, charts: CourtCharts = null,
 	appetite: Dictionary = {}, riches: int = 0
 ) -> Array[int]:
-	var weights: Dictionary = {}
-	for zone: SeaZoneState in model.sea_zones:
-		if charts != null and not charts.knows_zone(owner, model.region_id, zone.id):
-			continue
-		for water: Vector2i in zone.tiles:
-			for tile: Vector2i in CivilianMovement.NEIGHBORS:
-				var land: Vector2i = water + tile
-				if not model.in_bounds(land.x, land.y) or not model.is_land(land.x, land.y):
-					continue
-				if not CivilianMovement.may_enter(model, type_id, owner, land):
-					continue
-				if charts != null:
-					var view: VisibilityModel = charts.model_for(owner, model.region_id)
-					if view != null and view.level_at(land.x, land.y) < VisibilityModel.Level.FOGGED:
-						continue
-				var weight: int = _ground_weight(model, land, appetite, riches)
-				if not weights.has(zone.id) or weight > int(weights[zone.id]):
-					weights[zone.id] = weight
-	var zones: Array[int] = []
-	for id: Variant in weights.keys():
-		zones.append(int(id))
-	zones.sort_custom(func(a: int, b: int) -> bool:
-		if int(weights[a]) != int(weights[b]):
-			return int(weights[a]) > int(weights[b])
-		return a < b
+	return AiColonisationGround.landing_zones(
+		model, type_id, owner, charts, appetite, riches
 	)
-	return zones
-
-
-static func _zone_borders_province(model: MapModel, zone: int, province: int) -> bool:
-	return NavalMovement.province_sea_zones(model, province).has(zone)
-
-
-## How much this ground is worth to the court on its water: the appetite weight of
-## the commodity the tile carries, else the bet on ground an Explorer can survey,
-## else zero (DR-20261119-05).
-##
-## The treasury is read beside the workshop (issue #1382): on prospectable ground
-## (swamp, hills, mountain, desert) a tile nobody's workshop wants carries the
-## appetite's `riches` weight — `economy.riches_route_weight`, set once the court
-## charts the New World — and the earn-posture Explorer bet (`riches` arg), the
-## bigger read winning. A raw the workshop is short of always leads: its shortfall
-## is shifted above every bet, so the riches read outranks bare ground and a crop
-## nobody is short of and never starves a recipe the workshop feeds. No mineral is
-## named, priced or planned on: the weight rides the terrain, not a deposit, so the
-## fog rule holds (DR-20261111-26) and the appetite's own mineral exclusion stands.
-## A caller with no appetite and no bet keeps the compass order.
-static func _ground_weight(
-	model: MapModel, tile: Vector2i, appetite: Dictionary, riches: int = 0
-) -> int:
-	var resource: int = model.resource_at(tile.x, tile.y)
-	if resource >= 0 and not appetite.is_empty():
-		var commodity: String = ImprovementCatalog.commodity(resource)
-		if not commodity.is_empty():
-			var wanted: int = maxi(int(appetite.get(commodity, 0)), 0)
-			if wanted > 0:
-				return wanted * WANTED_SHIFT
-	if MineralSurvey.prospectable(model, tile):
-		return mini(
-			maxi(int(appetite.get(RICHES_KEY, 0)), maxi(riches, 0)),
-			WANTED_SHIFT - 1
-		)
-	return 0
 
 
 static func _carried_id(fleet: FleetState) -> int:
-	if fleet.embarked_civilians.is_empty():
-		return -1
-	var ids: Array[int] = []
-	for raw: Variant in fleet.embarked_civilians:
-		ids.append(int(raw))
-	ids.sort()
-	return ids[0]
-
-
-static func _by_id(civilians: Array, unit_id: int) -> CivilianState:
-	for raw: Variant in civilians:
-		var unit: CivilianState = raw
-		if unit != null and unit.id == unit_id:
-			return unit
-	return null
+	return AiColonisationVoyage.carried_id(fleet)

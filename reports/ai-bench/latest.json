@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:474b18b05508e9c95973bd0c0ffbb7fe14f37811d6d82744a64dda16d23b183b",
-  "submission_git": "fix/1383-deed-rung-named-seller@1c7973e0+dirty",
+  "submission_hash": "sha256:f94f8d8e6390c764c2ea64fb54e068c019a2b737fcfd0a1df2e4c0b1586f3120",
+  "submission_git": "refactor/colonisation-planner-homes@8be98786+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:96086788297bef2573e0ca451f039cf1610e16d73a6ba30b07dc09afeba1de6d",
+    "ai_surface_hash": "sha256:16bb3c901b126013b761452bfe2ed4bb4e0836b3c72487379e62312f415a72a4",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T07:59:39Z",
+  "timestamp": "2026-11-24T09:29:14Z",
   "report_version": 1,
-  "signature": "hmac-sha256:4fe70484112d721450552d1d5a0df8b71e6bd70827b03e0af507abd623e5c6ce"
+  "signature": "hmac-sha256:97267a8509dffc8b3dae7a79fdddb1042970b02d6d52acbf9b0abc2d2f90fe0c"
 }
