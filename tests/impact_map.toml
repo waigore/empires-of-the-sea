@@ -3310,7 +3310,7 @@ match = "scripts/rules/capital_choice.gd*"
 domain = "seat_harbour"
 
 [[rules]]
-match = "scripts/ai/ai_colonisation_planner.gd*"
+match = "scripts/ai/ai_colonisation_*.gd*"
 domain = "seat_harbour"
 
 [[rules]]
