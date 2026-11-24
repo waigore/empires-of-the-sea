@@ -544,6 +544,17 @@ func test_the_province_sheet_reads_the_harbour_that_stands() -> void:
 		"Harbour · Mar Caribe · sealed — no landfall, and its estates gather by road",
 		"a sealed harbour prices no grant"
 	)
+	# The reading's own guards: a sheet with no session and a court with no seal
+	# claim nothing, so no branch of the read can invent a harbour either.
+	assert_eq(HarbourRead.line(null, _works, _model.province_data(Fixture.PLAYER_PROVINCE)), "")
+	assert_eq(HarbourRead.tip(null, _works, _model.province_data(Fixture.PLAYER_PROVINCE)), "")
+	assert_false(HarbourRead.sealed(_model, _model.province_data(Fixture.PLAYER_PROVINCE), null))
+	assert_eq(HarbourRead.turns_left(null, null), 1, "no chart, no wait to promise")
+	assert_true(HarbourRead.stands(_model, _works, _model.province_data(Fixture.PLAYER_PROVINCE)))
+	assert_true(
+		HarbourRead.sealed(_model, _model.province_data(Fixture.PLAYER_PROVINCE), seals),
+		"the province's own harbour is the seal the estate rows read"
+	)
 	# A quay that touches no water names no water and still says what stands.
 	_model.province_data(Fixture.PLAYER_PROVINCE).port_tile = Fixture.BARE_TILE
 	_seat_province_sheet()
