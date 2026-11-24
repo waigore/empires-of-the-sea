@@ -18,7 +18,7 @@ static func world() -> WorldMap:
 	var absolute: String = ProjectSettings.globalize_path(PATH)
 	assert(
 		FileAccess.file_exists(absolute),
-		"missing census fixture %s — run tools/write_census_fixture.gd" % PATH
+		"missing census fixture %s — run tests/write_census_fixture.gd" % PATH
 	)
 	var file: FileAccess = FileAccess.open(PATH, FileAccess.READ)
 	assert(file != null, "cannot read census fixture %s" % PATH)

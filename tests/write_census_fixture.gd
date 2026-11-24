@@ -1,7 +1,7 @@
 extends SceneTree
 ## Regenerates `tests/data/census_world_160.bin` from seed 160 at Standard size.
 ## Run when MapGenerator or the census seed changes:
-##   godot --headless --path . --script res://tools/write_census_fixture.gd
+##   godot --headless --path . --script res://tests/write_census_fixture.gd
 
 const Census = preload("res://tests/census_fixture.gd")
 

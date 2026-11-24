@@ -2725,7 +2725,7 @@ match = "tests/data/census_world_160.bin"
 domain = "map_fixture"
 
 [[rules]]
-match = "tools/write_census_fixture.gd*"
+match = "tests/write_census_fixture.gd*"
 domain = "map_fixture"
 
 [[rules]]

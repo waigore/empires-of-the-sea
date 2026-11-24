@@ -1329,7 +1329,7 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 ## keeps the means in the wiki bands, gold ahead of gems, and every pool inside
 ## its three-deviation band. Coverage multiplies a cold Standard
 ## `generate_world` by ~10×, so the suite loads the packed fixture instead
-## (docs/testing.md § Speed rules; regenerate via tools/write_census_fixture.gd).
+## (docs/testing.md § Speed rules; regenerate via tests/write_census_fixture.gd).
 ##
 ## A case that only needs two owned towns still builds a pocket world instead of
 ## regenerating Standard.
