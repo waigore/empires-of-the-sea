@@ -826,6 +826,7 @@ func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 		_province_panel_panel._orders.town_press().tooltip_text.contains("National Bureaucracy"),
 		"the button says what it waits for: %s" % _province_panel_panel._orders.town_press().tooltip_text
 	)
+	_units = [Fixture.unit("builder", Fixture.IRON_TILE)]
 	_show({"national_bureaucracy": true})
 	assert_false(_province_panel_panel._orders.town_press().disabled, "researched, the order opens")
 
@@ -834,6 +835,7 @@ func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 ## order refuses (wiki: civilian-units § Builder; REQ-P2-03).
 func test_the_town_order_shuts_for_the_stores_it_cannot_pay() -> void:
 	_setup_province_panel()
+	_units = [Fixture.unit("builder", Fixture.IRON_TILE)]
 	_model.provinces[0].town_development = 1
 	var stock: Dictionary = {}
 	_seat_province_sheet({"national_bureaucracy": true}, stock)
@@ -865,6 +867,7 @@ func test_a_fully_developed_town_closes_the_order() -> void:
 ## DR-20261125-04; REQ-P2-03, REQ-P5-07).
 func test_the_town_press_names_its_price_and_what_the_level_pays() -> void:
 	_setup_province_panel()
+	_units = [Fixture.unit("builder", Fixture.IRON_TILE)]
 	_model.provinces[0].town_development = 1
 	var stock: Dictionary = Fixture.stockpile()
 	_seat_province_sheet({"national_bureaucracy": true}, stock)
@@ -916,6 +919,87 @@ func test_a_foreign_province_offers_no_town_order() -> void:
 	_province_panel_panel.refresh(_model, 1)
 	assert_true(_province_panel_panel._orders.town_press().disabled)
 	assert_true(_province_panel_panel._orders.town_press().tooltip_text.contains("not held by your crown"))
+
+## The town press reads the hand the order sends, as the wall and the ward on
+## the same rail do: a crown with no idle Builder reads the reason under the
+## press, not a button that files an order the work order refuses (wiki:
+## civilian-units § Builder, § Per-player tile exclusivity; the towns ledger's
+## own STATE_NO_BUILDER; DR-20261125-05; REQ-P2-03, REQ-P5-07).
+func test_the_town_press_waits_for_the_builder_the_order_sends() -> void:
+	_setup_province_panel()
+	_model.provinces[0].town_development = 1
+	_seat_province_sheet({"national_bureaucracy": true}, Fixture.stockpile())
+	_province_panel_panel.refresh(_model, 0)
+	var press: Button = _province_panel_panel._orders.town_press()
+	assert_true(press.disabled, "no Builder musters, no order")
+	assert_true(
+		press.tooltip_text.contains("No idle Builder musters"), press.tooltip_text
+	)
+	var note: Label = _province_panel_panel.town_order()["note"]
+	assert_true(note.visible, "the wait is printed, not hovered")
+	assert_true(note.text.contains("No idle Builder musters"), note.text)
+	# The towns ledger's row and the dossier's press name one wait.
+	assert_eq(
+		note.text, RaiseLedger.no_crew_note("Builder"),
+		"the rail and the towns ledger word the missing hand alike"
+	)
+	_units = [Fixture.unit("builder", Fixture.IRON_TILE)]
+	_seat_province_sheet({"national_bureaucracy": true}, Fixture.stockpile())
+	_province_panel_panel.refresh(_model, 0)
+	assert_false(press.disabled, "a free Builder opens the press")
+
+
+## A town a Builder is already raising prints no payoff and offers no second
+## press: the level in hand is spoken for (wiki: extraction-and-improvements
+## § Town manufacturing bonus — "a finished town and one a Builder is already
+## raising print no payoff line"; DR-20261125-05; REQ-P2-03).
+func test_a_town_already_being_raised_offers_no_second_press() -> void:
+	_setup_province_panel()
+	_model.provinces[0].town_development = 1
+	_units = [Fixture.unit("builder", Fixture.BARE_TILE)]
+	(_units[0] as CivilianState).start_work("upgrade_town", Fixture.BARE_TILE, 2)
+	_seat_province_sheet({"national_bureaucracy": true}, Fixture.stockpile())
+	_province_panel_panel.refresh(_model, 0)
+	var press: Button = _province_panel_panel._orders.town_press()
+	assert_true(press.disabled, "the step in hand reads as taken")
+	assert_eq(press.text, "Upgrade Town", "a shut press keeps its plain caption")
+	var note: Label = _province_panel_panel.town_order()["note"]
+	assert_true(note.visible, "the reason is printed under the press")
+	assert_true(note.text.contains("already at work"), note.text)
+	assert_false(
+		note.text.contains("L2 pays"),
+		"no payoff while a Builder raises it: %s" % note.text
+	)
+
+
+## The town tile is shared with the wall and the ward: a crew already at work
+## there refuses the town step, as it refuses the ward, while the wall may rise
+## beside another project (wiki: civilian-units § Per-player tile exclusivity;
+## DR-20261125-05; REQ-P2-03).
+func test_a_crew_on_the_town_tile_refuses_the_town_step() -> void:
+	_setup_province_panel()
+	_model.provinces[0].town_development = 1
+	_units = [Fixture.unit("builder", Fixture.IRON_TILE)]
+	# A free Engineer musters beside the crew on the town tile, so the wall's own
+	# press stays open and the town's wait is the tile's, not a missing hand.
+	_units.append(Fixture.unit("engineer", Fixture.IRON_TILE))
+	var busy: CivilianState = CivilianState.create(
+		2, 0, "builder", Fixture.BARE_TILE
+	)
+	_units.append(busy)
+	busy.start_work("build_improvement", Fixture.BARE_TILE, 1)
+	_seat_province_sheet({"national_bureaucracy": true}, Fixture.stockpile())
+	_province_panel_panel.refresh(_model, 0)
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var press: Button = rail.town_press()
+	assert_true(press.disabled, "one crew works the town tile")
+	assert_true(
+		press.tooltip_text.contains("Another crew"), press.tooltip_text
+	)
+	assert_false(
+		(rail.wall_order()["button"] as Button).disabled,
+		"a project beside it never refuses the wall"
+	)
 
 
 ## The dossier carries the wall's own press (wiki: siege-mechanics § Fort Levels;

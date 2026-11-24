@@ -2766,6 +2766,24 @@ func test_town_order_reports_a_missing_builder() -> void:
 	assert_true(String(result["message"]).contains("No idle Builder"))
 
 
+## The step in hand reads as taken: a Builder already raising this town is the
+## order's own refusal — named as such, not as a missing hand (wiki:
+## civilian-units § Builder; DR-20261125-05).
+func test_town_order_names_a_builder_already_at_the_town() -> void:
+	field__model.provinces[0].town_tile = field_Fixture.BARE_TILE
+	var builder := _add("builder", field_Fixture.BARE_TILE)
+	builder.start_work("upgrade_town", field_Fixture.BARE_TILE, 2)
+	var result: Dictionary = ImprovementOrders.upgrade_town(
+		field__model, _units, field__works, _stock, _view, 0, field_Fixture.BARE_TILE,
+		{"national_bureaucracy": true}
+	)
+	assert_false(bool(result["ok"]))
+	assert_true(
+		String(result["message"]).contains("already at work"),
+		String(result["message"])
+	)
+
+
 func test_scrub_forest_caps_timber_improvements() -> void:
 	var builder := _add("builder", field_Fixture.TIMBER_TILE)
 	var index: int = field__model.index_of(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y)
