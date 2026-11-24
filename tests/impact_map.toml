@@ -2717,6 +2717,18 @@ match = "tests/map_fixture.gd"
 domain = "map_fixture"
 
 [[rules]]
+match = "tests/census_fixture.gd*"
+domain = "map_fixture"
+
+[[rules]]
+match = "tests/data/census_world_160.bin"
+domain = "map_fixture"
+
+[[rules]]
+match = "tests/write_census_fixture.gd*"
+domain = "map_fixture"
+
+[[rules]]
 match = "tests/map_shot.gd"
 domain = "crown_road"
 
