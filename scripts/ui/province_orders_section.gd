@@ -86,15 +86,20 @@ func _ready() -> void:
 	add_child(_muster)
 
 
-## The town order is offered, not refused: the button greys out with the rule's
-## own reason until the crown can actually raise the town (REQ-P2-03).
+## The town order on the same one press the wall and the ward take: the press
+## greys with the work plan's own refusal and, open, names its price, its wait
+## and what the level pays (wiki: extraction-and-improvements § Town
+## manufacturing bonus; DR-20261118-06, DR-20261125-04; REQ-P2-03, REQ-P5-07).
 ## `stockpile` is the crown's live purse when the caller knows it; null leaves
 ## the money gate to the order that charges it.
 func set_town_order(
-	data: ProvinceState, faction: int, tech_unlocked: Dictionary,
+	model: MapModel,
+	data: ProvinceState,
+	faction: int,
+	tech_unlocked: Dictionary,
 	stockpile: Variant = null
 ) -> void:
-	_raises.set_town_order(data, faction, tech_unlocked, stockpile)
+	_raises.set_town_order(model, data, faction, tech_unlocked, stockpile)
 
 
 ## The province's wall order: the press carried by the sheet that reads the
@@ -209,6 +214,11 @@ func training_row(type_id: String) -> Dictionary:
 ## The town press whose gate the sheet reads (REQ-P2-03).
 func town_press() -> Button:
 	return _raises.town_press()
+
+
+## The town press and the note under it, as one reading (REQ-P5-07).
+func town_order() -> Dictionary:
+	return _raises.town_order()
 
 
 ## The wall press and the note under it, as one reading (REQ-P5-07).
