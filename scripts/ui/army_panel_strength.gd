@@ -18,12 +18,13 @@ static func food(army: ArmyState) -> int:
 ## One standing line under the station: regiments, strength, food, then rest.
 static func line(model: MapModel, army: ArmyState) -> String:
 	var one: Array[ArmyState] = [army]
-	var text: String = "%d regiments · %d strength · %d food" % [
-		army.count(), roundi(ArmyForce.side_strength(one)), food(army)
+	var regiments: int = army.count()
+	var text: String = "%d regiment%s · %d strength · %d food" % [
+		regiments, MoneyText.plural(regiments), roundi(ArmyForce.side_strength(one)), food(army)
 	]
 	var chevrons: int = RegimentCondition.chevrons(one)
 	if chevrons > 0:
-		text += " · %d chevrons" % chevrons
+		text += " · %d chevron%s" % [chevrons, MoneyText.plural(chevrons)]
 	if army.is_embarked():
 		return text
 	return text + _rest_note(model, army)

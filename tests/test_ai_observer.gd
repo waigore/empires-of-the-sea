@@ -945,18 +945,18 @@ func test_the_dashboard_paints_one_snapshot() -> void:
 
 func test_court_reader_names_the_planning_courts() -> void:
 	var play: PlaySession = _screen.play
-	var planning: Array[int] = MapPlayCourt.planning_factions(play)
+	var planning: Array[int] = MapPlayCourtHoldings.planning_factions(play)
 	assert_true(planning.has(play.player_faction), "the observer's former player court plans")
 	assert_eq(planning.size(), FactionCatalog.great_power_ids().size(), "every crown plans")
 	# The human's own court is never handed to a rival pass.
 	play.observer_mode = false
 	assert_false(
-		MapPlayCourt.planning_factions(play).has(play.player_faction),
+		MapPlayCourtHoldings.planning_factions(play).has(play.player_faction),
 		"a human court keeps its own orders"
 	)
 	play.observer_mode = true
 	play.ai_mode = AiControl.NOOP
-	assert_true(MapPlayCourt.planning_factions(play).is_empty(), "a noop session plans nowhere")
+	assert_true(MapPlayCourtHoldings.planning_factions(play).is_empty(), "a noop session plans nowhere")
 
 
 ## A fallen crown plans nothing: its seat drops out of the shared gate once it
@@ -966,7 +966,7 @@ func test_the_court_gate_drops_a_crown_that_holds_no_land() -> void:
 	var play: PlaySession = _screen.play
 	play.ai_mode = AiControl.FULL
 	var fallen: int = FactionCatalog.great_power_ids()[0]
-	var land: Array[int] = MapPlayCourt.planning_factions(play)
+	var land: Array[int] = MapPlayCourtHoldings.planning_factions(play)
 	assert_true(land.has(fallen), "the crown plans while it holds land")
 	var world: WorldMap = play.world
 	for region_index in world.region_count():
@@ -976,7 +976,7 @@ func test_the_court_gate_drops_a_crown_that_holds_no_land() -> void:
 				province.owner = MapModel.NO_ID
 	assert_false(MapPlayCourt.holds_land(play, fallen), "no province, no seat")
 	assert_false(
-		MapPlayCourt.planning_factions(play).has(fallen),
+		MapPlayCourtHoldings.planning_factions(play).has(fallen),
 		"a fallen crown is out of the planner list"
 	)
 
@@ -985,12 +985,12 @@ func test_court_reader_counts_the_order_of_battle() -> void:
 	var play: PlaySession = _screen.play
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_eq(
-			MapPlayCourt.regiments(play, faction),
+			MapPlayCourtHoldings.regiments(play, faction),
 			play.army_layer.regiment_count_all(faction),
 			"regiments read the whole order of battle"
 		)
 		assert_eq(
-			MapPlayCourt.ships(play, faction),
+			MapPlayCourtHoldings.ships(play, faction),
 			play.ship_layer.hull_count_all(faction),
 			"hulls read the whole navy"
 		)
@@ -1006,16 +1006,16 @@ func test_court_reader_publishes_one_order_of_battle() -> void:
 	var crowns: Array[int] = FactionCatalog.great_power_ids()
 	var owner: int = crowns[0]
 	var before: float = float(
-		MapPlayCourt.public_strength(play).get(owner, 0.0)
+		MapPlayCourtHoldings.public_strength(play).get(owner, 0.0)
 	)
 	var region: int = play.region_index
-	var armies: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
+	var armies: Array[ArmyState] = MapPlayCourtRoster.region_armies(play, region)
 	var province: int = int(play.world.region(region).provinces[0].id)
 	armies.append(
 		ArmyState.muster(9201, owner, province, false, ["knights"])
 	)
 	play.army_layer.regions.set_region(region, armies)
-	var orders: Dictionary = MapPlayCourt.public_orders(play)
+	var orders: Dictionary = MapPlayCourtHoldings.public_orders(play)
 	var strength: Dictionary = orders["strength"]
 	var ships: Dictionary = orders["ships"]
 	assert_almost_eq(
@@ -1024,7 +1024,7 @@ func test_court_reader_publishes_one_order_of_battle() -> void:
 	)
 	for faction: int in crowns:
 		assert_eq(
-			int(ships.get(faction, 0)), MapPlayCourt.ships(play, faction),
+			int(ships.get(faction, 0)), MapPlayCourtHoldings.ships(play, faction),
 			"the published hulls read the same navy"
 		)
 	assert_eq(
@@ -1078,9 +1078,9 @@ func test_court_reader_counts_only_fighting_hulls() -> void:
 	var owner: int = FactionCatalog.great_power_ids()[0]
 	var rival: int = FactionCatalog.great_power_ids()[1]
 	var region: int = play.region_index
-	var fleets: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
-	var before_ships: int = MapPlayCourt.ships(play, owner)
-	var before_warships: int = MapPlayCourt.warships(play, owner)
+	var fleets: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
+	var before_ships: int = MapPlayCourtHoldings.ships(play, owner)
+	var before_warships: int = MapPlayCourtHoldings.warships(play, owner)
 	fleets.append(
 		FleetState.at_sea(
 			900, owner, 0, ["court_a", "court_b", "court_c"],
@@ -1088,9 +1088,9 @@ func test_court_reader_counts_only_fighting_hulls() -> void:
 		)
 	)
 	play.ship_layer.regions.set_region(region, fleets)
-	assert_eq(MapPlayCourt.ships(play, owner), before_ships + 3, "every hull counts")
+	assert_eq(MapPlayCourtHoldings.ships(play, owner), before_ships + 3, "every hull counts")
 	assert_eq(
-		MapPlayCourt.warships(play, owner), before_warships + 2,
+		MapPlayCourtHoldings.warships(play, owner), before_warships + 2,
 		"merchant hulls are not fighting hulls"
 	)
 	# The enemy's navy is the threat only once a war is declared.
@@ -1098,13 +1098,13 @@ func test_court_reader_counts_only_fighting_hulls() -> void:
 	war.at_war = true
 	assert_true(MapPlayCourt.at_war(play, owner), "the declaring court reads at war")
 	var enemies: Array[int] = [rival]
-	assert_eq(MapPlayCourt.at_war_with(play, owner), enemies, "the enemy is named")
+	assert_eq(MapPlayCourtHoldings.at_war_with(play, owner), enemies, "the enemy is named")
 	assert_eq(
-		MapPlayCourt.hostile_ships(play, owner), MapPlayCourt.ships(play, rival),
+		MapPlayCourtHoldings.hostile_ships(play, owner), MapPlayCourtHoldings.ships(play, rival),
 		"the threat counts the enemy's hulls"
 	)
 	assert_eq(
-		MapPlayCourt.hostile_warships(play, owner), MapPlayCourt.warships(play, rival),
+		MapPlayCourtHoldings.hostile_warships(play, owner), MapPlayCourtHoldings.warships(play, rival),
 		"the threat counts the enemy's fighting hulls"
 	)
 
@@ -1113,26 +1113,26 @@ func test_court_reader_looks_up_forces_by_owner() -> void:
 	var fleet: FleetState = FleetState.at_sea(7, 3, 0, ["hull_a"], {"hull_a": "sloop"})
 	var other: FleetState = FleetState.at_sea(7, 4, 0, ["hull_b"], {"hull_b": "sloop"})
 	var roster: Array[FleetState] = [fleet, other]
-	assert_eq(MapPlayCourt.fleet_by_id(roster, 7), fleet, "the first match wins")
-	assert_eq(MapPlayCourt.fleet_by_id(roster, 7, 4), other, "the owner narrows the id")
-	assert_null(MapPlayCourt.fleet_by_id(roster, 7, 5), "a stranger holds no such squadron")
-	assert_null(MapPlayCourt.fleet_by_id(roster, 8), "an unknown id reads nothing")
+	assert_eq(MapPlayCourtRoster.fleet_by_id(roster, 7), fleet, "the first match wins")
+	assert_eq(MapPlayCourtRoster.fleet_by_id(roster, 7, 4), other, "the owner narrows the id")
+	assert_null(MapPlayCourtRoster.fleet_by_id(roster, 7, 5), "a stranger holds no such squadron")
+	assert_null(MapPlayCourtRoster.fleet_by_id(roster, 8), "an unknown id reads nothing")
 	var army: ArmyState = ArmyState.new()
 	army.id = 11
 	army.owner = 3
 	var armies: Array[ArmyState] = [army]
-	assert_eq(MapPlayCourt.army_by_id(armies, 11), army, "the standard answers by id")
-	assert_null(MapPlayCourt.army_by_id(armies, 11, 4), "another court holds no such army")
+	assert_eq(MapPlayCourtRoster.army_by_id(armies, 11), army, "the standard answers by id")
+	assert_null(MapPlayCourtRoster.army_by_id(armies, 11, 4), "another court holds no such army")
 
 
 func test_court_reader_reads_region_rosters() -> void:
 	var play: PlaySession = _screen.play
 	var region: int = play.region_index
-	var fleets: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+	var fleets: Array[FleetState] = MapPlayCourtRoster.region_fleets(play, region)
 	assert_eq(fleets.size(), play.ship_layer.regions.value(region, []).size(), "one roster")
-	var armies: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
+	var armies: Array[ArmyState] = MapPlayCourtRoster.region_armies(play, region)
 	assert_eq(armies.size(), play.army_layer.armies.size(), "the live region answers")
-	MapPlayCourt.refresh_hulls(play)
+	MapPlayCourtRoster.refresh_hulls(play)
 	assert_eq(
 		play.army_layer.armies.size(), armies.size(),
 		"a hull refresh leaves the field armies alone"

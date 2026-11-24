@@ -7226,6 +7226,38 @@ func test_a_storm_despatches_the_wall_and_names_no_zero_dead() -> void:
 	assert_true(line.contains("3 chevrons won"), "its survivors rise one each: %s" % line)
 
 
+## The storm prices the host its own sheet prices (wiki: combat § Strength —
+## side strength is `Σ (FPN + FPM) × chevrons × health × decoration`; § Citations,
+## DR-20261113-04; siege-mechanics § Storming an empty walled province;
+## REQ-P2-03): a laurelled host the dossier prices over the wall takes it, where
+## a paper sum that dropped the citation weight would be repelled.
+func test_a_decorated_host_storms_the_wall_its_sheet_prices() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	var host := army_field_rules_Fixture.army(
+		1, 0, 2, ["guards", "guards", "peasant_levies"]
+	)
+	for regiment_id: String in host.regiments:
+		host.regiment_history[regiment_id] = {
+			"cited": RegimentDecorations.LAUREL_AT, "fields": [],
+		}
+	host.moved = true
+	var paper: float = host.strength()
+	var solo: Array[ArmyState] = [host]
+	var printed: float = ArmyForce.side_strength(solo)
+	var threshold: float = FortRules.storm_threshold({}, 1)
+	assert_true(paper < threshold, "the paper sum alone stands under the wall: %s" % paper)
+	assert_true(printed > threshold, "the sheet prices the host over it: %s" % printed)
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	assert_true(bool(reports[0]["captured"]), "the host the sheet prices takes the wall")
+	assert_almost_eq(
+		float((reports[0]["storm"] as Dictionary)["strength"]), printed, 0.001,
+		"the storm reads the published side strength"
+	)
+	assert_eq(model.province_owner(2), host.owner)
+
+
 ## The calibration anchor (issue #1314): the opening Great Power muster —
 ## 2 levies, pikes, arquebusiers, squires, 21 strength — fails to take a Wood
 ## fort held by nobody. Deterministic: the same match-up always holds.

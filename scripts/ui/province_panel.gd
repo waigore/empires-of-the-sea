@@ -8,6 +8,9 @@ extends PanelContainer
 signal action_pressed(action: String)
 signal close_pressed
 signal dock_side_pressed
+## The head's realm door, forwarded as the panel's own: the HUD wires one signal
+## instead of searching the sheet for the head it built (REQ-P3-02).
+signal realm_pressed
 
 var _head: ProvinceSheetHead = null
 ## The court's own reading, asked at every refresh: the work its civilian pass
@@ -55,7 +58,7 @@ var _province_id: int = -1
 func _ready() -> void:
 	add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(20, 18, 20, 18))
 	)
 	_build()
 	get_viewport().size_changed.connect(_fit_to_viewport)
@@ -73,6 +76,7 @@ func _build() -> void:
 
 	_head = ProvinceSheetHead.new()
 	_head.close_pressed.connect(func() -> void: close_pressed.emit())
+	_head.realm_pressed.connect(func() -> void: realm_pressed.emit())
 	_shell.add_block(_head)
 
 	# The court's own reading sits under the head and above the facts it answers:

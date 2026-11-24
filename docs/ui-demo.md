@@ -58,7 +58,7 @@ scripts/ui/diplomacy_panel.gd the court ledger (tested via screen)
 scripts/ui/key_reference.gd the chart's controls: keys and touch doors (pure)
 scripts/ui/keys_sheet.gd    the pause page's KEYS reading
 scripts/ui/*                HUD, dossier, fleet panel, minimap, theme
-scripts/platform/*          display scale + safe area (P3)
+scripts/platform/*          display scale, safe area, host answers (P3)
 ui/shaders/*                sea, fog, grain, vignette
 ```
 

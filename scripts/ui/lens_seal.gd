@@ -56,6 +56,9 @@ const HOLD_SECONDS: float = 0.5
 
 ## The reading on screen; empty while every lens is down.
 var active_kind: String = ""
+## The pictogram the bar dressed on the seal, kept so a reading repaints it
+## without searching the button's children (REQ-P3-02).
+var medallion: TextureRect = null
 
 var _hold: Timer = null
 var _menu: PopupMenu = null
@@ -81,7 +84,7 @@ func _ready() -> void:
 	_menu.add_theme_color_override("font_disabled_color", Palette.TEXT_DIM)
 	_menu.add_theme_stylebox_override(
 		"panel",
-		UiTheme.box(Color(0.10, 0.08, 0.06, 0.98), Palette.GOLD_DIM, 1, 4, Vector4(6, 6, 6, 6))
+		UiTheme.box(Palette.with_alpha(Palette.PARCHMENT, 0.98), Palette.GOLD_DIM, 1, 4, Vector4(6, 6, 6, 6))
 	)
 	_menu.add_theme_stylebox_override(
 		"hover",
@@ -118,8 +121,7 @@ func _gui_input(event: InputEvent) -> void:
 func mirror(active: bool, kind: String) -> void:
 	active_kind = kind if active else ""
 	set_pressed_no_signal(active)
-	var medallion := find_child("Medallion", true, false) as TextureRect
-	if medallion != null:
+	if medallion != null and is_instance_valid(medallion):
 		medallion.texture = ChromeIcons.texture(String(KIND_ICONS.get(active_kind, "lens")))
 	tooltip_text = "%s  ·  %s" % [TOOLTIP, String(KIND_NAMES.get(active_kind, "no lens"))]
 

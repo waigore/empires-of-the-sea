@@ -54,6 +54,16 @@ static func box(
 	return style
 
 
+## A cartouche plaque: the bar's doors and status chips wear one raised plate, so
+## the two builders never carry their own copy of the shadow (REQ-P1-02).
+static func cartouche(fill: Color, border: Color) -> StyleBoxFlat:
+	var style := box(fill, border, 1, 2, Vector4.ZERO)
+	style.shadow_color = Color(0.0, 0.0, 0.0, 0.35)
+	style.shadow_size = 2
+	style.shadow_offset = Vector2(0.0, 1.0)
+	return style
+
+
 ## The one theme every screen wears. Built on first use and shared, so mounting
 ## a screen costs no stylebox allocation. Godot shares a `theme` resource by
 ## reference between the controls that wear it, so callers must treat it as

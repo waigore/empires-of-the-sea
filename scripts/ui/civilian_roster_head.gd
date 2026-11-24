@@ -205,8 +205,9 @@ func render(
 	var by_region: Dictionary = snapshot.get("by_region", {})
 	var old_count: int = int(by_region.get(FactionCatalog.OLD_WORLD, 0))
 	var new_count: int = int(by_region.get(FactionCatalog.NEW_WORLD, 0))
-	_region_line.text = "Old World %d  ·  New World %d  ·  %d provinces posted" % [
-		old_count, new_count, _province_count(snapshot)
+	var provinces: int = _province_count(snapshot)
+	_region_line.text = "Old World %d  ·  New World %d  ·  %d province%s posted" % [
+		old_count, new_count, provinces, MoneyText.plural(provinces)
 	]
 	for key: String in _region_buttons.keys():
 		var count: int = int(snapshot.get("total", 0))

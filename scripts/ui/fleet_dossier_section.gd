@@ -19,7 +19,7 @@ var _caption: String = ""
 func _setup(caption: String) -> void:
 	add_theme_constant_override("separation", 4)
 	_caption = caption
-	var title := UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.9))
+	var title := UiRowBuilder.line(11, Palette.with_alpha(Palette.TEXT_DIM, 0.9))
 	title.text = caption
 	add_child(title)
 	_title = title

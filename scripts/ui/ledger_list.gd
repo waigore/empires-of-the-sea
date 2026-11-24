@@ -63,7 +63,7 @@ static func standing_heading(title: String, standing: String) -> Control:
 	var label := heading(title)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(label)
-	var line := UiRowBuilder.label(standing, 10, Color(0.74, 0.68, 0.55, 0.85))
+	var line := UiRowBuilder.label(standing, 10, Palette.with_alpha(Palette.TEXT_DIM, 0.85))
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(line)
 	return box

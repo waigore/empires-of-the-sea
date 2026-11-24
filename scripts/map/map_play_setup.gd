@@ -43,6 +43,8 @@ static func build_hud(play: PlaySession) -> void:
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)
+	# The opening purse is the mark the first close measures its move from.
+	play.purse_at_close = play.treasury()
 	MapPlayFocus.bind(play)
 	_seat_estates(play)
 	refresh_dossier(play)
@@ -165,6 +167,9 @@ static func refresh_after_load(play: PlaySession) -> void:
 	var hud: GameHud = play.hud
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
 	hud.stats.set_treasury(play.treasury(), false)
+	# A load marks the restored purse: the next close names its own move, not
+	# the whole purse the save was taken with.
+	play.purse_at_close = play.treasury()
 	refresh_region_hud(play, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
 	MapPlayLens.mount_all(play)
 	MapPlayDiplomacy.refresh(play)

@@ -156,7 +156,7 @@ func _dress_plate(compact: bool) -> void:
 	_panel.add_theme_stylebox_override(
 		"panel",
 		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.99),
+			Palette.with_alpha(Palette.PARCHMENT, 0.99),
 			Palette.GOLD_DIM,
 			1,
 			4,

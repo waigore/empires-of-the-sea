@@ -2552,6 +2552,70 @@ func test_a_realm_row_wears_the_courts_mark() -> void:
 	marked.free()
 
 
+## A count of one reads in the singular on the realm row and the civilians head
+## (issue #1435): "1 unit gathered", "1 farm", "1 gun emplaced", "1 province
+## posted" — the same copy bar the dossiers keep (REQ-P1-07).
+func test_a_count_of_one_reads_in_the_singular() -> void:
+	var one := ProvinceLedgerRow.new()
+	one.setup({
+		"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz",
+		"economy": {
+			"output": 1, "value": 18, "estates": 1, "developed": 1,
+			"headroom": 0, "by_kind": {"wheat": 1},
+		},
+	})
+	assert_eq(
+		one._reading.text,
+		"1 unit gathered · 18 ducats at today's sell · 1 farm",
+		"one unit of one kind reads in the singular"
+	)
+	one.free()
+	var many := ProvinceLedgerRow.new()
+	many.setup({
+		"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz",
+		"economy": {
+			"output": 8, "value": 400, "estates": 8, "developed": 8,
+			"headroom": 0, "by_kind": {"wheat": 8, "tree": 12},
+		},
+	})
+	assert_eq(
+		many._reading.text,
+		"8 units gathered · 400 ducats at today's sell · 12 timber · 8 farms",
+		"a count of many takes the plural, and a mass kind keeps its word"
+	)
+	many.free()
+	# The defence line's guns take the same bar.
+	var walled := ProvinceLedgerRow.new()
+	walled.view = ProvinceLedger.VIEW_DEFENCE
+	walled.setup({
+		"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz",
+		"defence": {"strength": 40.0, "multiplier": 1.0, "emplaced": 1.0, "guns": 1},
+	})
+	assert_true(walled._reading.text.contains("1 gun emplaced"), walled._reading.text)
+	walled.free()
+	# The civilians head counts the provinces its crews stand in.
+	var head := CivilianRosterHead.new()
+	head.render(
+		{
+			"total": 1, "idle": 1, "working": 0, "by_region": {},
+			"groups": [{"region": 0, "province_id": 1}],
+		},
+		LedgerRows.REGION_ALL, CivilianRosterHead.TYPE_ALL
+	)
+	assert_true(head._region_line.text.ends_with("1 province posted"), head._region_line.text)
+	head.render(
+		{
+			"total": 2, "idle": 2, "working": 0, "by_region": {},
+			"groups": [
+				{"region": 0, "province_id": 1}, {"region": 0, "province_id": 2},
+			],
+		},
+		LedgerRows.REGION_ALL, CivilianRosterHead.TYPE_ALL
+	)
+	assert_true(head._region_line.text.ends_with("2 provinces posted"), head._region_line.text)
+	head.free()
+
+
 ## The realm's sheet is the passes' own reading: it prints their line, marks
 ## exactly the provinces they name and orders nothing (REQ-P2-03, REQ-P5-06;
 ## DR-20261121-21).
