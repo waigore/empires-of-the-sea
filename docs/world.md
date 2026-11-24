@@ -72,7 +72,7 @@ naming no-one (`TurnTime`, `VictoryRules`, `MapPlayCampaign`).
 ## Tests
 
 `test_generated_world_rules`, `test_country_borders`, `test_map_view_rules`,
-`test_a_map_screen`, `test_campaign_end`, `test_campaign_rules`.
+`test_a_map_screen`, `test_campaign_rules`, `test_campaign_rules`.
 
 ```bash
 gd-tools test --coverage --min 80

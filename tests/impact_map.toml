@@ -44,7 +44,6 @@ suites = [
 suites = [
   "test_a_battle_rules.gd",
   "test_a_army_orders.gd",
-  "test_campaign_end.gd",
   "test_campaign_rules.gd",
 ]
 
@@ -61,9 +60,8 @@ suites = [
 [domains.campaign]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_campaign_end.gd",
-  "test_civilian_turn_rules.gd",
   "test_campaign_rules.gd",
+  "test_civilian_turn_rules.gd",
 ]
 
 # The chart's tap law: pure; rides the lean chrome leftovers boot.
@@ -263,7 +261,7 @@ domain = "attack_price"
 [domains.fog]
 suites = [
   "test_map_view_rules.gd",
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
   "test_a_ai_rules.gd",
 ]
 
@@ -416,7 +414,7 @@ suites = [
 [domains.naval_intel]
 suites = [
   "test_fleet_orders.gd",
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
 ]
 
 # A blockade severs the harvest, not only the cargo (wiki:
@@ -1545,7 +1543,7 @@ domain = "diplomacy"
 suites = [
   "test_a_map_screen.gd",
   "test_menu_flow.gd",
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
   "test_a_army_orders.gd",
   "test_mobile_layout.gd",
   "test_map_view_rules.gd",
@@ -1595,7 +1593,7 @@ domain = "auto"
 # tier-1 5 min budget.
 [domains.auto_log]
 suites = [
-  "test_auto_mode.gd",
+  "test_ai_observer.gd",
 ]
 
 [[rules]]
@@ -1607,7 +1605,7 @@ match = "scripts/ui/auto_prompt.gd*"
 domain = "auto"
 
 [[rules]]
-match = "tests/test_auto_mode.gd*"
+match = "tests/test_ai_observer.gd*"
 domain = "auto"
 
 [[rules]]
@@ -1856,7 +1854,7 @@ suites = [
 suites = [
   "test_generated_world_rules.gd",
   "test_a_map_screen.gd",
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
 ]
 
 [domains.advanced]
@@ -1875,7 +1873,7 @@ suites = [
   "test_generated_world_rules.gd",
   "test_a_map_screen.gd",
   "test_menu_flow.gd",
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
 ]
 
 # The crown's own victory bar (wiki: victory § Military victory; DR-20261111-26):
@@ -1885,7 +1883,7 @@ suites = [
 # + intro + menu.
 [domains.victory_bar]
 suites = [
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
   "test_a_battle_rules.gd",
   "test_generated_world_rules.gd",
   "test_menu_flow.gd",
@@ -1906,7 +1904,6 @@ suites = [
 [domains.victory_standings]
 suites = [
   "test_campaign_rules.gd",
-  "test_campaign_end.gd",
 ]
 
 [domains.menu]
@@ -1926,7 +1923,7 @@ suites = [
 [domains.play_screen]
 suites = [
   "test_hud_campaign_plate.gd",
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
   "test_a_map_screen.gd",
 ]
 
@@ -1974,7 +1971,7 @@ suites = [
 # Full session codec (MapScreen mount). Only the codec / layer serializers.
 [domains.save_codec]
 suites = [
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
   "test_map_view_rules.gd",
 ]
 
@@ -2001,7 +1998,6 @@ suites = [
 # tier-1 5 min budget.
 [domains.auto]
 suites = [
-  "test_auto_mode.gd",
   "test_ai_observer.gd",
   "test_mobile_layout.gd",
 ]
@@ -2057,7 +2053,7 @@ suites = [
 # observed headless turn or an answered consent decision.
 [domains.turn_closure]
 suites = [
-  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
   "test_ai_observer.gd",
   "test_diplomacy_screen.gd",
 ]
