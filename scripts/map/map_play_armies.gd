@@ -52,7 +52,7 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	var is_player: bool = army.owner == play.player_faction
 	var command: String = ""
 	var muster: Array[Dictionary] = []
-	var embark: String = ""
+	var embark: Dictionary = {}
 	var hospital: Dictionary = {}
 	var pick: String = ""
 	if is_player and play.economy != null and play.economy.economy != null:
@@ -119,17 +119,29 @@ static func hospital_order(play: PlaySession, army: ArmyState) -> Dictionary:
 	return {"caption": "Pitch a field hospital (%s)" % HospitalTrain.price_text(), "ok": true}
 
 
-## A squadron in port here that can take the army aboard (wiki: ships-and-naval
-## § Naval transport).
-static func _embark_note(play: PlaySession, army: ArmyState) -> String:
+## A squadron in port here that could take the army aboard (wiki: ships-and-naval
+## § Naval transport). The press is offered even where the hulls cannot carry the
+## host: a refused order keeps its rules' own reason as the caption, disabled, as
+## the field hospital's does (DR-20261112-07), instead of vanishing from the
+## sheet. A squadron the hulls have room for names the deck it would board
+## (`Embark aboard the fleet · 5 hulls, 2 free`, DR-20261124-14).
+static func _embark_note(play: PlaySession, army: ArmyState) -> Dictionary:
+	var refusal: String = ""
 	for fleet: FleetState in play.ship_layer.fleets:
 		if fleet == null or fleet.owner != army.owner:
 			continue
 		if not fleet.is_in_port() or fleet.province != army.province:
 			continue
-		if bool(NavalTransport.can_embark(play.model, army, fleet).get("ok", false)):
-			return "The squadron here can carry %d regiments." % army.count()
-	return ""
+		var check: Dictionary = NavalTransport.can_embark(play.model, army, fleet)
+		if not bool(check.get("ok", false)):
+			if refusal.is_empty():
+				refusal = String(check.get("reason", ""))
+			continue
+		var deck: String = DeckRead.deck_text(DeckRead.read(fleet, army.count()))
+		return {"ok": true, "caption": "Embark aboard the fleet · %s" % deck}
+	if refusal.is_empty():
+		return {}
+	return {"ok": false, "caption": refusal}
 
 
 static func can_merge(play: PlaySession, army: ArmyState) -> bool:

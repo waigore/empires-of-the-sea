@@ -180,6 +180,13 @@ func refresh(model: MapModel, opening: FleetDossierOpening) -> void:
 	var colonists: int = int(opening.crew.get("count", 0))
 	if colonists > 0:
 		_ships.text += " · %d colonist%s" % [colonists, "" if colonists == 1 else "s"]
+	# The room the hulls leave, off the deck the boarding rules read
+	# (wiki: ships-and-naval § Naval transport; DR-20261124-14). A squadron the fog
+	# has not read keeps her room to herself, as she keeps her muster.
+	if is_player or bool(strength.get("known", true)):
+		var room: String = DeckRead.room_text(DeckRead.read(fleet, carried))
+		if not room.is_empty():
+			_ships.text += " · %s" % room
 	_fill_land()
 	_mission.set_data(opening.beach_note, opening.beach_rows, opening.pick, opening.court_coast)
 	_crew.set_data(opening.crew)
