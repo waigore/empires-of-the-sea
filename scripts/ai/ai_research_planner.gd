@@ -70,7 +70,9 @@ static func book(
 		if standing < 0 and can_stand and AiResearchPlan.book_slot(slot, standing, can_stand):
 			purse["standing"] = slot
 			standing = slot
-		assignments.assign(_walk_slot(economy, purse, slot, candidates, taken))
+		var pick: Dictionary = _walk_slot(economy, purse, slot, candidates, taken)
+		if not pick.is_empty():
+			assignments.append(pick)
 	return assignments
 
 
@@ -82,15 +84,15 @@ static func _walk_slot(
 	slot: int,
 	candidates: Array[Dictionary],
 	taken: Dictionary
-) -> Array[Dictionary]:
+) -> Dictionary:
 	var state: ResearchState = economy.research
 	for _attempt in candidates.size() + 1:
 		var pick: Dictionary = AiResearchPlan.walk(economy, purse, slot, candidates, taken)
 		if pick.is_empty():
-			return []
+			return {}
 		if bool(state.assign(String(pick["tech"]), String(pick["funding"]), slot).get("ok", false)):
-			return [pick]
-	return []
+			return pick
+	return {}
 
 
 ## A study already underway follows the purse: a court that cannot fund its
