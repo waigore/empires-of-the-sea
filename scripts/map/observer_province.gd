@@ -56,7 +56,8 @@ static func reading(play: PlaySession, province_id: int) -> Dictionary:
 		"owner": owner,
 		"owner_caption": ProvinceSheetHead.owner_caption(owner),
 		"terrain": _terrain(model, province_id),
-		"port": _port(model, province),
+		"port": HarbourRead.line(model, works, province, blockade),
+		"port_tip": HarbourRead.tip(model, works, province, blockade),
 		"town": DossierCopy.town(province),
 		"town_tip": DossierCopy.town_tip(province),
 		"roads": (
@@ -91,17 +92,6 @@ static func reading(play: PlaySession, province_id: int) -> Dictionary:
 ## (wiki: resource-terrain-region-rules § Player-facing terrain display names).
 static func _terrain(model: MapModel, province_id: int) -> String:
 	return DossierCopy.terrain(model, province_id)
-
-
-## A harbour names the sea zone it opens on; landlocked ground says so, and a
-## chart that names no water for the quay prints the plain word (the reading is
-## the province dossier's own — `ProvinceLedger.harbour_name` over
-## `NavalMovement.harbour_zone` — so the two sheets cannot name two waters).
-static func _port(model: MapModel, province: ProvinceState) -> String:
-	if province.port_tile.x < 0:
-		return "Landlocked"
-	var water: String = ProvinceLedger.harbour_name(model, province)
-	return ("Harbour · %s" % water) if not water.is_empty() else "Harbour"
 
 
 ## The host standing in the province: the owner's own regiments and their

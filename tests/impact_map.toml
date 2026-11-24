@@ -1509,6 +1509,15 @@ domain = "province_harbour"
 match = "scripts/map/map_play_province_harbour.gd*"
 domain = "province_harbour_sheet"
 
+# The province sheet's Port row (DR-20261125-06): whether a harbour stands on
+# the water the quay faces, what it carries, and the port order's own price for a
+# bare coast. The panel suite reads the row off the dossier and the observer
+# suite reads the same home from the observatory's sheet, so the rules module
+# rides those two and never the rules fan-out.
+[[rules]]
+match = "scripts/rules/harbour_read.gd*"
+domain = "harbour_read"
+
 # A reading's own rules module, the turn that publishes it and the two map
 # hooks that carry it. First match wins, so these sit above the ai/fog/
 # diplomacy globs below.
@@ -2689,6 +2698,16 @@ suites = [
 [domains.province_harbour_sheet]
 suites = [
   "test_ledgers.gd",
+]
+
+# The province sheet's Port row (DR-20261125-06): one pure read over the chart's
+# works, the province record and the crown's seals. The panel suite reads the row
+# off the dossier, the observer suite reads the same home off the observatory's
+# sheet, and the phone audit rides the fact grid's own domain.
+[domains.harbour_read]
+suites = [
+  "test_panel_parts_rules.gd",
+  "test_ai_observer.gd",
 ]
 
 # The map hook that carries the harvest line to the estate block (DR-20261123-25):
