@@ -672,6 +672,19 @@ suites = [
   "test_fleet_orders.gd",
 ]
 
+# One ration band for the field's standard and the sea's squadron (DR-20261124-02,
+# DR-20261124-15): the two suites that read a band off each dossier prove it, so
+# the shared dress never falls through to the `scripts/ui/**` menu catch-all.
+[[rules]]
+match = "scripts/ui/ration_band.gd*"
+domain = "ration_band"
+
+[domains.ration_band]
+suites = [
+  "test_a_army_orders.gd",
+  "test_fleet_orders.gd",
+]
+
 # Parchment / gold-rule call sites from the one-palette refactor (#1430): each
 # path only swaps a hand-spelled ink for Palette.PARCHMENT / GOLD_RULE /
 # with_alpha, so they ride the lean palette slice. Named before their prior

@@ -14,7 +14,7 @@ var _zone: Label = null
 ## and the morale every sea battle fights at, or no row for another court's
 ## squadron (wiki: workers-and-population § Consumption — naval combat;
 ## DR-20261124-15). Under the strength line it scales.
-var _rations: Label = null
+var _rations: RationBand = null
 
 
 func _ready() -> void:
@@ -25,8 +25,7 @@ func _ready() -> void:
 	# The band sits under the strength it scales and above the pool it does not
 	# touch: the sea's own arithmetic, read off the crown's ledger
 	# (DR-20261124-15).
-	_rations = UiRowBuilder.wrapped_line("", 11, Palette.TEXT_DIM)
-	_rations.visible = false
+	_rations = RationBand.make(11)
 	add_child(_rations)
 	_pool = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
 	add_child(_pool)
@@ -128,19 +127,16 @@ func _need() -> int:
 ## a `NO_READING` opening — another court's squadron — prints no row at all
 ## (wiki: workers-and-population § Consumption — naval combat; DR-20261124-15).
 func _show_rations(coverage: float) -> void:
-	if _rations == null:
-		return
-	var text: String = NavyRationRead.line(coverage)
-	_rations.text = text
-	_rations.visible = not text.is_empty()
-	_rations.tooltip_text = NavyRationRead.tip(coverage)
-	var hungry: bool = coverage >= 0.0 and NavyRationRead.multiplier(coverage) < 1.0
-	_rations.add_theme_color_override(
-		"font_color", Palette.GOLD_PALE if hungry else Palette.TEXT_DIM
+	RationBand.show_line(
+		_rations,
+		coverage,
+		NavyRationRead.line,
+		NavyRationRead.tip,
+		NavyRationRead.multiplier
 	)
 
 
 ## The ration band's text, for tests and tooling (REQ-P3-02). Empty when the
 ## sheet holds no reading for the squadron on show.
 func rations_text() -> String:
-	return "" if _rations == null or not _rations.visible else _rations.text
+	return RationBand.text_of(_rations)
