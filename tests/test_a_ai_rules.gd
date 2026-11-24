@@ -17947,6 +17947,108 @@ func test_a_wobble_above_the_best_gap_is_still_a_stall() -> void:
 	)
 
 
+## The valve's exit (issue #1484): once the escalation has answered, a
+## spend-down under the re-route resets the record's low to the gap the court
+## actually stands at, so the fill's recovery from that dip restarts the stall
+## and the chest re-arms. Without the reset the low is a monotone historic
+## best — a purse the re-routed college spends down can never beat it, and the
+## re-route latches for the rest of the age.
+func test_a_spend_down_past_the_bar_resets_the_low_water() -> void:
+	var bar: int = 2
+	var records: Dictionary = AiDeferral.note(
+		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 1048})], bar
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 1048})], bar
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 2, "the bar answers")
+	# The re-routed court spends its margin: the gap falls back above the best
+	# fill. The low resets to that spend-down — the episode's own floor — and
+	# the stall count keeps running, so a court that stands still under the
+	# re-route stays re-routed.
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 1844})], bar
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 3,
+		"the spend-down is no progress: the count continues"
+	)
+	assert_eq(
+		int(records["muster.line"]["low"]), 1844,
+		"the spend-down is the episode's own floor now"
+	)
+	# The fill's first recovery from the dip restarts the stall: the chest
+	# re-arms and the court banks for its regiment as published.
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 1753})], bar
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 1,
+		"recovery from the dip re-arms the chest"
+	)
+
+
+## The wobble guard holds below the bar (issue #1484's regression bar): while
+## the valve has not answered, a falling-behind purse is the same stall it
+## always was — the best gap holds and the count continues.
+func test_a_spend_down_before_the_bar_keeps_the_low_water() -> void:
+	var bar: int = 2
+	var records: Dictionary = AiDeferral.note(
+		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 1048})], bar
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 1844})], bar
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 2)
+	assert_eq(
+		int(records["muster.line"]["low"]), 1048,
+		"below the bar the best gap the stall has seen holds"
+	)
+
+
+func test_the_rerouted_chest_rearms_when_the_fill_recovers() -> void:
+	# The cycle the valve publishes (issue #1484): the stalled chest re-routes,
+	# the freed margin is spent, the record's low resets to that spend-down,
+	# the fill recovers one turn — and the chest stands again for the court to
+	# bank, instead of latching behind a historic best.
+	var config: AiConfig = _phase_config()
+	var floor: int = config.parameter("economy.min_treasury")
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var chest: int = AiArmyReinforce.muster_floor(config, _purse(300), 1, true)
+	var row: Dictionary = planner__row(
+		"muster.line", AiObjective.STATUS_DEFERRED, {"treasury": chest}
+	)
+	var records: Dictionary = AiDeferral.note({}, [row], bar)
+	records = AiDeferral.note(records, [row], bar)
+	assert_eq(
+		AiIncome.reserve(
+			config, _purse(300), true, 1, 0, -1, AiDeferral.stall(records, "muster.line")
+		), floor,
+		"the stalled chest re-routes to the cash floor"
+	)
+	records = AiDeferral.note(
+		records,
+		[planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": chest + 700})],
+		bar
+	)
+	var stall: int = AiDeferral.stall(records, "muster.line")
+	assert_true(stall > bar, "the court stands still under the re-route")
+	assert_eq(
+		AiIncome.reserve(config, _purse(300), true, 1, 0, -1, stall), floor,
+		"the spend-down keeps the re-route engaged"
+	)
+	records = AiDeferral.note(
+		records,
+		[planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": chest + 600})],
+		bar
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 1, "the recovery restarts the stall")
+	assert_eq(
+		AiIncome.reserve(config, _purse(300), true, 1, 0, -1, 1), chest,
+		"the recovered fill re-arms the chest"
+	)
+
+
 func test_a_funded_or_absent_aim_clears_its_stall() -> void:
 	var records: Dictionary = AiDeferral.note(
 		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]

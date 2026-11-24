@@ -223,10 +223,13 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 		"lines": lines,
 	}
 	# The escalation tracker folds the same rows: one stall map per court, so a
-	# save carries how long each aim has stood still (issue #603).
+	# save carries how long each aim has stood still (issue #603). The bar rides
+	# the report (issue #1484): past it the valve has answered, and a
+	# spend-down resets the record's low so the chest can re-arm.
 	deferrals[faction] = AiDeferral.note(
 		AiStatePersist.dictionary(deferrals.get(faction, {})),
-		report.get("objectives", [])
+		report.get("objectives", []),
+		maxi(int(report.get("escalate_turns", 0)), 0)
 	)
 
 

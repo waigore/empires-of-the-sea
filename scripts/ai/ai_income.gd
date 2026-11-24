@@ -85,7 +85,11 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 ## muster aim has been deferred without its shortfall shrinking. A war chest
 ## the court has stalled on re-routes — the reserve falls back to the cash
 ## floor and the reachable hull chest, so every planner that reads it leads
-## again — and the shortfall shrinking resumes the chest as published.
+## again — and the shortfall shrinking resumes the chest as published. The
+## shrinking is measured from the episode's own floor (issue #1484): the
+## re-route is a damper, not a latch — the margin it frees is spent, the
+## record's low resets to the spend-down, and the fill's recovery from that
+## dip restarts the stall, which re-arms the chest.
 static func reserve(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
 	hull_chest: int = 0, own_warships: int = -1, muster_stall: int = 0,
@@ -109,7 +113,12 @@ static func reserve(
 		# restarts the stall at one on every new-low turn, and the bar at one
 		# answered the fill's own progress — no chest ever closed, at war or
 		# at peace. Two turns means a genuine standing-still re-routes and a
-		# filling bank never does; the valve itself is untouched.
+		# filling bank never does; the valve itself is untouched. The exit is
+		# the record's own (issue #1484): under the re-route the court spends
+		# its margin, the deferral record's low resets to that spend-down, and
+		# the shortfall's recovery from the dip restarts the stall — the chest
+		# re-arms on the fill's first true progress instead of latching shut
+		# behind a low water a spend-down can never beat.
 		muster = 0
 	elif not at_war and not conquest_gap:
 		# At peace the war chest is kept only once the purse already holds the
