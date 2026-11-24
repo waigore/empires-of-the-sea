@@ -200,7 +200,15 @@ static func household(play: PlaySession) -> void:
 		play, play.player_faction, play.economy.market
 	)
 	court.plan_turn()
-	_describe_household(play, court.book_orders())
+	# The famine order: a court whose hands have struck past a thin turn sheds
+	# the mouths its harvest cannot carry, so the pool is fed and works again
+	# (wiki: military-armies § Dismissing regiments; ships-and-naval § The
+	# breaker's yard; issue #1433). The crown's own route — a rival court's
+	# shed waits on its own pass.
+	var shed: Dictionary = MapPlayLarderRecovery.shed(court)
+	var row: Dictionary = court.book_orders()
+	row["shed"] = shed
+	_describe_household(play, row)
 
 
 ## The household's booked row as despatch lines, one per kind it filed: the
@@ -209,6 +217,11 @@ static func household(play: PlaySession) -> void:
 ## a broken one (wiki: auto-mode § Pacing).
 static func _describe_household(play: PlaySession, row: Dictionary) -> void:
 	var lines: Array[String] = []
+	# The famine order speaks first: the court sheds mouths before it fills them.
+	for raw: Variant in (row.get("shed", {}) as Dictionary).get("lines", []):
+		var said: String = String(raw)
+		if not said.is_empty():
+			lines.append(said)
 	for raw: Variant in (row.get("research", {}) as Dictionary).get("assignments", []):
 		var tech: String = String((raw as Dictionary).get("tech", ""))
 		if not tech.is_empty():

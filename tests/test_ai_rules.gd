@@ -2424,6 +2424,41 @@ func test_ai_economy_respects_labour_and_inputs() -> void:
 	assert_eq(recipes, ["fabric_from_wool", "lumber", "paper"] as Array[String])
 
 
+## A pool of strikers counts its hands but turns no wheel: the plan books its
+## runs against the idle labour the phase will really have, so the crown's seat
+## stops logging a run the Production phase refuses (issue #1433). The −1
+## sentinel keeps the published reading for a caller with no larder to read.
+func test_the_production_plan_spends_only_the_hands_the_phase_will_have() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"timber": 10, "wool": 4}
+	economy.workers = WorkerPool.make(2)
+	var config: AiConfig = AiConfig.build(1, 1500)
+
+	var paid: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+	assert_false(
+		(paid["assignments"] as Array).is_empty(),
+		"a pool of two fed hands books a run"
+	)
+	var striking: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {}, 0
+	)
+	assert_true(
+		(striking["assignments"] as Array).is_empty(),
+		"the same two hands on strike book nothing: the phase would refuse the run"
+	)
+	assert_false(
+		(striking["candidates"] as Array).is_empty(),
+		"and the rows still stand, so the ledger can name the hands that are missing"
+	)
+	var published: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {}, -1
+	)
+	assert_eq(
+		published["assignments"], paid["assignments"],
+		"the −1 sentinel keeps the roster's whole labour"
+	)
+
+
 func test_ai_economy_spreads_the_labour_across_the_build_inputs() -> void:
 	# Iron and wool both in store, castIron's deficit as deep as fabric's: a
 	# greedy plan wove no cloth at all, because castIron (which works spend

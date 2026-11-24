@@ -426,6 +426,23 @@ func test_the_household_words_every_kind_it_files() -> void:
 	})
 	assert_true(play.auto_log.has("Sets 1 work order"), "a lone work order prints")
 	assert_true(play.auto_log.has("Offers at the mart — 1 good"), "a lone offer prints")
+	# The famine order speaks before the rest of the book, and an empty receipt
+	# adds nothing: a court that sheds says so, and one that does not stays
+	# quiet (wiki: military-armies § Dismissing regiments; issue #1433).
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"shed": {"lines": ["Dismisses 2 regiments — 2 peasants return to the fields"]},
+		"production": {"assignments": [{"recipe": "lumber", "units": 1}]},
+	})
+	assert_eq(String(play.auto_log[0]), "Dismisses 2 regiments — 2 peasants return to the fields",
+		"the famine order is the turn's first despatch")
+	assert_true(play.auto_log.has("Sets 1 production run"), "and the rest of the book follows")
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"shed": {"lines": []},
+		"production": {"assignments": [{"recipe": "lumber", "units": 1}]},
+	})
+	assert_eq(play.auto_log.size(), 1, "an empty receipt adds no line")
 	# A plan that files nothing says so; a seat with no session files nothing.
 	play.auto_log.clear()
 	MapPlayAuto._describe_household(play, {})

@@ -545,6 +545,16 @@ domain = "ai_economy"
 match = "scripts/map/map_play_economy_larder.gd*"
 domain = "ai_economy"
 
+# The famine order (issue #1433): the court sheds the mouths its harvest cannot
+# carry, and its own suite proves the streak, the shedding and the receipts.
+[[rules]]
+match = "scripts/map/map_play_larder_recovery.gd*"
+domain = "ai_famine"
+
+[[rules]]
+match = "tests/test_larder_recovery.gd*"
+domain = "ai_famine"
+
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
 domain = "blockade"
@@ -3191,6 +3201,14 @@ suites = [
   "test_ai_rules.gd",
 ]
 
+# The famine order (issue #1433): the court's own shed, its streak and the
+# receipts it files. One pure suite — the shed reads a hand-built chart, so it
+# never pays the map, the panel or the AI fan-out (docs/testing.md § Speed).
+[domains.ai_famine]
+suites = [
+  "test_larder_recovery.gd",
+]
+
 [domains.ai_ledger]
 suites = [
   "test_ai_rules.gd",
@@ -3982,6 +4000,22 @@ suites = [
 [[rules]]
 match = "scripts/map/chart_tap.gd*"
 domain = "chart_tap"
+
+# The production tab's own plan (DR-20261121-07): the runs the published economy
+# pass would book for the crown's workshop, read through the chest rows the pass
+# itself claims (`MapPlayEconomyCourt.chest_rows`). Named above the broad
+# `scripts/map/**` glob — the first match wins, so a rule below it never fires —
+# on the economy rules that prove the pick off plan data and the economy screen
+# that proves the session-bound read (the tab's own counsel).
+[[rules]]
+match = "scripts/map/map_play_production_pick*.gd*"
+domain = "production_pick"
+
+[domains.production_pick]
+suites = [
+  "test_market_economy_rules.gd",
+  "test_economy_screen.gd",
+]
 
 [[rules]]
 match = "scripts/map/**"
@@ -5197,20 +5231,6 @@ domain = "menu"
 [[rules]]
 match = "tests/test_agent_debug_bridge.gd*"
 domain = "fold_map_screen"
-
-# The production tab's own plan (DR-20261121-07): the runs the published economy
-# pass would book for the crown's workshop, read through the chest rows the pass
-# itself claims (`MapPlayEconomyCourt.chest_rows`). Its suite is the economy
-# rules', where the pick is proved off plan data alone, so it names its own
-# domain instead of pulling the AI economy fan-out.
-[[rules]]
-match = "scripts/map/map_play_production_pick*.gd*"
-domain = "production_pick"
-
-[domains.production_pick]
-suites = [
-  "test_market_economy_rules.gd",
-]
 
 # The market tab's own plan (DR-20261121-09): the offers and bids the published
 # market pass would book, read through the plan `trade` stages. Its suite is the

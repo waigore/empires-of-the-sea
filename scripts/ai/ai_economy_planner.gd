@@ -11,13 +11,12 @@ extends RefCounted
 ## reserve inputs for output that never lands (wiki: production-recipes
 ## § Worker-tier gates; DR-20261114-07).
 ## The same holds for the bench: a slow row whose workshop already holds three
-## pieces has no room for another run this phase, so the plan asks for none and
-## spends that labour on the rows the phase will actually start (wiki:
-## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
-## And it holds for the town's works: the second-stage rows (garments, rum) wait
-## on a town at their level, so a court whose best town is too young is offered
-## none — the same presence test the phase and the crown's ledger read (wiki:
-## production-recipes § Town-works gates; DR-20261116-04; REQ-P2-03).
+## pieces has no room for another run, so the plan spends that labour on the rows
+## the phase will start (wiki: production-recipes § Workshop queue; DR-20261115-02).
+## And for the town's works: the second-stage rows (garments, rum) wait on a town
+## at their level, so a court whose best town is too young is offered none — the
+## phase's own presence test (wiki: production-recipes § Town-works gates;
+## DR-20261116-04; REQ-P2-03).
 ## Pure rules: state in, orders out; the map adapter applies them.
 
 ## Outputs that unblock civilian work and industry; they win ties over purely
@@ -38,10 +37,12 @@ const BUILD_INPUTS: Array[String] = [
 ## plan never promises a run whose inputs would eat that raw, so a court
 ## saving for a muster or a hull can still manufacture without costing the
 ## launch its timber or cloth; the rows themselves stay the claims' to rank
-## (wiki: economy-planner § Reservations; issue #878).
+## (wiki: economy-planner § Reservations; issue #878). `idle` is the labour the
+## phase will really hand the runs (a striker turns no wheel; issue #1433); the −1
+## sentinel keeps the published roster reading for the frozen baselines.
 static func production_orders(
 	config: AiConfig, economy: PlayerEconomy, town_level: int = 0,
-	held: Dictionary = {}
+	held: Dictionary = {}, idle: int = -1
 ) -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	var assignments: Array[Dictionary] = []
@@ -53,7 +54,7 @@ static func production_orders(
 	for commodity: Variant in held.keys():
 		var id: String = String(commodity)
 		stock[id] = maxi(int(stock.get(id, 0)) - maxi(int(held[commodity]), 0), 0)
-	var labour: int = economy.workers.labour()
+	var budget: int = maxi(idle, 0) if idle >= 0 else economy.workers.labour()
 	# A batch already in the workshop counts toward the target: the court must
 	# not keep assigning alloy runs that are still serving their turns
 	# (DR-20261112-11).
@@ -85,13 +86,13 @@ static func production_orders(
 	# it outranked fabric on every turn and the muster starved with a full war
 	# chest (issue #474).
 	var progress: bool = true
-	while progress and labour > 0:
+	while progress and budget > 0:
 		progress = false
 		for entry: Dictionary in candidates:
-			if int(entry["deficit"]) <= 0 or labour <= 0:
+			if int(entry["deficit"]) <= 0 or budget <= 0:
 				continue
 			var recipe_id: String = String(entry["recipe"])
-			var runs: int = mini(1, ProductionPhase.max_runs(recipe_id, stock, labour))
+			var runs: int = mini(1, ProductionPhase.max_runs(recipe_id, stock, budget))
 			# A slow row's bench holds three pieces: a fourth run waits for a
 			# landing, so the phase would refuse it and the plan would have
 			# spent its labour and inputs on nothing (DR-20261114-12).
@@ -103,7 +104,7 @@ static func production_orders(
 			if bench.has(recipe_id):
 				bench[recipe_id] = int(bench[recipe_id]) - runs
 			_reserve(recipe_id, runs, stock)
-			labour -= runs * ProductionRecipes.labour(recipe_id)
+			budget -= runs * ProductionRecipes.labour(recipe_id)
 			# Interchangeable recipes (wool/cotton fabric) must not both fill the
 			# same deficit in one plan.
 			for other: Dictionary in candidates:
@@ -151,11 +152,10 @@ static func _committed(economy: PlayerEconomy) -> Dictionary:
 
 ## Room each slow row's bench has left for the runs this plan sets: recipe id ->
 ## pieces, read from the workshop this phase leaves. The plan is applied after
-## the phase resolves, so its runs start one phase later — and by then every
-## batch on the bench has served another phase, and a batch that starts this
-## phase joins with one already served, so the bench it meets holds no more than
-## `serve` keeps. A one-turn row never waits, so it is absent and never capped
-## (wiki: production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
+## the phase resolves, so its runs start a phase later, when every batch on the
+## bench has served another — the bench it meets holds no more than `serve`
+## keeps. A one-turn row never waits, so it is absent and never capped (wiki:
+## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
 static func _bench_room(economy: PlayerEconomy) -> Dictionary:
 	var room: Dictionary = {}
 	if economy == null or economy.production == null:
