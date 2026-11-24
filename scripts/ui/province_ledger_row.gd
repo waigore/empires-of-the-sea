@@ -191,14 +191,19 @@ func _hops_text() -> String:
 	return "%d hop%s from the seat" % [hops, "" if hops == 1 else "s"]
 
 
-## "12 timber · 4 ore": the kinds a province gathers, in the published order,
-## each in the word form its count takes (ResourceTypes.unit_label).
+## "12 timber · 4 ore" / "1 farm" / "8 farms": the kinds a province gathers, in
+## the published order. Timber, ore and riches are mass nouns; only a farm
+## takes a plural (MoneyText.counted).
 func _kinds_text(by_kind: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	for kind: String in ResourceTypes.ORDER:
 		var units: int = int(by_kind.get(kind, 0))
 		if units > 0:
-			parts.append(ResourceTypes.unit_label(kind, units))
+			var word: String = String(ResourceTypes.NAMES.get(kind, kind))
+			if kind == "wheat":
+				parts.append(MoneyText.counted(units, word))
+			else:
+				parts.append("%d %s" % [units, word])
 	return " · ".join(parts)
 
 

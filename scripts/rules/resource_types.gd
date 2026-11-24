@@ -21,21 +21,6 @@ const NAMES: Dictionary = {
 	"wheat": "farm",
 }
 
-## The kinds whose gathered units read as one mass noun, so a count keeps the
-## word the key names ("12 timber", "4 ore", "2 riches"): only a farm counts
-## estates, so only a farm takes a plural.
-const MASS_KINDS: Array[String] = ["tree", "ore", "coin"]
-
-
-## "1 farm" / "8 farms" / "12 timber": a kind's gathered units in the word form
-## the count takes. The one home for the line, so no sheet prints "8 farm"
-## (REQ-P1-07, REQ-P3-01).
-static func unit_label(kind: String, units: int) -> String:
-	var word: String = String(NAMES.get(kind, kind))
-	if units != 1 and not MASS_KINDS.has(kind):
-		word += "s"
-	return "%d %s" % [units, word]
-
 
 ## One row per resource type a province holds. A kind the chart seeds later keeps
 ## a column of its own after the four the catalogue publishes.
