@@ -6,8 +6,9 @@ extends RefCounted
 ## PlaySession views (REQ-P3-02, REQ-P3-03).
 
 
-## The court's invasion query: a declared enemy's coast, or a Tribe's, which
-## needs no declaration (wiki: factions § Tribe).
+## The court's invasion query: a declared enemy's coast, and no other — Great
+## Power, Minor Nation and Tribe alike (wiki: diplomacy § War required for
+## hostile actions).
 static func hostile(play: PlaySession) -> Callable:
 	return func(a: int, b: int) -> bool:
 		return DiplomacyRules.invadable(play.diplomacy, a, b)
@@ -19,24 +20,11 @@ static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 	if fleet == null or fleet.owner != play.player_faction or fleet.moved:
 		return rows
 	for province_id: int in NavalTransport.hostile_coasts(play.model, fleet, hostile(play)):
-		# A Tribe shore another crown has bought land in is no undeclared
-		# landing site (wiki: factions § Tribe; DR-20261110-20).
-		if _deed_barred(play, province_id):
-			continue
 		rows.append({
 			"province": province_id,
 			"name": play.model.province_name(province_id),
 		})
 	return rows
-
-
-## True when another crown's deed bars an undeclared landing on this shore
-## (wiki: factions § Tribe — "unless another GP has invested in the province").
-static func _deed_barred(play: PlaySession, province_id: int) -> bool:
-	return not DiplomacyRules.invadable(
-		play.diplomacy, play.player_faction,
-		play.model.province_owner(province_id), play.model, province_id
-	)
 
 
 ## Dossier line for a pending or ready landing site. The line follows the same
@@ -48,8 +36,6 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 	var place: String = play.model.province_name(fleet.beachhead_province)
 	if not NavalTransport.beachhead_target_valid(play.model, fleet, hostile(play)):
 		return "The beachhead at %s has lapsed — that shore is no longer hostile." % place
-	if _deed_barred(play, fleet.beachhead_province):
-		return "The beachhead at %s has lapsed — another crown's deeds there bar an undeclared landing." % place
 	if NavalTransport.beachhead_ready(fleet, play.turn):
 		if fleet.embarked_army < 0:
 			return "Beachhead at %s — ready, but no troops are aboard." % place
@@ -65,8 +51,6 @@ static func hint(play: PlaySession, fleet: FleetState) -> String:
 	if fleet == null or fleet.owner != play.player_faction or not fleet.has_beachhead():
 		return ""
 	if not NavalTransport.beachhead_target_valid(play.model, fleet, hostile(play)):
-		return ""
-	if _deed_barred(play, fleet.beachhead_province):
 		return ""
 	if NavalTransport.beachhead_ready(fleet, play.turn):
 		if fleet.embarked_army < 0:

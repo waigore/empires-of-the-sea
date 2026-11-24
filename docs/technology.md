@@ -14,7 +14,7 @@ Research turns gold into advances: caps, upgrades, cheaper attacks.
   DAG, reachability, caps.
 - **Research state:** three slots (four with University), per-slot funding,
   `<techUnlocked>`, saved.
-- **Costs:** `1800 + (tier - 1) * 600`, so 1800–3600 RP.
+- **Costs:** `1800 + (tier - 1) * 600` (1800–3600 RP).
 - **Funding:** presets pay 0/50/150/400/1000 ducats for 0/100/300/800/2500 RP;
   unpaid slots earn nothing. **One press** (`ResearchBatch`, DR-20261118-26)
   files every study at the face's preset, priced first; line and receipt name
@@ -30,7 +30,7 @@ Research turns gold into advances: caps, upgrades, cheaper attacks.
   military upgrade price; `RegimentUpgrades` re-equips a regiment to the newest
   type its techs open (minors follow).
 - **Attack price:** 100 ducats a Great Power land battle (`ArmyAttackCost`);
-  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding; a charter's
+  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding; charter
   interception and raids rise 25%.
 - **Transport:** road 2 needs Road Construction; rail needs Early Steam
   (flat), Later Steam (hills, swamps), Dynamite (mountains).
@@ -39,11 +39,12 @@ Research turns gold into advances: caps, upgrades, cheaper attacks.
 - **Goal slot:** orders the queue, funds nothing, saved (`ResearchState.goal`,
   DR-20261111-21).
 - **UI:** `RESEARCH` opens the college: goal strip, slots, the one press,
-  AVAILABLE/KNOWN tabs, a tech-tree door. Slots show ducats and a gauge
-  (`ResearchBar`); advances print what they open (`TechCatalog.payoff_text`);
-  touch never hovers; the tree lays advances by depth (`TechTreeLayout`).
-- **Phone sheet (DR-20261120-03):** the college budgets its plate; the window
-  yields (`ResearchSheetFit`).
+  AVAILABLE/KNOWN tabs, a tech-tree door. Slots show ducats, a gauge and the
+  turns a study has left (DR-20261124-01); advances print what they open
+  (`TechCatalog.payoff_text`); no hover; the tree lays advances by
+  depth (`TechTreeLayout`).
+- **Phone sheet (DR-20261120-03):** the college budgets its plate
+  (`ResearchSheetFit`).
 - **Court's picks (DR-20261121-01, DR-20261121-20, DR-20261122-19):** the idle
   slot prints in gold the study policy would open (`MapPlayResearchPick`); the
   chart and the AVAILABLE row mark that advance `▸`; an unfundable door is

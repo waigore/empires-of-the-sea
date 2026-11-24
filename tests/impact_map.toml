@@ -571,6 +571,14 @@ match = "scripts/map/map_play_input.gd"
 domain = "play_screen"
 
 [[rules]]
+match = "scripts/map/map_play_hover.gd*"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_panel_orders.gd*"
+domain = "play_screen"
+
+[[rules]]
 match = "scripts/map/map_play_turn_finish.gd"
 domain = "play_screen"
 
@@ -722,6 +730,18 @@ domain = "palette"
 
 [[rules]]
 match = "scripts/ui/hud_stat_chips.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chip_build.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chip_motion.gd*"
+domain = "palette"
+
+[[rules]]
+match = "scripts/ui/hud_treasury_tooltip.gd*"
 domain = "palette"
 
 [[rules]]
@@ -2717,6 +2737,18 @@ match = "tests/map_fixture.gd"
 domain = "map_fixture"
 
 [[rules]]
+match = "tests/census_fixture.gd*"
+domain = "map_fixture"
+
+[[rules]]
+match = "tests/data/census_world_160.bin"
+domain = "map_fixture"
+
+[[rules]]
+match = "tests/write_census_fixture.gd*"
+domain = "map_fixture"
+
+[[rules]]
 match = "tests/map_shot.gd"
 domain = "crown_road"
 
@@ -3327,7 +3359,8 @@ match = "scripts/ai/ai_builder_work.gd*"
 domain = "ai_works"
 
 [[rules]]
-match = "scripts/ai/ai_economy_planner.gd*"
+# Workshop plan, hire ladder, and ground appetite share the economy-planner door.
+match = "scripts/ai/ai_economy_*.gd*"
 domain = "ai_economy"
 
 [[rules]]
@@ -3700,6 +3733,16 @@ domain = "diplomacy"
 # domain so a one-line sheet refresh does not pull the whole map suite set.
 [[rules]]
 match = "scripts/map/map_play_input.gd"
+domain = "crown_road"
+
+# Hover tooltip and province-sheet presses extracted from MapPlayInput
+# (REQ-P3-01): keep them on the same reading/sheet domains as the door.
+[[rules]]
+match = "scripts/map/map_play_hover.gd*"
+domain = "crown_road"
+
+[[rules]]
+match = "scripts/map/map_play_panel_orders.gd*"
 domain = "crown_road"
 
 # The chart's readings: raise, walk and fade (map_play_lens) and mount (its
@@ -4763,8 +4806,21 @@ domain = "despatch"
 
 # Treasury chip copy only: the purse tooltip prints through MoneyText, so keep
 # it off the ui domain's battle boot when stacked on a ducats formatting PR.
+# Build / motion / tip extracts ride the same lean slice as the binder.
 [[rules]]
 match = "scripts/ui/hud_stat_chips.gd*"
+domain = "money_text"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chip_build.gd*"
+domain = "money_text"
+
+[[rules]]
+match = "scripts/ui/hud_stat_chip_motion.gd*"
+domain = "money_text"
+
+[[rules]]
+match = "scripts/ui/hud_treasury_tooltip.gd*"
 domain = "money_text"
 
 # HudSheet reveal law: pure; rides the chrome leftovers boot. Named before the

@@ -29,25 +29,34 @@ const SOURCES: Dictionary = {
 		+ " but the aggressor."
 	),
 	"call/toast": "%s calls on our alliance against %s.",
-	# An intervention (wiki: diplomacy § Intervention).
+	# An intervention (wiki: diplomacy § Intervention). Every answer names what
+	# it costs before the crown takes it: the war a join starts, the relation a
+	# protest spends (and the softer figure a declarer holding Propaganda
+	# charges instead), and the embassy standing aside loses.
 	"intervention/caption": "INTERVENTION",
 	"intervention/stake_embassy": (
-		"Our embassy stands: intervene, protest, or stand aside and lose the"
-		+ " embassy."
+		"Our embassy stands: intervene and go to war with %s, protest for −%d"
+		+ " with the aggressor (−%d if she holds Propaganda), or stand aside and"
+		+ " lose the embassy."
 	),
 	"intervention/stake_deed": (
-		"Our deed there is at stake: join the war, protest, or stand aside."
+		"Our deed there is at stake: join the war against %s, protest for −%d"
+		+ " with the aggressor (−%d if she holds Propaganda), or stand aside."
 	),
 	"intervention/stake_deeds": (
-		"Our %d deeds there are at stake: join the war, protest, or stand aside."
+		"Our %d deeds there are at stake: join the war against %s, protest for"
+		+ " −%d with the aggressor (−%d if she holds Propaganda), or stand"
+		+ " aside."
 	),
 	"intervention/stake_both_deed": (
-		"Our embassy stands and our deed there is at stake: intervene, protest,"
-		+ " or stand aside and lose the embassy."
+		"Our embassy stands and our deed there is at stake: intervene and go to"
+		+ " war with %s, protest for −%d with the aggressor (−%d if she holds"
+		+ " Propaganda), or stand aside and lose the embassy."
 	),
 	"intervention/stake_both_deeds": (
-		"Our embassy stands and our %d deeds there are at stake: intervene,"
-		+ " protest, or stand aside and lose the embassy."
+		"Our embassy stands and our %d deeds there are at stake: intervene and"
+		+ " go to war with %s, protest for −%d with the aggressor (−%d if she"
+		+ " holds Propaganda), or stand aside and lose the embassy."
 	),
 	# A rival's proposal (wiki: diplomacy § Court proposals).
 	"proposal/caption": "PROPOSAL",
@@ -169,26 +178,48 @@ static func intervention_body(offer: Dictionary) -> String:
 	)
 
 
-## What the court risks by answering: the embassy, the deeds it bought there, or
-## both — never a stake the offer does not hold (DR-20261110-20).
+## What each answer costs before the court takes it — the war a join starts, the
+## relation a protest spends and the embassy standing aside loses — and never a
+## stake the offer does not hold (DR-20261110-20; REQ-P5-06).
+##
+## The protest figure is the catalogue's own, and the softer one rides beside it
+## because the penalty is read from the **declarer's** tech (wiki: diplomacy
+## § Intervention; tech-tree-diplomacy-civilian § Propaganda): another court's
+## studies are not the crown's to read, so the settled figure is never claimed —
+## the banner prints the envelope, as another court's wall prints a storm range.
 static func intervention_stake(offer: Dictionary) -> String:
 	var basis: String = String(offer.get("basis", "embassy"))
 	var deeds: int = int(offer.get("deeds", 0))
+	var aggressor: String = FactionCatalog.name_of(int(offer.get("aggressor", -1)))
+	var price: Array = [aggressor, protest_price(), protest_price(true)]
 	if basis == "deed":
 		return (
-			say("intervention/stake_deeds", [deeds])
+			say("intervention/stake_deeds", [deeds] + price)
 			if deeds > 1
-			else say("intervention/stake_deed")
+			else say("intervention/stake_deed", price)
 		)
 	if basis == "both":
 		return (
-			say("intervention/stake_both_deeds", [deeds])
+			say("intervention/stake_both_deeds", [deeds] + price)
 			if deeds > 1
-			else say("intervention/stake_both_deed")
+			else say("intervention/stake_both_deed", price)
 		)
 	if deeds > 1:
-		return say("intervention/stake_deeds", [deeds])
-	return say("intervention/stake_embassy")
+		return say("intervention/stake_deeds", [deeds] + price)
+	return say("intervention/stake_embassy", price)
+
+
+## The relation one protest spends, in the declarer's own tech envelope: the
+## published penalty and the softened figure a declarer holding Propaganda
+## charges instead (wiki: diplomacy § Intervention; tech-tree-diplomacy-civilian
+## § Propaganda; DR-20261110-16). Both are the catalogue's, so a retuned price
+## moves the banner with the rule.
+static func protest_price(softened: bool = false) -> int:
+	return int(
+		DiplomacyCatalog.PROTEST_PENALTY_PROPAGANDA
+		if softened
+		else DiplomacyCatalog.PROTEST_PENALTY
+	)
 
 
 ## The proposal caption, with the envoy's face when the offer has spoken.
