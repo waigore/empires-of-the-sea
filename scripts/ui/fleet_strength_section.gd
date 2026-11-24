@@ -10,6 +10,11 @@ extends VBoxContainer
 var _strength: Label = null
 var _pool: Label = null
 var _zone: Label = null
+## The crown's own ration band: the share of its hulls the last Consumption fed
+## and the morale every sea battle fights at, or no row for another court's
+## squadron (wiki: workers-and-population § Consumption — naval combat;
+## DR-20261124-15). Under the strength line it scales.
+var _rations: Label = null
 
 
 func _ready() -> void:
@@ -17,6 +22,12 @@ func _ready() -> void:
 	add_theme_constant_override("separation", 2)
 	_strength = UiRowBuilder.wrapped_line("", 12, Palette.GOLD_PALE)
 	add_child(_strength)
+	# The band sits under the strength it scales and above the pool it does not
+	# touch: the sea's own arithmetic, read off the crown's ledger
+	# (DR-20261124-15).
+	_rations = UiRowBuilder.wrapped_line("", 11, Palette.TEXT_DIM)
+	_rations.visible = false
+	add_child(_rations)
 	_pool = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
 	add_child(_pool)
 	_zone = UiRowBuilder.wrapped_line("", 11, Palette.TEXT)
@@ -27,10 +38,13 @@ func _ready() -> void:
 ## keep the dossier short. `strength["zone"]` is the sea zone's odds, when read.
 ## A sighted rival the crown has not read shows `???` and none of the maths, and
 ## names the watch that would earn it (wiki: ships-and-naval § Sighted strength).
-func set_data(strength: Dictionary) -> void:
+## `rations` is the crown's own navy coverage; another court's sheet passes
+## `NO_READING` and prints no band (DR-20261124-15).
+func set_data(strength: Dictionary, rations: float = NavyRationRead.NO_READING) -> void:
 	visible = int(strength.get("count", 0)) > 0
 	if not visible:
 		return
+	_show_rations(rations)
 	var read: bool = bool(strength.get("known", true))
 	if not read:
 		_strength.text = "??? strength — watch her across a turn to read her weight."
@@ -106,3 +120,27 @@ func _zone_colour(zone: Dictionary) -> Color:
 
 func _need() -> int:
 	return int(round(NavalStrength.need() * 100.0))
+
+
+## The ration band under the strength line: the share of the crown's hulls the
+## last Consumption fed and the morale every sea battle fights at. A hungry navy
+## wears the sheet's gold so the reader sees the bite before the next water, and
+## a `NO_READING` opening — another court's squadron — prints no row at all
+## (wiki: workers-and-population § Consumption — naval combat; DR-20261124-15).
+func _show_rations(coverage: float) -> void:
+	if _rations == null:
+		return
+	var text: String = NavyRationRead.line(coverage)
+	_rations.text = text
+	_rations.visible = not text.is_empty()
+	_rations.tooltip_text = NavyRationRead.tip(coverage)
+	var hungry: bool = coverage >= 0.0 and NavyRationRead.multiplier(coverage) < 1.0
+	_rations.add_theme_color_override(
+		"font_color", Palette.GOLD_PALE if hungry else Palette.TEXT_DIM
+	)
+
+
+## The ration band's text, for tests and tooling (REQ-P3-02). Empty when the
+## sheet holds no reading for the squadron on show.
+func rations_text() -> String:
+	return "" if _rations == null or not _rations.visible else _rations.text
