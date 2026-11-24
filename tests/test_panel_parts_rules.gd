@@ -4364,7 +4364,7 @@ func test_ai_recalls_a_spy_to_screen_at_war() -> void:
 func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	# Floors with no regional work: 2 builders, engineer_target (2), explorer_target (3).
 	# The court is neutral here so the floors are the published ones — an
-	# archetype's own crew is a target of its own (AiStaffTaste, test_ai_rules).
+	# archetype's own crew is a target of its own (AiStaffTaste, test_a_ai_rules).
 	var config: AiConfig = AiConfig.build(RIVAL, 1500)
 	config.personality = AiPersonality.NEUTRAL
 	var roster: Array[CivilianState] = [
