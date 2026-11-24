@@ -2166,11 +2166,18 @@ func test_army_panel_strength_names_one_figure() -> void:
 	model.province_data(1).hospital_level = 1
 	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
 	var line: String = ArmyPanelStrength.line(model, army)
-	assert_true(line.contains("regiments"), line)
+	assert_true(line.begins_with("1 regiment ·"), line)
+	assert_true(line.contains("regiments") == false, "one regiment reads in the singular")
 	assert_true(line.contains("strength"), line)
 	assert_true(line.contains("food"), line)
 	assert_true(line.contains("rest 40%"), line)
 	assert_eq(ArmyPanelStrength.food(army), ArmyRoster.food_upkeep_of([army], army.owner))
+	# A single chevron takes the same bar: "1 chevron", never "1 chevrons".
+	var veteran := ArmyFixture.army(7, 0, 1, ["guards"], false)
+	for regiment_id: String in veteran.regiments:
+		veteran.regiment_medals[regiment_id] = 1
+	var veteran_line: String = ArmyPanelStrength.line(model, veteran)
+	assert_true(veteran_line.contains("1 chevron ·"), veteran_line)
 
 
 ## Order presses and the dismiss arm live on one block; the panel only aliases
