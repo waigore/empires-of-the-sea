@@ -105,7 +105,9 @@ func _button(row: Dictionary, plan: Dictionary, note: Label) -> Button:
 	button.text = RAIL
 	button.custom_minimum_size = Vector2(0, 40 if _compact() else 30)
 	button.add_theme_font_size_override("font_size", 12)
-	var ready: bool = bool(plan.get("rail_builder", false))
+	var ready: bool = bool(plan.get("rail_builder", false)) and String(
+		plan.get("reason", "")
+	).is_empty()
 	button.disabled = not ready
 	button.tooltip_text = (
 		"A Rail Builder lays a railroad on this tile."

@@ -216,7 +216,8 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 		MapPlayProvinceHarvest.line(play, model, province_id)
 	)
 	_rail.render(RailWorks.province_plans(
-		model, seat.works, seat.units, seat.faction, province_id, seat.tech_unlocked
+		model, seat.works, seat.units, seat.faction, province_id,
+		seat.tech_unlocked, seat.stockpile
 	))
 	_grid.set_estate_roads(data, rows, crown)
 	_orders.set_town_order(
@@ -298,7 +299,8 @@ func press_text(key: String) -> String:
 func _road_plans(model: MapModel, rows: Array[Dictionary]) -> Dictionary:
 	var seat: ProvinceDossierOpening = _opening
 	return RoadWorks.province_plans(
-		model, seat.works, seat.units, seat.faction, seat.capital_tile, rows
+		model, seat.works, seat.units, seat.faction, seat.capital_tile, rows,
+		seat.stockpile
 	)
 
 

@@ -24,7 +24,7 @@ static func town_upgrade(
 		return "Requires %s to upgrade a town." % TechCatalog.display_name(
 			CivilianWorkPlan.TOWN_TECH
 		)
-	return _known_stores(
+	return known_stores(
 		CivilianWorkPlan.cost_for(
 			"upgrade_town",
 			clampi(province.town_level() + 1, 2, CivilianWorkPlan.MAX_TOWN)
@@ -52,7 +52,7 @@ static func fort(
 		return "A %s fort needs %s." % [
 			FortRules.level_name(next), TechCatalog.display_name(gate)
 		]
-	return _known_stores(FortRules.cost(next), stockpile)
+	return known_stores(FortRules.cost(next), stockpile)
 
 
 ## Why this crown cannot raise the province's ward now, or "" when the order is
@@ -92,7 +92,7 @@ static func stores(cost: Dictionary, stockpile: Dictionary) -> String:
 ## The same gate for a caller that may not know the purse: unknown stores (null)
 ## leave the money gate to the order that charges it, so a reading that never
 ## prices a spend is not told it is short.
-static func _known_stores(cost: Dictionary, stockpile: Variant) -> String:
+static func known_stores(cost: Dictionary, stockpile: Variant) -> String:
 	if typeof(stockpile) != TYPE_DICTIONARY:
 		return ""
 	return stores(cost, stockpile as Dictionary)
