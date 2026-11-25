@@ -47,7 +47,11 @@ const REASON_PAYABLE: String = "nothing payable"
 ## carry one more ration arms no further, and its food income is grown first,
 ## so the store's runway no longer lets the court arm past its land (issue
 ## #807; the fallback trim's measured lesson). The sentinel -2 keeps the
-## store gate alone.
+## store gate alone; the `>= -1` test holds only a harvest of 0 or −1, and the
+## wider reading was measured on seed 1500 as a campaign-wide freeze — six
+## regiments instead of eight, war declarations 153 → 12 — so this gate keeps
+## its published reach until that reading is re-measured on its own (issue
+## #1516 kept the hire's pace, not this gate).
 ## `reserve` is the purse a claim above this muster holds back — the hull the
 ## court is saving for (`AiNavy`). A muster spends only what stands above it, so
 ## the fleet's chest survives the army's turn (issue #484) — but only when the

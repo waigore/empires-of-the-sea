@@ -44,8 +44,12 @@ static func plan(
 	if typeof(revealed) == TYPE_DICTIONARY:
 		state.set_revealed(revealed)
 	var purse: Dictionary = AiResearchPurse.read(config, economy, context)
+	# The land's own slack (issue #1516): a court whose harvest cannot carry
+	# another mouth scores the ration caps it has not reached yet, even with a
+	# full granary it has to buy back every turn. `-2` is no reading.
+	var land: int = int(context.get("harvest_slack", 0))
 	candidates = AiResearchScores.candidates(
-		config, economy, bool(purse["at_war"]), String(purse["door"])
+		config, economy, bool(purse["at_war"]), String(purse["door"]), land
 	)
 	_refund_underway(state, String(purse["preset"]), int(purse["standing"]))
 	assignments = book(economy, purse, candidates)
@@ -124,7 +128,8 @@ static func read_free_slot(
 		return {}
 	var purse: Dictionary = AiResearchPurse.read(config, economy, context, false)
 	var candidates: Array[Dictionary] = AiResearchScores.candidates(
-		config, economy, bool(purse["at_war"]), String(purse["door"])
+		config, economy, bool(purse["at_war"]), String(purse["door"]),
+		int(context.get("harvest_slack", 0))
 	)
 	return AiResearchPlan.walk(economy, purse, slot, candidates, {})
 

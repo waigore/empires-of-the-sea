@@ -2984,26 +2984,50 @@ func test_a_banking_court_paces_the_hires_to_the_harvest() -> void:
 	)
 	assert_true(orders.is_empty(), "the levy's pool is met; the ladder waits")
 	# One peasant short of the levy floor: the farmhand comes first (the
-	# #1023 provision), paid against the harvest it eats.
+	# #1023 provision). The land's own slack is spent, but the granary still
+	# covers the mouth, so the muster's floor is the provision the harvest
+	# paces past (issue #1516): the hand the chest needs is hired anyway.
 	economy.workers = WorkerPool.make(1)
 	orders = AiEconomyPlanner.recruitment_orders(
-		config, economy, 0, -1, 0, true, 1
+		config, economy, 0, 1, 0, true, 0
 	)
 	assert_eq(orders.size(), 1, "the farmhand the levy needs")
 	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.PEASANT)
-	# The land cannot carry one more ration: the hire stands down, and the
-	# slack the muster plans with is not spent on a mouth.
+	# The store cannot feed one more mouth: the hire stands down, whatever the
+	# land lands — the famine read is the granary's, not the harvest's
+	# (issue #1516).
 	orders = AiEconomyPlanner.recruitment_orders(
-		config, economy, 0, -1, 0, true, 0
+		config, economy, 0, 0, 0, true, 0
 	)
 	assert_true(orders.is_empty(), "no ration spare, no hire")
-	# An unbanked court keeps the published pool target (10): the same purse
-	# and the same slack still grow the pool.
+	# An unbanked court keeps the published pool target (10) while its land
+	# carries the mouths: the same purse and a land to spare still grow the
+	# pool. But the harvest paces that growth too (issue #1516): the same court
+	# on a thin land hires nothing past the muster's floor, banked or not —
+	# a court that grows past its land buys every dinner on the market.
 	economy.workers = WorkerPool.make(4)
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, false, 10
+	)
+	assert_eq(orders.size(), 1, "no bank, a land to spare: the ladder leads")
 	orders = AiEconomyPlanner.recruitment_orders(
 		config, economy, 0, -1, 0, false, 1
 	)
-	assert_eq(orders.size(), 1, "no bank, the published ladder leads")
+	assert_true(orders.is_empty(), "the land is the pace, not only the bank")
+	# An unbanked court keeps the pace too (issue #1516): a thin land hires
+	# nothing, only the conquest bank's own provision may pass it.
+	economy.workers = WorkerPool.make(2)
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, false, -5
+	)
+	assert_true(orders.is_empty(), "the unbanked ladder keeps the land's pace")
+	# The bank's own provision is the one exception: the free hand the levy
+	# drafts from is bought whatever the land carries, because the store still
+	# feeds it and the army is what the court banks for.
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, -5
+	)
+	assert_eq(orders.size(), 1, "under the floor, provision beats the land")
 	# A caller with no harvest reading (-2) keeps the published target too.
 	orders = AiEconomyPlanner.recruitment_orders(
 		config, economy, 0, -1, 0, true, -2
@@ -4300,6 +4324,14 @@ func _has_tech(candidates: Array[Dictionary], tech_id: String) -> bool:
 	return false
 
 
+## One candidate's score in a scored list, or -1 when the list does not carry it.
+func _score_of(candidates: Array[Dictionary], tech_id: String) -> int:
+	for entry: Dictionary in candidates:
+		if String(entry["tech"]) == tech_id:
+			return int(entry["score"])
+	return -1
+
+
 func test_a_fresh_court_fills_every_slot_at_medium_funding() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var plan: Dictionary = AiResearchPlanner.plan(_research_config(), economy)
@@ -4354,6 +4386,41 @@ func test_a_commodity_shortfall_raises_the_tech_that_caps_it() -> void:
 	var saw: int = AiResearchScores.score_for(config, economy, "saw_mill", false)
 	var crop: int = AiResearchScores.score_for(config, economy, "crop_rotation", false)
 	assert_true(saw > crop, "timber cap beats a tech with no cap")
+
+
+## The land's own deficit lifts the ration caps (issue #1516): a court that buys
+## its dinner every turn still studies the farms that would grow it, so a full
+## granary never hides a thin harvest from the college. A land with slack to
+## spare, or a caller with no reading, scores the store alone.
+func test_a_harvest_shortfall_raises_the_ration_caps_the_court_has_not_reached() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	economy.stockpile["grain"] = 200
+	economy.stockpile["meat"] = 200
+	var fed: int = AiResearchScores.score_for(config, economy, "land_enclosure", false)
+	var land: int = AiResearchScores.score_for(
+		config, economy, "land_enclosure", false, -6
+	)
+	assert_eq(
+		land - fed, 6 * int(config.parameter("research.need_weight")),
+		"six rations short is six points of need"
+	)
+	assert_eq(
+		AiResearchScores.score_for(config, economy, "land_enclosure", false, -2),
+		fed, "the no-reading sentinel changes nothing"
+	)
+	# The plan hands the candidates the same slack the larder noted.
+	var thin: Dictionary = AiResearchPlanner.plan(
+		_research_config(), PlayerEconomy.starting(), {"harvest_slack": -6}
+	)
+	var plain: Dictionary = AiResearchPlanner.plan(
+		_research_config(), PlayerEconomy.starting()
+	)
+	assert_true(
+		_score_of(thin["candidates"], "land_enclosure")
+		> _score_of(plain["candidates"], "land_enclosure"),
+		"the planner's candidates carry the land's need"
+	)
 
 
 func test_war_adds_the_registry_bonus_to_military_and_naval_tech() -> void:
@@ -9463,6 +9530,34 @@ func test_a_harvest_one_ration_short_also_waits() -> void:
 	)
 
 
+## A deep deficit is a reading, not the sentinel (issue #1516): `harvest_slack`
+## two or more rations short used to satisfy the `>= -1` no-reading test, so the
+## hire grew the pool as if the fields were rich. Measured on seed 1500, Spain
+## kept two hands and England two while their harvest sat at −5 and −9 for the
+## whole age. (The muster's own gate keeps its published `>= -1` reach: held on a
+## deep deficit too it froze every court's army and cut the campaign's war
+## declarations from 153 to 12, so #1516 widened the hire's pace alone.)
+func test_a_deep_harvest_deficit_is_a_reading() -> void:
+	var economy: PlayerEconomy = _work_economy()
+	economy.treasury = 8000
+	assert_true(
+		AiEconomyPlanner.recruitment_orders(
+			_work_config(), economy, 0, 4, 0, true, -9
+		).is_empty(),
+		"the pace bites on a deep deficit"
+	)
+
+
+## The no-reading sentinel is `-2` alone (issue #1516): every other value is a
+## reading the pace and the muster gate act on, so a deficit of two or more is
+## never read as "no harvest to count".
+func test_the_harvest_sentinel_is_the_only_no_reading() -> void:
+	assert_true(AiEconomyRecruitment.has_reading(-9), "a deep deficit is a reading")
+	assert_true(AiEconomyRecruitment.has_reading(-1), "one short is a reading")
+	assert_true(AiEconomyRecruitment.has_reading(3), "a spare field is a reading")
+	assert_false(AiEconomyRecruitment.has_reading(-2), "no harvest to count")
+
+
 func test_a_court_with_room_for_one_more_ration_musters() -> void:
 	var plan: Dictionary = AiArmyReinforce.plan(
 		_work_config(), _work_economy(), 1, false, 0, 1
@@ -9913,6 +10008,22 @@ func test_the_larder_owns_the_hire_slack_it_reads() -> void:
 		MapPlayEconomyLarder.harvest_reading(court), 4,
 		"a court with no harvest hires against the note"
 	)
+	# The store and the land are two readings (issue #1516): the hire's fed
+	# slack is the granary's own figure, never the pass's harvest note, so a
+	# full pantry hires to the muster's floor on a thin harvest.
+	var store: PlayerEconomy = PlayerEconomy.starting()
+	store.stockpile = {"grain": 40}
+	store.workers = WorkerPool.make(2)
+	court.economy = store
+	court.army_food = 0
+	court.ships = 0
+	empty.ensure_ai().note_food_slack(1, -5)
+	var fed: int = MapPlayEconomyLarder.fed_slack(court)
+	assert_eq(
+		fed, AiArmyReinforce.fed_slack(store, 0, 0),
+		"the granary's own slack, not the harvest's note"
+	)
+	assert_true(fed > 0, "a full granary is never narrowed by a thin land")
 
 
 ## The chest the muster and the hull claim is the larder's row: a court with no

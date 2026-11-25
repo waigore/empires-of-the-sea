@@ -69,7 +69,7 @@ static func recruitment_orders(
 	# A caller with no reading keeps the published target.
 	var pool_target: int = (
 		maxi(bank_floor, economy.workers.count(WorkerPool.Tier.PEASANT))
-		if conquest_bank and harvest_slack >= -1
+		if conquest_bank and has_reading(harvest_slack)
 		else target
 	)
 	var sim: PlayerEconomy = economy.copy()
@@ -85,7 +85,7 @@ static func recruitment_orders(
 			# three peasants for a hundred and ninety turns: no hands, no
 			# chest, no line, and every worker it could afford consumed one.
 			tier = WorkerPool.Tier.PEASANT
-		elif conquest_bank and harvest_slack >= -1 \
+		elif conquest_bank and has_reading(harvest_slack) \
 				and sim.available_peasants() >= bank_floor:
 			# The pool carries the levy: while the bank holds with a harvest
 			# to pace by, the trained tiers wait — a hire the muster cannot
@@ -98,11 +98,19 @@ static func recruitment_orders(
 			break
 		if fed_slack != -1 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
 			break
-		# The harvest carries the mouth (issue #1059): the reading the muster's
-		# own gate plans with — one hire eats one of the rations that gate
-		# wants for the levy. The bank's own pace; a court not banking keeps
-		# the published gate alone. The −2 sentinel keeps the no-reading.
-		if conquest_bank and harvest_slack >= -1 \
+		# The harvest carries the mouth (issue #1059, #1516): the reading the
+		# muster's own gate plans with — one hire eats one of the rations that
+		# gate wants for the levy. The pace is every court's, not the bank's
+		# alone: a court that grows past its land buys every dinner on the
+		# market, and the measured bench ran a thin harvest into nine mouths
+		# and nine strikers for the rest of the age. Only the muster's own
+		# floor is exempt (the provision above): that hand is the army's, and
+		# the store gate above is the famine's own read. The −2 sentinel keeps
+		# the no-reading.
+		var provision: bool = (
+			conquest_bank and sim.available_peasants() < bank_floor
+		)
+		if has_reading(harvest_slack) and not provision \
 				and harvest_slack < WorkerPool.FOOD_PER_WORKER[tier]:
 			break
 		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
@@ -120,10 +128,23 @@ static func recruitment_orders(
 		if not bool(result.get("ok", false)):
 			break
 		fed_slack -= WorkerPool.FOOD_PER_WORKER[tier]
-		if conquest_bank and harvest_slack >= -1:
+		if has_reading(harvest_slack):
 			harvest_slack -= WorkerPool.FOOD_PER_WORKER[tier]
 		orders.append({"tier": tier})
 	return orders
+
+
+## True when the caller handed a harvest reading rather than the no-reading
+## sentinel: `-2` is "no harvest to count", and `AiState.food_slack` hands the
+## same `-2` for a court the pass has not noted yet. Every other value is a
+## reading, and a deficit of two or more is exactly the case the pace exists
+## for — the old `>= -1` test read every such deficit as "no reading", so the
+## pace only ever bit on a harvest of 0 or −1 and a court five rations short
+## hired as if its land were rich (issue #1516; DR-20261125-12). A real deficit
+## of exactly two collides with the sentinel and stands the gate down, which is
+## the published no-reading default.
+static func has_reading(harvest_slack: int) -> bool:
+	return harvest_slack != -2
 
 
 ## True when the purse could already pay a trained-tier row today, i.e. the

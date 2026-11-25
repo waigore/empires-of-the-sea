@@ -76,23 +76,21 @@ static func note(court: MapPlayEconomyCourt) -> void:
 	court.play.ai.note_food_slack(court.faction, slack)
 
 
-## The larder slack the worker hire reads: the harvest's own figure narrowed by
-## the pass's note when there is no harvest in hand — the `-1` sentinel (no
-## larder to read) is the published default. `AiBindEconomy.fed_slack` is the
-## call `apply_turn` has always hired against (issue #489; DR-20261122-01).
+## The larder slack the worker hire reads: the **store** the Consumption phase
+## leaves once the army, the navy and every worker have eaten — the `-1`
+## sentinel (no larder to read) is the published default. `AiBindEconomy.fed_slack`
+## is the call `apply_turn` has always hired against (issue #489;
+## DR-20261122-01).
+##
+## The harvest is its own reading ([method harvest_reading]) and paces growth
+## past the muster's floor, never the store's own slack (issue #1516;
+## DR-20261125-12). Narrowing this figure by a poor harvest froze a court with a
+## full granary at two hands for a whole age: the store covered every mouth, the
+## land could not, and the hire broke on the land before the granary was read.
 static func fed_slack(court: MapPlayEconomyCourt) -> int:
-	var fed: int = AiBindEconomy.fed_slack(
+	return AiBindEconomy.fed_slack(
 		court.kind, court.economy, court.army_food, court.ships
 	)
-	var noted: Dictionary = (
-		court.play.ai.food_slack as Dictionary
-		if court.play.ai != null else {}
-	)
-	# The note narrows the hire whenever the pass noted one — a starved land
-	# feeds no extra mouth (issue #489).
-	if noted.has(court.faction):
-		fed = mini(fed, int(noted[court.faction]))
-	return fed
 
 
 ## The harvest slack the hire reads: this turn's own figure where the land has a
