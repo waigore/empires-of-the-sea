@@ -65,9 +65,7 @@ static func pick(play: PlaySession) -> Dictionary:
 	return of(
 		court.economy, court.config,
 		MapPlayEconomyLarder.recruit_orders(
-			court, MapPlayEconomyLarder.harvest_slack(
-				play, faction, court.overseas, court.economy
-			)
+			court, MapPlayEconomyLarder.harvest_reading(court)
 		),
 		MapPlayEconomyLarder.fed_slack(court), court.conquest_bank
 	)

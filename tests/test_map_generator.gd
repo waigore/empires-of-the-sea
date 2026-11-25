@@ -1,0 +1,146 @@
+extends GdToolsTest
+## Generation invariants: deterministic output, complete assignment and
+## contiguous provinces (wiki: tile-map-and-generation).
+
+const SEED: int = 1500
+const WIDTH: int = 72
+const HEIGHT: int = 48
+
+var _model: MapModel = null
+
+
+func before_each() -> void:
+	if _model == null:
+		_model = MapGenerator.new().generate(SEED, WIDTH, HEIGHT)
+
+
+func test_same_seed_is_deterministic() -> void:
+	var other: MapModel = MapGenerator.new().generate(SEED, WIDTH, HEIGHT)
+	assert_eq(other.terrain, _model.terrain)
+	assert_eq(other.province, _model.province)
+	assert_eq(other.sea_zone, _model.sea_zone)
+	var names: Array = []
+	for province: Dictionary in other.provinces:
+		names.append(province["name"])
+	var expected: Array = []
+	for province: Dictionary in _model.provinces:
+		expected.append(province["name"])
+	assert_eq(names, expected)
+
+
+func test_different_seed_changes_the_map() -> void:
+	var other: MapModel = MapGenerator.new().generate(SEED + 1, WIDTH, HEIGHT)
+	assert_ne(other.terrain, _model.terrain)
+
+
+func test_land_ratio_is_plausible() -> void:
+	var ratio: float = float(_model.land_tile_count()) / float(WIDTH * HEIGHT)
+	assert_between(ratio, 0.15, 0.65, "land ratio %.3f" % ratio)
+
+
+func test_every_tile_is_assigned() -> void:
+	for y in _model.height:
+		for x in _model.width:
+			var province: int = _model.province_at(x, y)
+			var zone: int = _model.sea_zone_at(x, y)
+			if _model.is_land(x, y):
+				assert_ne(province, MapModel.NO_ID, "land tile %d,%d has no province" % [x, y])
+				assert_eq(zone, MapModel.NO_ID)
+			else:
+				assert_ne(zone, MapModel.NO_ID, "sea tile %d,%d has no zone" % [x, y])
+				assert_eq(province, MapModel.NO_ID)
+
+
+func test_every_province_is_contiguous() -> void:
+	for province: Dictionary in _model.provinces:
+		var tiles: Array = province["tiles"]
+		assert_true(tiles.size() > 0)
+		assert_true(_is_contiguous(tiles), "province %s is not contiguous" % province["name"])
+
+
+func test_every_sea_zone_is_contiguous() -> void:
+	for zone: Dictionary in _model.sea_zones:
+		assert_true(_is_contiguous(zone["tiles"]))
+
+
+func test_province_borders_are_inside_the_map() -> void:
+	for y in _model.height:
+		for x in _model.width:
+			if _model.is_land(x, y):
+				assert_true(x >= 0 and y >= 0 and x < WIDTH and y < HEIGHT)
+
+
+func test_ownership_spreads_across_factions_with_one_capital_each() -> void:
+	var capitals: int = 0
+	var owners: Dictionary = {}
+	for province: Dictionary in _model.provinces:
+		var owner: int = int(province["owner"])
+		assert_between(owner, 0, MapGenerator.FACTION_NAMES.size() - 1)
+		owners[owner] = true
+		if bool(province["capital"]):
+			capitals += 1
+	assert_eq(capitals, MapGenerator.FACTION_NAMES.size())
+	assert_eq(owners.size(), MapGenerator.FACTION_NAMES.size())
+
+
+func test_coastal_provinces_have_a_waterfront_port() -> void:
+	for province: Dictionary in _model.provinces:
+		var port: Vector2i = province["port_tile"]
+		if not bool(province["coastal"]):
+			assert_eq(port, Vector2i(-1, -1))
+			continue
+		assert_true(port.x >= 0, "coastal province %s has no port" % province["name"])
+		assert_true(_model.is_land(port.x, port.y))
+		assert_true(_model.is_coastal_tile(port.x, port.y))
+
+
+func test_resources_sit_on_allowed_terrain() -> void:
+	var table: Array[Dictionary] = MapGenerator.resource_table()
+	for province: Dictionary in _model.provinces:
+		var resource: int = int(province["resource"])
+		if resource < 0:
+			continue
+		var tile: Vector2i = province["resource_tile"]
+		var terrain: int = _model.terrain_at(tile.x, tile.y)
+		var allowed: Array = table[resource]["terrain"]
+		assert_true(allowed.has(terrain), "%s on %d" % [table[resource]["name"], terrain])
+
+
+func test_names_are_unique() -> void:
+	var seen: Dictionary = {}
+	for province: Dictionary in _model.provinces:
+		var name: String = String(province["name"])
+		assert_false(seen.has(name), "duplicate province name %s" % name)
+		seen[name] = true
+	var zones: Dictionary = {}
+	for zone: Dictionary in _model.sea_zones:
+		var name: String = String(zone["name"])
+		assert_false(zones.has(name), "duplicate sea zone name %s" % name)
+		zones[name] = true
+
+
+func test_resource_info_lookup() -> void:
+	assert_eq(String(MapGenerator.resource_info(0).get("name", "")), "Timber")
+	assert_true(MapGenerator.resource_info(-1).is_empty())
+	assert_true(MapGenerator.resource_info(999).is_empty())
+
+
+func _is_contiguous(tiles: Array) -> bool:
+	if tiles.is_empty():
+		return false
+	var lookup: Dictionary = {}
+	for tile: Vector2i in tiles:
+		lookup[tile] = true
+	var start: Vector2i = tiles[0]
+	var seen: Dictionary = {start: true}
+	var queue: Array[Vector2i] = [start]
+	var head: int = 0
+	while head < queue.size():
+		var tile: Vector2i = queue[head]
+		head += 1
+		for offset: Vector2i in [Vector2i.RIGHT, Vector2i.LEFT, Vector2i.UP, Vector2i.DOWN]:
+			var neighbor: Vector2i = tile + offset
+			if lookup.has(neighbor) and not seen.has(neighbor):
+				seen[neighbor] = true
+				queue.append(neighbor)
+	return seen.size() == tiles.size()

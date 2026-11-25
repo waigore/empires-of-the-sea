@@ -157,6 +157,12 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 			# banks (issue #1059): the farms the host eats from lift their
 			# caps on the one preset that may dip into the chest.
 			"conquest_bank": court.conquest_bank,
+			# The land's own slack (issue #1516): a court whose harvest
+			# cannot carry another mouth studies the ration caps it has not
+			# reached, however full the granary it buys back every turn.
+			"harvest_slack": MapPlayEconomyLarder.harvest_slack(
+				court.play, court.faction, court.overseas, court.economy
+			),
 		}
 	)
 

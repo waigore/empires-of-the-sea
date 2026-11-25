@@ -35,12 +35,18 @@ const SCORE_PER_WEIGHT: int = 10
 ## stage, so the study that stage needs is taken first — a court that opened an
 ## envoy chain and never studies its next door has paid for a stake it cannot
 ## reach (DR-20261114-05).
+##
+## `harvest` is the court's harvest slack (issue #1516): a land that cannot
+## carry another mouth scores its ration caps as if the store were short, so a
+## court buying its dinner every turn still studies the farms that would grow
+## it. `-2` is the no-reading sentinel and changes nothing.
 static func candidates(
-	config: AiConfig, economy: PlayerEconomy, at_war: bool, door: String = ""
+	config: AiConfig, economy: PlayerEconomy, at_war: bool, door: String = "",
+	harvest: int = 0
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for tech_id: String in _open(economy, {}):
-		rows.append(row(config, economy, tech_id, at_war))
+		rows.append(row(config, economy, tech_id, at_war, harvest))
 	rows.sort_custom(_better)
 	if door.is_empty():
 		return rows
@@ -62,15 +68,16 @@ static func pick(
 	economy: PlayerEconomy,
 	at_war: bool,
 	door: String = "",
-	taken: Dictionary = {}
+	taken: Dictionary = {},
+	harvest: int = 0
 ) -> Dictionary:
 	if not door.is_empty() and not taken.has(door):
 		if can_teach(door, economy.tech_unlocked):
-			return row(config, economy, door, at_war)
+			return row(config, economy, door, at_war, harvest)
 	var best: Dictionary = {}
 	var best_rank: Array = []
 	for tech_id: String in _open(economy, taken):
-		var entry: Dictionary = row(config, economy, tech_id, at_war)
+		var entry: Dictionary = row(config, economy, tech_id, at_war, harvest)
 		if not best_rank.is_empty() and _rank(entry) >= best_rank:
 			continue
 		best = entry
@@ -81,26 +88,29 @@ static func pick(
 ## One candidate in the trace's row shape: the tech, its category and era, and
 ## its score (`score_for`).
 static func row(
-	config: AiConfig, economy: PlayerEconomy, tech_id: String, at_war: bool
+	config: AiConfig, economy: PlayerEconomy, tech_id: String, at_war: bool,
+	harvest: int = 0
 ) -> Dictionary:
 	return {
 		"tech": tech_id,
 		"category": TechCatalog.category(tech_id),
 		"era": TechCatalog.era(tech_id),
-		"score": score_for(config, economy, tech_id, at_war),
+		"score": score_for(config, economy, tech_id, at_war, harvest),
 	}
 
 
 ## One candidate's score: domain weight, then what the court is short of.
 static func score_for(
-	config: AiConfig, economy: PlayerEconomy, tech_id: String, at_war: bool
+	config: AiConfig, economy: PlayerEconomy, tech_id: String, at_war: bool,
+	harvest: int = 0
 ) -> int:
 	var weights: Dictionary = config.weights()
 	var category: String = TechCatalog.category(tech_id)
 	var domain: String = String(CATEGORY_DOMAIN.get(category, "research"))
 	var score: int = int(weights.get(domain, 1)) * SCORE_PER_WEIGHT
 	score += int(weights.get("research", 1))
-	score += _shortfall(config, economy, tech_id) * config.parameter("research.need_weight")
+	score += _shortfall(config, economy, tech_id, harvest) \
+		* config.parameter("research.need_weight")
 	if at_war and WAR_BRANCHES.has(category):
 		score += config.parameter("research.war_bonus")
 	return score
@@ -140,15 +150,25 @@ static func _index_of(rows: Array[Dictionary], tech: String) -> int:
 
 ## Total store shortfall across the commodities this tech lifts the cap on,
 ## capped so one deep deficit does not drown every other signal.
+##
+## A ration commodity carries the land's own deficit too (issue #1516): a court
+## whose granary is full of market grain, and whose land still lands too little
+## to feed its mouths, is short of the cap that would let the farms grow — so
+## the reading is the larger of the store's and the harvest's (`harvest` is the
+## slack, `-2` the no-reading sentinel).
 static func _shortfall(
-	config: AiConfig, economy: PlayerEconomy, tech_id: String
+	config: AiConfig, economy: PlayerEconomy, tech_id: String, harvest: int = 0
 ) -> int:
 	var target: int = config.parameter("economy.reserve_target")
 	var total: int = 0
+	var land: int = maxi(-harvest, 0) if harvest != -2 else 0
 	var caps: Dictionary = TechCatalog.caps_of(tech_id)
 	for raw: Variant in caps.keys():
 		var commodity: String = String(raw)
-		total += maxi(target - economy.quantity(commodity), 0)
+		var short: int = maxi(target - economy.quantity(commodity), 0)
+		if AiResearchRation.RATION_COMMODITIES.has(commodity):
+			short = maxi(short, land)
+		total += short
 	return mini(total, 10)
 
 
