@@ -1298,7 +1298,7 @@ func test_standard_new_world_seeds_fund_the_colonies() -> void:
 	var crops: int = 0
 	var riches: int = 0
 	for seed_value: int in NW_FLOOR_SEEDS:
-		var model: MapModel = MapGenerator.new().generate_region(
+		var model: MapModel = MapGenerator.new().generate_ground(
 			seed_value, FactionCatalog.NEW_WORLD, NW_STANDARD_WIDTH, NW_STANDARD_HEIGHT
 		)
 		var rows: Dictionary = _new_world_rows(model)
