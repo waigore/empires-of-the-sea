@@ -7290,14 +7290,24 @@ func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 		AiIncome.banking(config, state, row),
 		"a host one regiment short of the peace stand still banks"
 	)
+	# The host leg releases only when the purse leg releases too (issue #1518):
+	# a court at its peace stand with a short chest still banks — the rail's
+	# own suite prices the short chest over the win-bar gap (DR-20261125-13).
 	row["regiments"] = config.parameter("army.regiment_target")
+	row["treasury"] = 5000
 	assert_false(
 		AiIncome.banking(config, state, row),
-		"a court at its peace-time stand banks no bank (issue #1517)"
+		"a funded court at its peace stand banks no bank (issue #1517)"
+	)
+	row["treasury"] = 600
+	assert_true(
+		AiIncome.banking(config, state, row),
+		"a short chest at the peace stand still banks for the line (issue #1518)"
 	)
 	row["regiments"] = (
 		config.parameter("army.regiment_target") + config.parameter("army.war_extra")
 	)
+	row["treasury"] = 5000
 	assert_false(AiIncome.banking(config, state, row), "a court at host strength banks no bank")
 	# The bank reads the chest the income row stamps, never the wobbling goal
 	# reserve (issue #995): the #603 valve re-routes the goal's own reserve to
