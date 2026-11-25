@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
-  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:80eee944cf708f8e3bc7257a9f0d5c50e3dbcd9f18a8d6e4c77314c8675cc348",
-  "submission_git": "refactor/ai-research-purse-home@328972b4+dirty",
+  "tree_hash": null,
+  "commit": null,
+  "submission_hash": "sha256:ccd9432b7257ecb604899728479aa9af0d5db4be6628d8c6c8a9510d8dbcb1df",
+  "submission_git": "fix/store-vs-harvest-gates@3128720c+dirty",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1125.2101052631579,
+      "value": 1128.6468586387434,
       "direction": "max"
     },
     {
@@ -50,30 +50,30 @@
     },
     {
       "name": "funded_pct",
-      "value": 43.62889194139194,
+      "value": 34.60726495726496,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:dcd25b44a6ad29c3571a2808bcf4b05b57886bd4d4bd68436d4507b26dfe701d",
+    "ai_surface_hash": "sha256:0baa8b835d22ac534570256f28278dc63ef263e77bc36217239884ace9437b1c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
       "provinces_new": 0,
-      "regiments": 9,
-      "ships": 0,
+      "regiments": 8,
+      "ships": 1,
       "workers": 3,
-      "extraction_per_turn": 46.72105263157895,
-      "income_per_turn": 226.768,
-      "funded_pct": 43.62889194139194
+      "extraction_per_turn": 51.29842931937173,
+      "income_per_turn": 221.05,
+      "funded_pct": 34.60726495726496
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 43.62889194139194
+    "funded_pct": 34.60726495726496
   },
   "params": {
     "turns": 200,
@@ -81,13 +81,14 @@
     "size": 1
   },
   "final": false,
-  "official": true,
+  "official": false,
+  "official_reason": "dirty-tree",
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-24T19:17:11Z",
+  "timestamp": "2026-11-25T06:19:57Z",
   "report_version": 1,
-  "signature": "hmac-sha256:4ed86c5fb284b2112cbd11c0b20d00dcc8b80bd268df687668a0153a16d97d61"
+  "signature": "hmac-sha256:de52f48ca51318e0c991c694bfb33c80b00a478e3bc4335ece31f6d783ddfec8"
 }
