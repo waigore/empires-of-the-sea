@@ -28,9 +28,8 @@ Units: explore, improve, colonize, spy.
   never refunded. **Aboard** a squadron a crew is off the map, taking no order.
   Explore ≤3, **prospect 1** (charted ground), improve 1–4, **upgrade town**
   (National Bureaucracy), road, port (one per seaboard), rail, fort 1–5
-  ([forts.md](forts.md)), hospital 1–2. Both presses print their price, wait and
-  gate (DR-20261125-08), reading the crown's purse and the tile's own crew as
-  the wall, the ward and the town beside them do (DR-20261125-09).
+  ([forts.md](forts.md)), hospital 1–2. Presses print price, wait, gate,
+  reading purse, crew (DR-20261125-08, -09).
 - **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
   a mineral hides until prospected.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
