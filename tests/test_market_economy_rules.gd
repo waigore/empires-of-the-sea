@@ -6717,9 +6717,14 @@ func _larder_play(regiments: int) -> PlaySession:
 
 
 ## One court on a hand-built chart: `harvest` is the ration its land lands, the
-## store empty (the pantry the strike has already eaten).
-func _larder_court(play: PlaySession, pool: int, harvest: int) -> MapPlayEconomyCourt:
+## store empty (the pantry the strike has already eaten) and the purse empty
+## unless a case hands it money, so a famine case sheds only what nothing pays
+## for (issue #1515).
+func _larder_court(
+	play: PlaySession, pool: int, harvest: int, purse: int = 0
+) -> MapPlayEconomyCourt:
 	var economy := PlayerEconomy.starting()
+	economy.treasury = purse
 	economy.workers = WorkerPool.make(pool)
 	economy.stockpile = {}
 	var court := MapPlayEconomyCourt.new()
@@ -6769,8 +6774,10 @@ func test_one_thin_turn_sheds_nothing() -> void:
 
 
 ## A famine sheds the mouths the harvest cannot carry, keeping one colour per
-## standard, and hands the pool their peasants: four levies at two rations eat
-## eight against a harvest of two, so three go and one stays.
+## standard, and hands the pool their peasants: four levies eat four rations and
+## the two hands two more, six against a harvest of two, so the first close sheds
+## the per-turn cap of two and a second close sheds the next rank — never the
+## whole field army in one sweep (issue #1515).
 func test_a_famine_sheds_the_mouths_the_harvest_cannot_carry() -> void:
 	var play: PlaySession = _larder_play(4)
 	var court: MapPlayEconomyCourt = _larder_court(play, 2, 2)
@@ -6779,19 +6786,92 @@ func test_a_famine_sheds_the_mouths_the_harvest_cannot_carry() -> void:
 	var receipt: Dictionary = MapPlayLarderRecovery.shed(court)
 
 	assert_true(bool(receipt["ok"]), "the famine order files")
-	assert_eq(int(receipt["regiments"]), 3, "three colours leave, one standard keeps")
+	assert_eq(int(receipt["regiments"]), 2, "two colours leave — the per-turn cap")
 	assert_eq(int(receipt["hulls"]), 0, "no hull is broken up with none afloat")
-	assert_eq(int(receipt["peasants"]), 3, "each dismissed regiment returns one peasant")
+	assert_eq(int(receipt["peasants"]), 2, "each dismissed regiment returns one peasant")
 	assert_eq(
 		(receipt["lines"] as Array),
-		["Dismisses 3 regiments — 3 peasants return to the fields"],
-		"and the court is told what left"
+		[
+			"Larder: bill 6 · harvest 2 · store 0 · purse 0",
+			"Dismisses 2 regiments — 2 peasants return to the fields",
+		],
+		"and the court is told the reading and what left"
 	)
 	var home: ArmyState = play.army_layer.armies[0] as ArmyState
-	assert_eq(home.count(), MapPlayLarderRecovery.KEEP_PER_STANDARD, "a standard keeps one mouth")
+	assert_eq(home.count(), 2, "the rest of the field army stands")
 	assert_eq(
-		court.economy.workers.count(WorkerPool.Tier.PEASANT), 5,
-		"the three peasants joined the pool"
+		court.economy.workers.count(WorkerPool.Tier.PEASANT), 4,
+		"the two peasants joined the pool"
+	)
+
+	# The next close reads the smaller bill (two levies, four rations against a
+	# harvest of two) and sheds the last mouth above the standard's keep.
+	var second: Dictionary = MapPlayLarderRecovery.shed(court)
+	assert_eq(int(second["regiments"]), 1, "the next close sheds one more")
+	assert_eq(
+		(play.army_layer.armies[0] as ArmyState).count(),
+		MapPlayLarderRecovery.KEEP_PER_STANDARD,
+		"a standard keeps one mouth"
+	)
+	play.army_layer.free()
+
+
+## The granary covers the bill and the court still struck: nothing leaves. A
+## full store is the lock-recovery's own purse (issue #1515).
+func test_a_granary_that_covers_the_bill_sheds_nothing() -> void:
+	var play: PlaySession = _larder_play(4)
+	var court: MapPlayEconomyCourt = _larder_court(play, 2, 0)
+	court.economy.stockpile = {"grain": 8}
+	_larder_streak(play, MapPlayLarderRecovery.STRIKE_TURNS)
+
+	var receipt: Dictionary = MapPlayLarderRecovery.shed(court)
+
+	assert_false(bool(receipt["ok"]), "a full granary files no order")
+	assert_eq((receipt["lines"] as Array).size(), 0, "and says nothing")
+	assert_eq(int(receipt["store"]), 8, "the reading names the store it saw")
+	assert_eq(
+		(play.army_layer.armies[0] as ArmyState).count(), 4,
+		"the colours stay while the granary carries them"
+	)
+	play.army_layer.free()
+
+
+## The purse can buy the gap and the court still struck: nothing leaves, because
+## the market's lock-recovery buys the missing ration before the army is sold
+## (wiki: treasury-planner § Lock-recovery; issue #1515).
+func test_a_purse_that_can_buy_the_gap_sheds_nothing() -> void:
+	var play: PlaySession = _larder_play(4)
+	# Four rations short: four levies and two hands eat six, the land lands two.
+	var court: MapPlayEconomyCourt = _larder_court(play, 2, 2, 400)
+	court.market = WorldMarket.with_default_prices()
+	_larder_streak(play, MapPlayLarderRecovery.STRIKE_TURNS)
+
+	var receipt: Dictionary = MapPlayLarderRecovery.shed(court)
+
+	assert_false(bool(receipt["ok"]), "a purse that can pay files no order")
+	assert_eq(int(receipt["purse"]), 400, "the reading names the purse it saw")
+	assert_eq(
+		(play.army_layer.armies[0] as ArmyState).count(), 4,
+		"the colours stay while the purse can buy their dinner"
+	)
+	play.army_layer.free()
+
+
+## A purse that covers only part of the gap sheds only the rest: 100 ducats buy
+## two rations of grain, so two of the four mouths nothing pays for leave.
+func test_a_thin_purse_sheds_only_the_gap_it_cannot_buy() -> void:
+	var play: PlaySession = _larder_play(4)
+	var court: MapPlayEconomyCourt = _larder_court(play, 2, 2, 100)
+	court.market = WorldMarket.with_default_prices()
+	_larder_streak(play, MapPlayLarderRecovery.STRIKE_TURNS)
+
+	var receipt: Dictionary = MapPlayLarderRecovery.shed(court)
+
+	assert_true(bool(receipt["ok"]), "the gap that nothing pays for still sheds")
+	assert_eq(int(receipt["regiments"]), 2, "the per-turn cap bounds the sweep")
+	assert_eq(
+		(play.army_layer.armies[0] as ArmyState).count(), 2,
+		"two colours leave for the two rations the purse could not buy"
 	)
 	play.army_layer.free()
 
@@ -6814,8 +6894,9 @@ func test_a_carried_bill_sheds_nothing() -> void:
 
 
 ## An empty hull goes before a colour, and a squadron keeps one afloat: four
-## hulls eating eight against a harvest of none shed three, and the deck under
-## a charge is never broken up (wiki: ships-and-naval § Naval transport).
+## hulls eating eight against a harvest of none shed the per-turn cap of two,
+## and the deck under a charge is never broken up (wiki: ships-and-naval
+## § Naval transport; issue #1515).
 func test_an_empty_hull_goes_before_a_colour() -> void:
 	var play: PlaySession = _larder_play(1)
 	var court: MapPlayEconomyCourt = _larder_court(play, 1, 0)
@@ -6840,11 +6921,11 @@ func test_an_empty_hull_goes_before_a_colour() -> void:
 
 	var receipt: Dictionary = MapPlayLarderRecovery.shed(court)
 
-	assert_eq(int(receipt["hulls"]), 3, "three empty hulls go first")
-	assert_eq(fleet.ship_count(), MapPlayLarderRecovery.KEEP_PER_STANDARD, "a squadron keeps one afloat")
+	assert_eq(int(receipt["hulls"]), 2, "two empty hulls go first — the per-turn cap")
+	assert_eq(fleet.ship_count(), 2, "and the squadron keeps hulls afloat")
 	assert_eq(carried.ship_count(), 2, "the deck under a charge keeps her hulls")
 	assert_true(
-		(receipt["lines"] as Array).has("Breaks up 3 hulls — 3 peasants return to the pool"),
+		(receipt["lines"] as Array).has("Breaks up 2 hulls — 2 peasants return to the pool"),
 		"and the court is told what was broken up"
 	)
 	assert_eq(
