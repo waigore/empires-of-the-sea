@@ -2,6 +2,11 @@ extends SceneTree
 ## Evidence probe for issue #1520: the eight-seed New World audit, printed for
 ## the wiki evidence page. Run:
 ##   godot --headless --path . --script res://tools/nw_seed_audit.gd
+##
+## A headless debug harness, not shipped game code: the file stands outside the
+## coverage plan so the 80% patch gate tracks the rules it drives, not the CLI
+## plumbing (tools/ai_vs_ai.gd's own precedent).
+# gd-tools: no cover start
 
 const SEEDS: Array[int] = [160, 1, 42, 777, 1500, 2024, 31415, 99991]
 const WIDTH: int = 84
