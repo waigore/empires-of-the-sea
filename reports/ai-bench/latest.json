@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": null,
   "commit": null,
-  "submission_hash": "sha256:ccd9432b7257ecb604899728479aa9af0d5db4be6628d8c6c8a9510d8dbcb1df",
-  "submission_git": "fix/store-vs-harvest-gates@3128720c+dirty",
+  "submission_hash": "sha256:0066f6d409e3865f3a530f19084a6c74f8bc9f20e552c5493b170a50108d8e78",
+  "submission_git": "fix/war-desire-pacts@a9f1ceab+dirty",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1128.6468586387434,
+      "value": 1248.4497354497353,
       "direction": "max"
     },
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 34.60726495726496,
+      "value": 49.8439713064713,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0baa8b835d22ac534570256f28278dc63ef263e77bc36217239884ace9437b1c",
+    "ai_surface_hash": "sha256:a8a22b853bfe1ef86edb034f47218ffe58fde2b6d931aaa94c3eb57668bb5f81",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -64,16 +64,16 @@
       "regiments": 8,
       "ships": 1,
       "workers": 3,
-      "extraction_per_turn": 51.29842931937173,
-      "income_per_turn": 221.05,
-      "funded_pct": 34.60726495726496
+      "extraction_per_turn": 50.16931216931217,
+      "income_per_turn": 343.1111111111111,
+      "funded_pct": 49.8439713064713
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 34.60726495726496
+    "funded_pct": 49.8439713064713
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-25T06:19:57Z",
+  "timestamp": "2026-11-25T08:39:37Z",
   "report_version": 1,
-  "signature": "hmac-sha256:de52f48ca51318e0c991c694bfb33c80b00a478e3bc4335ece31f6d783ddfec8"
+  "signature": "hmac-sha256:d2b1410dd402ff0d889f67bcc94660990e81a7f2cbf12879442c22bf4c36162d"
 }
