@@ -1284,14 +1284,22 @@ func test_the_open_ground_carries_a_resource_on_three_land_tiles_in_ten() -> voi
 
 ## The New World's seeding floors (issue #1520; wiki:
 ## resource-terrain-region-rules § Open-ground split, § Forest terrain split).
-## Measured over eight Standard seeds: the forest stays inside its published
-## split, the open ground keeps the 60:40 money-maker/ore split, every province
-## holds the money floor, and the region's cash-crop and riches averages clear
-## the published product floors.
-const NW_FLOOR_SEEDS: Array[int] = [160, 1, 42, 777, 1500, 2024, 31415, 99991]
+## Four Standard seeds — two large charts and two small — prove the forest split,
+## the open ground's 60:40 split and the per-province money floor on every seed,
+## and their cash-crop and riches averages clear the published product floors.
+## The eight-seed audit behind the wiki evidence page lives in
+## `tools/nw_seed_audit.gd`; this suite keeps the four the tier-1 budget affords.
+const NW_FLOOR_SEEDS: Array[int] = [160, 777, 1500, 31415]
 ## The New World chart of a Standard world (`generate_world`'s 0.88/0.9 scale).
 const NW_STANDARD_WIDTH: int = 84
 const NW_STANDARD_HEIGHT: int = 58
+## The published money floors as a density: 120 cash-crop and 100 rich rows on a
+## chart of ~1,600 land tiles. A smaller island would otherwise be failed for
+## having less ground rather than for seeding it worse, so every seed is held to
+## the floor its own land earns — which makes the mean below follow.
+const NW_MONEY_LAND: float = 1600.0
+const NW_CROP_FLOOR: float = 120.0
+const NW_RICH_FLOOR: float = 100.0
 
 
 func test_standard_new_world_seeds_fund_the_colonies() -> void:
@@ -1325,6 +1333,19 @@ func test_standard_new_world_seeds_fund_the_colonies() -> void:
 			int(rows["barren"]), 0,
 			"%s leaves %d provinces without two money-makers"
 			% [where, int(rows["barren"])]
+		)
+		var scale: float = float(int(rows["land"])) / NW_MONEY_LAND
+		assert_true(
+			float(rows["crops"]) >= NW_CROP_FLOOR * scale,
+			"%s carries %d cash-crop rows for %d land" % [
+				where, int(rows["crops"]), int(rows["land"]),
+			]
+		)
+		assert_true(
+			float(rows["riches"]) >= NW_RICH_FLOOR * scale,
+			"%s carries %d rich rows for %d land" % [
+				where, int(rows["riches"]), int(rows["land"]),
+			]
 		)
 	var seeds: float = float(NW_FLOOR_SEEDS.size())
 	assert_true(
@@ -1506,6 +1527,7 @@ func _new_world_rows(model: MapModel) -> Dictionary:
 		if int(money.get(province.id, 0)) < ResourceGround.PROVINCE_MONEY_FLOOR:
 			barren += 1
 	return {
+		"land": land,
 		"forest": float(forest) / float(maxi(land, 1)),
 		"hardwood": float(hardwood) / float(maxi(forest, 1)),
 		"open": float(open_rows) / float(maxi(land, 1)),
