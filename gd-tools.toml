@@ -55,9 +55,6 @@ exclude = [
     # gate would fail every smoke rewrite regardless of the tests that cover
     # the behaviour it drives (docs/testing.md § E2E).
     "tools/smoke",
-    # A headless audit a person runs for a chart's readings (issue #1520); its
-    # numbers live in the wiki evidence page, not in the suite.
-    "tools/nw_seed_audit.gd",
 ]
 test_dirs = [
     "tests",

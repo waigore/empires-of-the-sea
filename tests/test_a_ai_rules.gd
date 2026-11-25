@@ -3813,10 +3813,8 @@ func test_map_phase_sheds_a_rival_famine() -> void:
 	armies.regions.set_region(0, roster)
 	play.army_layer = armies
 	var economy: PlayerEconomy = play.ledger_for(1)
-	# An empty pantry and an empty purse: the plan turn notes the strike every
-	# turn it runs, and nothing is left to buy the ration with (#1515).
+	# An empty pantry: the plan turn notes the strike every turn it runs.
 	economy.stockpile = {}
-	economy.treasury = 0
 	economy.workers = WorkerPool.make(2)
 
 	var pantry: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]
