@@ -7263,8 +7263,12 @@ func test_below_bar_reads_the_win_bar() -> void:
 
 func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 	# The conquest bank's canonical read (issue #995): the win-bar gap, the
-	# host under the war-time target, and the purse one line-cycle short of
+	# host under the peace-time target, and the purse one line-cycle short of
 	# the chest — never the money goal, which wobbles on the re-route cycle.
+	# The host leg reads the peace-time stand (issue #1517): `army.war_extra` is
+	# the increment the war itself pays for, so a bank that waits for it waits
+	# for the war it is holding — the measured seed-1500 court sat at 8 of 9
+	# for 195 turns and opened no Great Power war at all.
 	var config: AiConfig = _phase_config()
 	var state := AiState.new()
 	var row: Dictionary = {
@@ -7281,6 +7285,16 @@ func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 	row["conquest_gap"] = false
 	assert_false(AiIncome.banking(config, state, row), "a court at the bar banks no bank")
 	row["conquest_gap"] = true
+	row["regiments"] = config.parameter("army.regiment_target") - 1
+	assert_true(
+		AiIncome.banking(config, state, row),
+		"a host one regiment short of the peace stand still banks"
+	)
+	row["regiments"] = config.parameter("army.regiment_target")
+	assert_false(
+		AiIncome.banking(config, state, row),
+		"a court at its peace-time stand banks no bank (issue #1517)"
+	)
 	row["regiments"] = (
 		config.parameter("army.regiment_target") + config.parameter("army.war_extra")
 	)

@@ -276,7 +276,7 @@ static func saving_reason(income: Dictionary, amount: int = 0) -> String:
 
 
 ## True while this court is banking for the army its conquest still needs
-## (issue #995): the win-bar gap holds, the host stands under the war-time
+## (issue #995): the win-bar gap holds, the host stands under the peace-time
 ## target, and the purse is one line-cycle short of the chest — so every
 ## deferrable purchase (a war, a pact break, an envoy rung) waits, and a purse
 ## that peaks inside a turn still belongs to the army that marches before
@@ -294,12 +294,22 @@ static func saving_reason(income: Dictionary, amount: int = 0) -> String:
 ## chest and the line's price stand in the purse, the army can be paid this
 ## turn and the court's other spending leads again — the trace names the army
 ## aim the bank waits for while it holds.
+##
+## The host leg reads the **peace-time** stand, not the war-time one (issue
+## #1517): `army.war_extra` is the increment the war itself pays for, so a bank
+## that waits for it waits for the war it is holding. Measured on seed 1500,
+## 200 turns: Portugal sat at the host line 8 of 9 from turn 5 to turn 200 —
+## every war, pact break and envoy rung refused with that line, while the ninth
+## regiment its own ledger dropped as out of reach — and no Great Power war
+## opened in the whole campaign. On the peace-time read the same seed opens
+## four Great Power wars after turn 10, with four pact breaks. The purse leg
+## still holds a court whose host is short or whose chest is not in the purse.
 static func banking(
 	config: AiConfig, ai_state: AiState, income: Dictionary
 ) -> bool:
 	if config == null or not bool(income.get("conquest_gap", false)):
 		return false
-	if int(income.get("regiments", 0)) >= AiArmyReinforce.desired_regiments(config, true):
+	if int(income.get("regiments", 0)) >= AiArmyReinforce.desired_regiments(config, false):
 		return false
 	var economy: PlayerEconomy = (
 		ai_state.economy_for(config.faction) if ai_state != null else null
@@ -346,7 +356,7 @@ static func bank_refusal(config: AiConfig, ai_state: AiState, income: Dictionary
 		return ""
 	return "the court is banking for its army (the host line %d of %d)" % [
 		int(income.get("regiments", 0)),
-		AiArmyReinforce.desired_regiments(config, true),
+		AiArmyReinforce.desired_regiments(config, false),
 	]
 
 
