@@ -1287,10 +1287,10 @@ func test_the_open_ground_carries_a_resource_on_three_land_tiles_in_ten() -> voi
 ## The shared census chart proves the forest split, the open ground's 60:40
 ## split and the per-province money floor on a world the suite already holds;
 ## one freshly generated Standard seed proves the same on a chart no fixture
-## carries, and the two together average above the published money floors. The
+## carries, and the three together average above the published money floors. The
 ## eight-seed audit behind the wiki evidence page lives in
 ## `tools/nw_seed_audit.gd`; this suite keeps what the tier-1 budget affords.
-const NW_FLOOR_SEEDS: Array[int] = [160]
+const NW_FLOOR_SEEDS: Array[int] = [42, 777]
 ## The New World chart of a Standard world (`generate_world`'s 0.88/0.9 scale).
 const NW_STANDARD_WIDTH: int = 84
 const NW_STANDARD_HEIGHT: int = 58
