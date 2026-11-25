@@ -14,8 +14,10 @@ extends RefCounted
 ## campaign on seed 1500 ran 175 turns on 73 ducats with the pool at `0 / 2`.
 ##
 ## This is the order that ends it: once the pool has gone unfed for more than a
-## turn, the court sheds the mouths its harvest cannot carry — an empty hull
-## first, then the thinnest colours — and says what left. The shed is the
+## turn, the court sheds the mouths its harvest and granary cannot carry and its
+## purse cannot buy — an empty hull first, then the thinnest colours — no more
+## than `SHED_PER_TURN` a close, and says what left beside the bill, harvest,
+## store and purse it read (issue #1515). The shed is the
 ## published rules' own: a dismissed regiment returns exactly one peasant
 ## ([method ArmyDismiss.dismiss]), a broken-up hull the same
 ## ([method FleetYard.scrap]), and neither refunds anything else.
@@ -29,6 +31,10 @@ extends RefCounted
 ## workers — the strike is per-turn, so a court that strikes twice is not merely
 ## short of a ration).
 const STRIKE_TURNS: int = 2
+## Mouths one close may shed: a court that truly cannot pay still loses its force
+## a rank at a time, so one bad reading never erases a whole field army or a
+## whole squadron in a single sweep (issue #1515).
+const SHED_PER_TURN: int = 2
 ## A standard keeps one mouth: the Home Army's own standard always stands, and a
 ## court that sheds an army's every regiment retires it from the chart, which is
 ## the chart's order and not a ledger's (wiki: military-armies § Dismissing
@@ -62,37 +68,58 @@ static func streak(court: MapPlayEconomyCourt) -> int:
 
 
 ## Files the famine order when the strike has run past a thin turn: sheds the
-## mouths this court's harvest cannot carry until its bill fits under the land,
-## and returns the receipt `{ok, regiments, hulls, peasants, lines}`. Reads and
-## spends nothing while the larder is feeding its hands — the common case.
+## mouths this court's harvest and granary cannot carry and its purse cannot buy,
+## a rank at a time, and returns the receipt
+## `{ok, regiments, hulls, peasants, lines, bill, harvest, store, purse}`. Reads
+## and spends nothing while the larder is feeding its hands — the common case.
+##
+## The market's lock-recovery buys first (wiki: treasury-planner § Modes;
+## DR-20261124-09): a court whose store covers the bill, or whose purse can buy
+## the rest at the market's price, sheds nothing. Only the gap left after both
+## is shed, and never more than `SHED_PER_TURN` mouths in one close, so a thin
+## turn cannot wipe an army (issue #1515).
 static func shed(court: MapPlayEconomyCourt) -> Dictionary:
 	var receipt: Dictionary = {
 		"ok": false, "regiments": 0, "hulls": 0, "peasants": 0, "lines": [],
+		"bill": 0, "harvest": 0, "store": 0, "purse": 0,
 	}
 	if court == null or court.play == null or court.economy == null:
 		return receipt
 	if streak(court) < STRIKE_TURNS:
 		return receipt
-	# The bill the phase eats against the ration the court's own land lands: a
-	# court buys grain out of the whole purse before it sheds (treasury-planner
-	# § Lock-recovery), so only the mouths the harvest itself cannot carry go.
+	# The bill the phase eats against what the larder already holds and what the
+	# turn's own land lands: a court buys grain out of the whole purse before it
+	# sheds (treasury-planner § Lock-recovery), so only the mouths nothing can
+	# pay for go.
 	var bill: int = MapPlayEconomyLarder.food_demand(
 		court.play, court.faction, court.economy
 	)
 	var harvest: int = EconomyConsumption.food_available(
 		court.overseas.get("extraction", {}) as Dictionary
 	)
-	var gap: int = bill - harvest
+	var store: int = EconomyConsumption.food_available(court.economy.stockpile)
+	var purse: int = court.economy.treasury
+	receipt["bill"] = bill
+	receipt["harvest"] = harvest
+	receipt["store"] = store
+	receipt["purse"] = purse
+	var gap: int = bill - harvest - store
+	if gap <= 0:
+		return receipt
+	gap -= _rations_the_purse_buys(court, gap)
 	if gap <= 0:
 		return receipt
 	var lines: Array[String] = []
+	lines.append(_reading_line(bill, harvest, store, purse))
 	# The ration a returned peasant eats back: the mouth the shed hands the pool.
 	var ration: int = WorkerPool.FOOD_PER_WORKER[WorkerPool.Tier.PEASANT]
-	while gap > 0:
+	var shed_mouths: int = 0
+	while gap > 0 and shed_mouths < SHED_PER_TURN:
 		var hull: Dictionary = _weakest_hull(court)
 		if not hull.is_empty() and _break_up(court, hull):
 			receipt["hulls"] = int(receipt["hulls"]) + 1
 			receipt["peasants"] = int(receipt["peasants"]) + 1
+			shed_mouths += 1
 			gap -= maxi(ShipEconomy.FOOD_UPKEEP_PER_SHIP - ration, 0)
 			continue
 		var colours: Dictionary = _thinnest_colours(court)
@@ -105,6 +132,7 @@ static func shed(court: MapPlayEconomyCourt) -> Dictionary:
 			break
 		receipt["regiments"] = int(receipt["regiments"]) + 1
 		receipt["peasants"] = int(receipt["peasants"]) + 1
+		shed_mouths += 1
 		gap -= maxi(upkeep - ration, 0)
 	receipt["ok"] = int(receipt["peasants"]) > 0
 	if int(receipt["hulls"]) > 0:
@@ -113,6 +141,37 @@ static func shed(court: MapPlayEconomyCourt) -> Dictionary:
 		lines.append(_dismissed_line(int(receipt["regiments"])))
 	receipt["lines"] = lines
 	return receipt
+
+
+## The rations this court's purse can buy in the market for `gap` mouths: the
+## cheapest food the market sells it, at the price the buy would clear at
+## (wiki: treasury-planner § Lock-recovery). A court with no market to buy from
+## buys nothing, so the count is 0 and the whole gap is shed.
+static func _rations_the_purse_buys(
+	court: MapPlayEconomyCourt, gap: int
+) -> int:
+	if court.market == null or court.economy == null or gap <= 0:
+		return 0
+	var unit: int = 0
+	for id: String in CommodityCatalog.FOOD:
+		var price: int = court.market.buy_price(id, court.faction)
+		if price <= 0:
+			continue
+		if unit == 0 or price < unit:
+			unit = price
+	if unit <= 0:
+		return 0
+	return mini(gap, int(court.economy.treasury) / unit)
+
+
+## "Larder: bill 22 · harvest 15 · store 22 · purse 85" — the exact reading the
+## shed acted on, so a future shed is auditable in the turn log (issue #1515).
+static func _reading_line(
+	bill: int, harvest: int, store: int, purse: int
+) -> String:
+	return "Larder: bill %d · harvest %d · store %d · purse %d" % [
+		bill, harvest, store, purse,
+	]
 
 
 ## The mouths the phase feeds before the pool: the army, the navy and the wards,
