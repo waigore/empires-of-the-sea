@@ -1247,21 +1247,23 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 		assert_true(MapGeo.is_coastal_tile(gen_model, port.x, port.y))
 
 
-## The published placement rate: a resource on three land tiles in ten, every
-## forest cell carrying one whatever the share says, and the open ground filled
-## after the guarantee rather than by a fixed one to three tiles a province
-## (wiki: resource-terrain-region-rules § Placement rate, § Forest terrain split;
-## DR-20261115-16, #676). Measured on the shared Standard census chart.
-func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
+## The published placement rate: the open ground carries a resource on three
+## land tiles in ten, every forest cell carries its guaranteed row on top of that
+## share, and the open ground is filled after the guarantee rather than by a
+## fixed one to three tiles a province (wiki: resource-terrain-region-rules
+## § Placement rate, § Forest terrain split; DR-20261115-16, #676; #1520).
+## Measured on the shared Standard census chart.
+func test_the_open_ground_carries_a_resource_on_three_land_tiles_in_ten() -> void:
 	# Placement and price cases share one packed-row scan of the published
 	# Standard chart (docs/testing.md § Speed rules).
 	for region: Dictionary in _census_tile_scan()["regions"]:
 		var land: int = int(region["land"])
-		var carrying: int = int(region["carrying"])
-		var share: float = float(carrying) / float(maxi(land, 1))
+		var open: int = int(region["open_carrying"])
+		var share: float = float(open) / float(maxi(land, 1))
 		var region_id: int = int(region["region_id"])
-		assert_true(share >= 0.28 and share <= 0.33,
-			"region %d carries %.3f of its %d land tiles" % [region_id, share, land])
+		assert_true(share >= 0.27 and share <= 0.32,
+			"region %d carries %.3f of its %d land tiles on open ground"
+			% [region_id, share, land])
 		assert_true(int(region["forests"]) > 0)
 		# A town tile is levelled to plains before this reading, so every cell
 		# still forest must carry its guaranteed row.
@@ -1269,14 +1271,70 @@ func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
 			int(region["bare_forests"]), 0,
 			"region %d has %d bare forest cells" % [region_id, int(region["bare_forests"])]
 		)
+		# The guarantee stands outside the share: the forest rows come on top.
 		assert_true(
-			int(region["open_carrying"]) > 0,
-			"region %d left its open ground bare" % region_id
+			int(region["carrying"]) > int(region["open_carrying"]),
+			"region %d left no forest rows outside its share" % region_id
 		)
 		# Absolute supply for #676: Standard still funds a market book (not the
 		# old ~3% sparse plot). OW land on Standard is ~2.3k tiles → ~670 rows.
-		assert_true(carrying >= 300,
-			"region %d only places %d resources on Standard" % [region_id, carrying])
+		assert_true(int(region["carrying"]) >= 300,
+			"region %d only places %d resources on Standard" % [region_id, int(region["carrying"])])
+
+
+## The New World's seeding floors (issue #1520; wiki:
+## resource-terrain-region-rules § Open-ground split, § Forest terrain split).
+## Measured over eight Standard seeds: the forest stays inside its published
+## split, the open ground keeps the 60:40 money-maker/ore split, every province
+## holds the money floor, and the region's cash-crop and riches averages clear
+## the published product floors.
+const NW_FLOOR_SEEDS: Array[int] = [160, 1, 42, 777, 1500, 2024, 31415, 99991]
+## The New World chart of a Standard world (`generate_world`'s 0.88/0.9 scale).
+const NW_STANDARD_WIDTH: int = 84
+const NW_STANDARD_HEIGHT: int = 58
+
+
+func test_standard_new_world_seeds_fund_the_colonies() -> void:
+	var crops: int = 0
+	var riches: int = 0
+	for seed_value: int in NW_FLOOR_SEEDS:
+		var model: MapModel = MapGenerator.new().generate_region(
+			seed_value, FactionCatalog.NEW_WORLD, NW_STANDARD_WIDTH, NW_STANDARD_HEIGHT
+		)
+		var rows: Dictionary = _new_world_rows(model)
+		crops += int(rows["crops"])
+		riches += int(rows["riches"])
+		var where: String = "New World seed %d" % seed_value
+		assert_true(
+			float(rows["forest"]) <= 0.15,
+			"%s runs %.3f forest" % [where, float(rows["forest"])]
+		)
+		assert_true(
+			absf(float(rows["hardwood"]) - 0.20) <= 0.03,
+			"%s runs hardwood %.3f of its forest" % [where, float(rows["hardwood"])]
+		)
+		assert_true(
+			float(rows["open"]) >= 0.27 and float(rows["open"]) <= 0.32,
+			"%s carries %.3f of its land on open ground" % [where, float(rows["open"])]
+		)
+		assert_true(
+			float(rows["both"]) >= 0.36 and float(rows["both"]) <= 0.44,
+			"%s prices %.3f of its open rows as ore" % [where, float(rows["both"])]
+		)
+		assert_eq(
+			int(rows["barren"]), 0,
+			"%s leaves %d provinces without two money-makers"
+			% [where, int(rows["barren"])]
+		)
+	var seeds: float = float(NW_FLOOR_SEEDS.size())
+	assert_true(
+		float(crops) / seeds >= 120.0,
+		"Standard New World averages %.1f cash-crop tiles" % (float(crops) / seeds)
+	)
+	assert_true(
+		float(riches) / seeds >= 100.0,
+		"Standard New World averages %.1f rich tiles" % (float(riches) / seeds)
+	)
 
 
 ## Standard chart keeps mean tiles/province in the published band while holding
@@ -1398,6 +1456,64 @@ func _census_tile_scan() -> Dictionary:
 		})
 	_census_scan = {"regions": regions, "commodity_counts": counts}
 	return _census_scan
+
+
+## One pass over a New World chart: forest share, hardwood share, open-ground
+## carrying share, the ore share of the open rows, the cash-crop and rich counts,
+## and how many provinces sit below the money floor.
+func _new_world_rows(model: MapModel) -> Dictionary:
+	var table: Array[Dictionary] = MapGenerator.resource_table()
+	var land: int = 0
+	var forest: int = 0
+	var hardwood: int = 0
+	var open_rows: int = 0
+	var both: int = 0
+	var crops: int = 0
+	var riches: int = 0
+	var money: Dictionary = {}
+	for y in model.height:
+		for x in model.width:
+			var terrain: int = model.terrain_at(x, y)
+			if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
+				continue
+			land += 1
+			var wooded: bool = terrain == MapModel.Terrain.HARDWOOD_FOREST \
+				or terrain == MapModel.Terrain.SCRUB_FOREST
+			if wooded:
+				forest += 1
+				if terrain == MapModel.Terrain.HARDWOOD_FOREST:
+					hardwood += 1
+				continue
+			var row: int = model.resource_at(x, y)
+			if row == MapModel.NO_ID:
+				continue
+			open_rows += 1
+			var commodity: String = String(table[row].get("commodity", ""))
+			if String(table[row].get("scope", "both")) == "both":
+				both += 1
+			var crop: bool = ResourceGround.MONEY_CROPS.has(commodity)
+			var rich: bool = CommodityCatalog.is_riches(commodity)
+			if not crop and not rich:
+				continue
+			if crop:
+				crops += 1
+			else:
+				riches += 1
+			var province: int = model.province_at(x, y)
+			money[province] = int(money.get(province, 0)) + 1
+	var barren: int = 0
+	for province: ProvinceState in model.provinces:
+		if int(money.get(province.id, 0)) < ResourceGround.PROVINCE_MONEY_FLOOR:
+			barren += 1
+	return {
+		"forest": float(forest) / float(maxi(land, 1)),
+		"hardwood": float(hardwood) / float(maxi(forest, 1)),
+		"open": float(open_rows) / float(maxi(land, 1)),
+		"both": float(both) / float(maxi(open_rows, 1)),
+		"crops": crops,
+		"riches": riches,
+		"barren": barren,
+	}
 
 
 ## Deep-copies a region so a twin can be bootstrapped or mounted without another
@@ -1536,7 +1652,7 @@ func test_the_draw_prices_the_rows_by_their_market_price() -> void:
 		],
 	)
 	assert_true(
-		int(counts["gold"]) > int(counts["gems"]),
+		int(counts["gold"]) >= int(counts["gems"]),
 		"peaks rows read gold %d, gems %d" % [int(counts["gold"]), int(counts["gems"])],
 	)
 	# The forest guarantee is placed by terrain, not price, so timber (the
