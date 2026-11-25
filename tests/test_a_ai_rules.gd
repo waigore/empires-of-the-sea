@@ -19901,6 +19901,35 @@ func test_the_storm_host_clears_the_wall_it_faces() -> void:
 	)
 
 
+## The wall the court must cross is the one its war prices (issue #1518): at
+## peace the map-wide thinnest wall stands; at war the enemy's own wall leads,
+## and a court that fights nobody reads the map-wide wall back.
+func test_the_war_wall_leads_the_read_at_war() -> void:
+	var play: PlaySession = PlaySession.new()
+	play.world = _walk_world([2, 1, 3])
+	var model: MapModel = play.world.region(0)
+	model.provinces[0].fort_level = 1
+	model.provinces[1].fort_level = 2
+	model.provinces[2].fort_level = 2
+	play.diplomacy = _war_state(2, 3)
+	play.diplomacy.relation(2, 3).at_war = true
+	var foe: float = MapPlayStormWall.war_wall(play, model, 2)
+	assert_eq(
+		float(foe), FortRules.storm_ceiling(2),
+		"at war the court reads the wall the court it fights holds"
+	)
+	assert_almost_eq(
+		MapPlayStormWall.ahead(play, model, 2, {}, true),
+		foe, 0.001,
+		"the war read leads the wall the host is sized on"
+	)
+	var wide: float = MapPlayStormWall.ahead(play, model, 2, {}, false)
+	assert_eq(float(wide), foe, "at peace the map-wide read prices every wall")
+	play.diplomacy.relation(2, 3).at_war = false
+	var quiet: float = MapPlayStormWall.ahead(play, model, 2, {}, true)
+	assert_eq(float(quiet), wide, "no war, no enemy wall: the map-wide read stands")
+
+
 ## The one storm gate the two war planners read (issue #1314): an empty open
 ## province admits any host, an empty walled one only a host that clears the top
 ## of the emplaced line, and a caller with no host or no map admits nothing.
