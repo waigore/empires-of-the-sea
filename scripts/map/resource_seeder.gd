@@ -1,19 +1,28 @@
 class_name ResourceSeeder
 extends RefCounted
 ## Places extractable resources on land tiles (wiki: tile-map-and-generation,
-## resource-terrain-region-rules). A region carries a resource on
-## `TARGET_SHARE` of its land tiles: every forest tile (the published 100%
-## guarantee), then the cheapest, most wanted rows spread over the rest of the
-## ground by the published spawn weight. The first tile a province receives is
-## its dossier headline resource.
+## resource-terrain-region-rules). A region's open ground carries a resource on
+## `TARGET_SHARE` of its land tiles. Every forest tile carries its guaranteed row
+## (the published 100% forest guarantee) on top of that share, and no forest row
+## is charged to the share or to the multi-region cap.
 ##
-## Decisions: DR-20261115-16 (density), wiki § Forest terrain split (the 100%
-## guarantee), § Multi-region cap (at most `BOTH_SHARE` "both" rows).
+## The New World's open ground splits its slots: `ResourceSlots` gives
+## `MONEY_SHARE` to the region-exclusive money-makers (the cash crops and the
+## riches) and the rest to the `both`-scope ores, so a colony can fund a win.
+## Each province takes a slice of that ground in proportion to the tiles it
+## holds, and every province keeps the money-maker floor where its ground can
+## host one. The Old World keeps the published price-weighted draw under the 30%
+## multi-region cap.
+##
+## Decisions: DR-20261115-16 (density), DR-20261126-01 (open share, New World
+## money-makers), wiki § Forest terrain split (the 100% guarantee), § Open-ground
+## split, § Multi-region cap.
 
-## Share of a region's land tiles that carry a resource (issue #676).
+## Share of a region's land tiles its open ground carries a resource on (issue
+## #676; issue #1520). The forest guarantee stands outside this share.
 const TARGET_SHARE: float = 0.30
-## At most this share of placed resources may be multi-region ("both") rows,
-## and only where the tile offered no region-exclusive alternative.
+## At most this share of the Old World's open-ground rows may be multi-region
+## ("both") rows, and only where the tile offered no region-exclusive alternative.
 const BOTH_SHARE: float = 0.30
 ## A hardwood New World tile carries the fur catch seven times in ten and timber
 ## otherwise (wiki: resource-terrain-region-rules § Forest terrain split).
@@ -23,14 +32,14 @@ const HARDWOOD_NW_FURS: int = 70
 static func seed_resources(
 	model: MapModel, table: Array[Dictionary], rng: RandomNumberGenerator
 ) -> void:
+	ResourceGround.open_money_ground(model, table)
 	var tally: Dictionary = {"both": 0, "exclusive": 0}
-	_seed_forest(model, table, rng, tally)
-	var placed: int = int(tally["both"]) + int(tally["exclusive"])
-	_fill_open_ground(model, table, rng, tally, _target(model) - placed)
+	_seed_forest(model, table, rng)
+	_fill_open_ground(model, table, rng, tally)
 
 
-## Land tiles that should carry a resource in this region: the published share of
-## the land.
+## Land tiles that should carry a resource on the open ground in this region:
+## the published share of the land, whatever the forests already carry.
 static func _target(model: MapModel) -> int:
 	var land: int = 0
 	for y in model.height:
@@ -43,14 +52,12 @@ static func _target(model: MapModel) -> int:
 # --- the forest's guarantee --------------------------------------------------
 
 
-## Every forest tile always carries a resource (wiki § Forest terrain split), so
-## the guarantee is placed before the ground's share is spent. It walks the grid,
-## because a forest cell between provinces still carries its timber.
+## Every forest tile always carries a resource (wiki § Forest terrain split), and
+## the guarantee is not charged to the open ground's share nor to the cap. It
+## walks the grid, because a forest cell between provinces still carries its
+## timber.
 static func _seed_forest(
-	model: MapModel,
-	table: Array[Dictionary],
-	rng: RandomNumberGenerator,
-	tally: Dictionary
+	model: MapModel, table: Array[Dictionary], rng: RandomNumberGenerator
 ) -> void:
 	for y in model.height:
 		for x in model.width:
@@ -65,7 +72,7 @@ static func _seed_forest(
 			var pick: int = _forest_pick(model, table, terrain, rng)
 			if pick >= 0:
 				var province: ProvinceState = model.get_province(model.province_at(x, y))
-				_place(model, table, province, Vector2i(x, y), pick, tally)
+				_place(model, table, province, Vector2i(x, y), pick)
 
 
 static func _forest_pick(
@@ -75,25 +82,26 @@ static func _forest_pick(
 		# Hardwood is the fur country in the New World: furs seven times in ten,
 		# timber otherwise, and timber always in the Old World.
 		var furs: int = _index_for(table, "furs")
-		if furs >= 0 and _allows(model, table[furs], terrain):
+		if furs >= 0 and ResourceGround.allows(model, table[furs], terrain):
 			if rng.randi_range(1, 100) <= HARDWOOD_NW_FURS:
 				return furs
 	return _index_for(table, "timber")
 
 
-# --- the rest of the ground --------------------------------------------------
+# --- the rest of the ground ---------------------------------------------------
 
 
-## Spend what the forest guarantee left of the region's share over the open
-## ground, each province taking a slice in proportion to the tiles it can host.
+## Spend the open ground's published share over the region's open tiles, each
+## province taking a slice in proportion to the tiles it can host, split by class
+## as `ResourceSlots` plans it.
 static func _fill_open_ground(
 	model: MapModel,
 	table: Array[Dictionary],
 	rng: RandomNumberGenerator,
-	tally: Dictionary,
-	left: int
+	tally: Dictionary
 ) -> void:
-	if left <= 0:
+	var target: int = _target(model)
+	if target <= 0:
 		return
 	var open: Array[Array] = []
 	var weights: Array[int] = []
@@ -105,15 +113,72 @@ static func _fill_open_ground(
 		total += tiles.size()
 	if total <= 0:
 		return
-	var quotas: Array[int] = _quotas(weights, total, mini(left, total))
+	var places: int = mini(target, total)
+	var quotas: Array[int] = ResourceSlots.quotas(weights, total, places)
+	var plan: Dictionary = ResourceSlots.plan(model, table, open, quotas, places)
+	var cash: Array[int] = plan["cash"]
+	var rich: Array[int] = plan["rich"]
+	var seam: Array[int] = plan["seam"]
+	var ore: Array[int] = plan["ore"]
+	# The Old World spends its whole slice on one published draw (the multi-region
+	# cap binds there); the New World's slice arrives split by class.
+	var ore_slot: int = (
+		ResourceGround.SLOT_ANY if model.region_id != FactionCatalog.NEW_WORLD
+		else ResourceGround.SLOT_ORE
+	)
 	for index in open.size():
 		var tiles: Array[Vector2i] = open[index]
 		_shuffle(tiles, rng)
 		var province: ProvinceState = model.provinces[index]
-		for slot in mini(quotas[index], tiles.size()):
-			var pick: int = _pick_resource(model, table, tiles[slot], rng, tally)
-			if pick >= 0:
-				_place(model, table, province, tiles[slot], pick, tally)
+		var wanted: int = cash[index] + rich[index] + seam[index] + ore[index]
+		var spent: int = _seed_class(
+			model, table, rng, province, tiles, cash[index], ResourceGround.SLOT_CASH, tally
+		)
+		spent += _seed_class(
+			model, table, rng, province, tiles, rich[index], ResourceGround.SLOT_RICH, tally
+		)
+		spent += _seed_class(
+			model, table, rng, province, tiles, seam[index], ResourceGround.SLOT_SEAM, tally
+		)
+		spent += _seed_class(
+			model, table, rng, province, tiles, ore[index], ore_slot, tally
+		)
+		# A class can run out of free ground where two classes share a terrain
+		# (hills host silver and ore); the rest of the slice takes any legal row.
+		_seed_class(
+			model, table, rng, province, tiles, maxi(0, wanted - spent),
+			ResourceGround.SLOT_ANY, tally
+		)
+
+
+## Places up to `want` rows of one slot class on the province's free tiles.
+## Returns how many it placed.
+static func _seed_class(
+	model: MapModel,
+	table: Array[Dictionary],
+	rng: RandomNumberGenerator,
+	province: ProvinceState,
+	tiles: Array[Vector2i],
+	want: int,
+	slot: int,
+	tally: Dictionary
+) -> int:
+	if want <= 0:
+		return 0
+	var placed: int = 0
+	for tile: Vector2i in tiles:
+		if placed >= want:
+			break
+		if model.resource_at(tile.x, tile.y) != MapModel.NO_ID:
+			continue
+		var pick: int = _pick_resource(model, table, tile, rng, slot, tally)
+		if pick < 0:
+			continue
+		_place(model, table, province, tile, pick)
+		var key: String = "both" if _is_both(table, pick) else "exclusive"
+		tally[key] = int(tally[key]) + 1
+		placed += 1
+	return placed
 
 
 ## Every land tile of the province a published row may stand on and that carries
@@ -132,39 +197,10 @@ static func _open_tiles(
 				or terrain == MapModel.Terrain.HARDWOOD_FOREST:
 			continue
 		for entry: Dictionary in table:
-			if _allows(model, entry, terrain):
+			if ResourceGround.allows(model, entry, terrain):
 				tiles.append(tile)
 				break
 	return tiles
-
-
-## Largest-remainder split of `left` places over the provinces' eligible tiles.
-static func _quotas(weights: Array[int], total: int, left: int) -> Array[int]:
-	var quotas: Array[int] = []
-	var remainders: Array[float] = []
-	var spent: int = 0
-	for weight: int in weights:
-		var exact: float = float(left) * float(weight) / float(maxi(total, 1))
-		var whole: int = mini(int(floor(exact)), weight)
-		quotas.append(whole)
-		remainders.append(exact - float(whole))
-		spent += whole
-	var order: Array[int] = []
-	for index in weights.size():
-		order.append(index)
-	order.sort_custom(func(a: int, b: int) -> bool:
-		if is_equal_approx(remainders[a], remainders[b]):
-			return a < b
-		return remainders[a] > remainders[b]
-	)
-	var cursor: int = 0
-	while spent < left and cursor < order.size():
-		var index: int = order[cursor]
-		if quotas[index] < weights[index]:
-			quotas[index] += 1
-			spent += 1
-		cursor += 1
-	return quotas
 
 
 ## Deterministic Fisher-Yates, so a seed's picks survive a refactor.
@@ -178,34 +214,40 @@ static func _shuffle(tiles: Array[Vector2i], rng: RandomNumberGenerator) -> void
 		tiles[swap] = held
 
 
-# --- picking a row ----------------------------------------------------------
+# --- picking a row -----------------------------------------------------------
 
 
+## Draws a row for the tile among the rows its slot may host. The spawn weight is
+## 1 / default market price, so the dearer a resource is the rarer it lies; the
+## multi-region cap binds the Old World's published draw (wiki § Table, § Cap).
 static func _pick_resource(
 	model: MapModel,
 	table: Array[Dictionary],
 	tile: Vector2i,
 	rng: RandomNumberGenerator,
+	slot: int,
 	tally: Dictionary
 ) -> int:
 	var terrain: int = model.terrain_at(tile.x, tile.y)
 	var options: Array[int] = []
 	for index in table.size():
-		if _allows(model, table[index], terrain):
-			options.append(index)
+		if not ResourceGround.allows(model, table[index], terrain):
+			continue
+		if not ResourceGround.fits_slot(model, table, index, terrain, slot):
+			continue
+		options.append(index)
 	if options.is_empty():
 		return -1
-	# Multi-region cap: once "both" rows hold their published share, a tile that
-	# offers a region-exclusive row takes it (wiki § Multi-region cap).
-	if not both_allowed(int(tally["both"]), int(tally["exclusive"])):
+	# Multi-region cap (Old World): once "both" rows hold their published share,
+	# a tile that offers a region-exclusive row takes it.
+	if slot == ResourceGround.SLOT_ANY \
+			and not both_allowed(int(tally["both"]), int(tally["exclusive"])):
 		var exclusive: Array[int] = []
 		for index: int in options:
 			if not _is_both(table, index):
 				exclusive.append(index)
 		if not exclusive.is_empty():
 			options = exclusive
-	# Spawn weight = 1 / default market price, so the dearer a resource is the
-	# rarer it lies (wiki: resource-terrain-region-rules § Table).
 	var total: float = 0.0
 	for index: int in options:
 		total += _spawn_weight(table, index)
@@ -224,12 +266,9 @@ static func _place(
 	table: Array[Dictionary],
 	province: ProvinceState,
 	tile: Vector2i,
-	pick: int,
-	tally: Dictionary
+	pick: int
 ) -> void:
 	model.resource[model.index_of(tile.x, tile.y)] = pick
-	var key: String = "both" if _is_both(table, pick) else "exclusive"
-	tally[key] = int(tally[key]) + 1
 	if province != null and province.resource == MapModel.NO_ID:
 		province.resource = pick
 		province.resource_tile = tile
@@ -257,29 +296,9 @@ static func _is_both(table: Array[Dictionary], index: int) -> bool:
 	return scope == "both" or scope.is_empty()
 
 
-## True when the row may stand on this terrain in this region.
-static func _allows(model: MapModel, entry: Dictionary, terrain: int) -> bool:
-	if not (entry.get("terrain", []) as Array).has(terrain):
-		return false
-	return _scope_allows(model, entry)
-
-
 ## Index of the row whose commodity is `commodity`; -1 when the table has none.
 static func _index_for(table: Array[Dictionary], commodity: String) -> int:
 	for index in table.size():
 		if String(table[index].get("commodity", "")) == commodity:
 			return index
 	return -1
-
-
-## Wiki region column: ow / nw / both (default both when omitted).
-static func _scope_allows(model: MapModel, entry: Dictionary) -> bool:
-	var scope: String = String(entry.get("scope", "both"))
-	if scope == "both" or scope.is_empty():
-		return true
-	var new_world: bool = model.region_id == FactionCatalog.NEW_WORLD
-	if scope == "nw":
-		return new_world
-	if scope == "ow":
-		return not new_world
-	return true
