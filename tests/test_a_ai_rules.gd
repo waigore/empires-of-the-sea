@@ -7290,14 +7290,24 @@ func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 		AiIncome.banking(config, state, row),
 		"a host one regiment short of the peace stand still banks"
 	)
+	# The host leg releases only when the purse leg releases too (issue #1518):
+	# a court at its peace stand with a short chest still banks — the rail's
+	# own suite prices the short chest over the win-bar gap (DR-20261125-13).
 	row["regiments"] = config.parameter("army.regiment_target")
+	row["treasury"] = 5000
 	assert_false(
 		AiIncome.banking(config, state, row),
-		"a court at its peace-time stand banks no bank (issue #1517)"
+		"a funded court at its peace stand banks no bank (issue #1517)"
+	)
+	row["treasury"] = 600
+	assert_true(
+		AiIncome.banking(config, state, row),
+		"a short chest at the peace stand still banks for the line (issue #1518)"
 	)
 	row["regiments"] = (
 		config.parameter("army.regiment_target") + config.parameter("army.war_extra")
 	)
+	row["treasury"] = 5000
 	assert_false(AiIncome.banking(config, state, row), "a court at host strength banks no bank")
 	# The bank reads the chest the income row stamps, never the wobbling goal
 	# reserve (issue #995): the #603 valve re-routes the goal's own reserve to
@@ -19889,6 +19899,35 @@ func test_the_storm_host_clears_the_wall_it_faces() -> void:
 		MapPlayArmyMusterAi.thinnest_wall(open, 1), 0.0,
 		"open ground in front of the court reads no wall"
 	)
+
+
+## The wall the court must cross is the one its war prices (issue #1518): at
+## peace the map-wide thinnest wall stands; at war the enemy's own wall leads,
+## and a court that fights nobody reads the map-wide wall back.
+func test_the_war_wall_leads_the_read_at_war() -> void:
+	var play: PlaySession = PlaySession.new()
+	play.world = _walk_world([2, 1, 3])
+	var model: MapModel = play.world.region(0)
+	model.provinces[0].fort_level = 1
+	model.provinces[1].fort_level = 2
+	model.provinces[2].fort_level = 2
+	play.diplomacy = _war_state(2, 3)
+	play.diplomacy.relation(2, 3).at_war = true
+	var foe: float = MapPlayStormWall.war_wall(play, model, 2)
+	assert_eq(
+		float(foe), FortRules.storm_ceiling(2),
+		"at war the court reads the wall the court it fights holds"
+	)
+	assert_almost_eq(
+		MapPlayStormWall.ahead(play, model, 2, {}, true),
+		foe, 0.001,
+		"the war read leads the wall the host is sized on"
+	)
+	var wide: float = MapPlayStormWall.ahead(play, model, 2, {}, false)
+	assert_eq(float(wide), foe, "at peace the map-wide read prices every wall")
+	play.diplomacy.relation(2, 3).at_war = false
+	var quiet: float = MapPlayStormWall.ahead(play, model, 2, {}, true)
+	assert_eq(float(quiet), wide, "no war, no enemy wall: the map-wide read stands")
 
 
 ## The one storm gate the two war planners read (issue #1314): an empty open

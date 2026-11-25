@@ -3351,6 +3351,13 @@ domain = "ai_army"
 match = "scripts/map/map_play_army_muster_ai.gd*"
 domain = "ai_army"
 
+# The wall reading the muster prices (the thinnest wall ahead and, at war, the
+# enemy's own wall), split out of the muster home so a wall read rides the same
+# narrow army-AI slice (issue #1518).
+[[rules]]
+match = "scripts/map/map_play_storm_wall.gd*"
+domain = "ai_army"
+
 [domains.ai_army]
 suites = [
   "test_a_ai_rules.gd",

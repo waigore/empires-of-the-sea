@@ -309,7 +309,12 @@ static func banking(
 ) -> bool:
 	if config == null or not bool(income.get("conquest_gap", false)):
 		return false
-	if int(income.get("regiments", 0)) >= AiArmyReinforce.desired_regiments(config, false):
+	if int(income.get("regiments", 0)) >= AiArmyReinforce.desired_regiments(config, false) \
+			and int(income.get("treasury", 0)) >= int(
+				income.get("bank_chest", income.get("reserve", 0))
+			) + maxi(AiArmyReinforce.cheapest_line_price(
+				ai_state.economy_for(AiDiplomacyGates.faction_of(config)) if ai_state != null else null
+			), 0):
 		return false
 	var economy: PlayerEconomy = (
 		ai_state.economy_for(config.faction) if ai_state != null else null
