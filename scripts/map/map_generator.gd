@@ -30,6 +30,23 @@ func generate(seed_value: int, p_width: int = 96, p_height: int = 64) -> MapMode
 func generate_region(
 	seed_value: int, region_id: int, p_width: int, p_height: int
 ) -> MapModel:
+	var model: MapModel = generate_ground(seed_value, region_id, p_width, p_height)
+	_build_ports(model)
+	_assign_factions(model, region_id)
+	_place_capitals(model, region_id)
+	_assign_town_tiles(model)
+	_name_provinces(model)
+	return model
+
+
+## The ground passes of one region — landform, provinces, sea zones and
+## resources — without the politics, towns and names a map screen adds. It draws
+## the same rows `generate_region` does from the same RNG sequence, so a rules
+## test reads the generated chart cheaply instead of regenerating a whole map
+## (docs/testing.md § Speed rules).
+func generate_ground(
+	seed_value: int, region_id: int, p_width: int, p_height: int
+) -> MapModel:
 	_rng.seed = seed_value
 	var model := MapModel.new()
 	model.setup(p_width, p_height)
@@ -40,11 +57,6 @@ func generate_region(
 	_build_provinces(model)
 	_build_sea_zones(model)
 	_build_resources(model)
-	_build_ports(model)
-	_assign_factions(model, region_id)
-	_place_capitals(model, region_id)
-	_assign_town_tiles(model)
-	_name_provinces(model)
 	return model
 
 

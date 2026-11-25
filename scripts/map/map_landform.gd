@@ -6,6 +6,16 @@ extends RefCounted
 
 const MIN_ISLAND_TILES: int = 10
 const BORDER_MARGIN: int = 2
+## A New World seed's moisture field is calibrated to the published forest share
+## so no seed can swamp the open ground the colonies farm (issue #1520): forest is
+## `NW_FOREST_SHARE` of the land at a 1:4 hardwood:scrub split, which frees the
+## plains, hills, peaks and desert the crops and riches stand on.
+const NW_FOREST_SHARE: float = 0.14
+const NW_HARDWOOD_SHARE: float = 0.20
+const NW_SWAMP_SHARE: float = 0.12
+const NW_HILLS: float = 0.26
+const NW_MOUNTAINS: float = 0.46
+const NW_DESERT: float = -0.40
 
 
 static func build(
@@ -129,15 +139,10 @@ static func _paint_terrain(model: MapModel, seed_value: int, region_id: int) -> 
 	moisture.frequency = 0.038
 	moisture.fractal_octaves = 3
 
-	var new_world: bool = region_id == FactionCatalog.NEW_WORLD
-	for y in model.height:
-		for x in model.width:
-			var index: int = model.index_of(x, y)
-			if model.terrain[index] == MapModel.Terrain.OCEAN:
-				continue
-			var height_value: float = elevation.get_noise_2d(float(x), float(y))
-			var wet: float = moisture.get_noise_2d(float(x), float(y))
-			model.terrain[index] = terrain_for(height_value, wet, new_world)
+	if region_id == FactionCatalog.NEW_WORLD:
+		_paint_new_world(model, elevation, moisture)
+	else:
+		_paint_old_world(model, elevation, moisture)
 
 	for y in model.height:
 		for x in model.width:
@@ -148,25 +153,86 @@ static func _paint_terrain(model: MapModel, seed_value: int, region_id: int) -> 
 				model.terrain[index] = MapModel.Terrain.SHALLOW
 
 
-## Old World keeps temperate blobs; the New World runs wetter and hotter, with
-## more forest and marsh (wiki: tile-map-and-generation § Terrain by region).
-static func terrain_for(height_value: float, wet: float, new_world: bool) -> int:
-	if new_world:
-		if height_value > 0.46:
-			return MapModel.Terrain.MOUNTAINS
-		if height_value > 0.26:
-			return MapModel.Terrain.HILLS
-		if wet > 0.10:
-			return (
-				MapModel.Terrain.SCRUB_FOREST
-				if wet > 0.22
-				else MapModel.Terrain.HARDWOOD_FOREST
-			)
-		if wet < -0.40:
-			return MapModel.Terrain.DESERT
-		if wet > -0.06:
-			return MapModel.Terrain.SWAMP
-		return MapModel.Terrain.PLAINS
+## The New World runs wetter and hotter, with more forest and marsh (wiki:
+## tile-map-and-generation § Terrain by region). The forest line is read off the
+## seed's own moisture field: the wettest `NW_FOREST_SHARE` of the land is forest,
+## the wettest fifth of that hardwood and the rest scrub, so the 1:4 split and the
+## open-ground budget hold on every seed instead of riding the noise.
+static func _paint_new_world(
+	model: MapModel, elevation: FastNoiseLite, moisture: FastNoiseLite
+) -> void:
+	var lowland: Array[Vector2i] = []
+	var wets: Array[float] = []
+	var by_index: Dictionary = {}
+	var land: int = 0
+	for y in model.height:
+		for x in model.width:
+			var index: int = model.index_of(x, y)
+			if model.terrain[index] == MapModel.Terrain.OCEAN:
+				continue
+			land += 1
+			var height_value: float = elevation.get_noise_2d(float(x), float(y))
+			if height_value > NW_HILLS:
+				model.terrain[index] = (
+					MapModel.Terrain.MOUNTAINS if height_value > NW_MOUNTAINS
+					else MapModel.Terrain.HILLS
+				)
+				continue
+			var wet: float = moisture.get_noise_2d(float(x), float(y))
+			lowland.append(Vector2i(x, y))
+			wets.append(wet)
+			by_index[index] = wet
+	if lowland.is_empty():
+		return
+	var forest_target: int = int(round(float(land) * NW_FOREST_SHARE))
+	var hardwood_target: int = int(round(float(forest_target) * NW_HARDWOOD_SHARE))
+	var swamp_target: int = int(round(float(land) * NW_SWAMP_SHARE))
+	var forest_line: float = _wet_line(wets, forest_target)
+	var hardwood_line: float = _wet_line(wets, hardwood_target)
+	var swamp_line: float = _wet_line(wets, forest_target + swamp_target)
+	for tile: Vector2i in lowland:
+		var index: int = model.index_of(tile.x, tile.y)
+		var wet: float = float(by_index[index])
+		if wet > hardwood_line:
+			model.terrain[index] = MapModel.Terrain.HARDWOOD_FOREST
+		elif wet > forest_line:
+			model.terrain[index] = MapModel.Terrain.SCRUB_FOREST
+		elif wet > swamp_line:
+			model.terrain[index] = MapModel.Terrain.SWAMP
+		elif wet < NW_DESERT:
+			model.terrain[index] = MapModel.Terrain.DESERT
+		else:
+			model.terrain[index] = MapModel.Terrain.PLAINS
+
+
+## The moisture value a tile must beat to be one of the `count` wettest of the
+## field (`+INF` when none, `-INF` when all). Ties fall to the grid order above.
+static func _wet_line(values: Array[float], count: int) -> float:
+	if count <= 0:
+		return INF
+	if count >= values.size():
+		return -INF
+	var sorted: Array[float] = values.duplicate()
+	sorted.sort()
+	return sorted[sorted.size() - count - 1]
+
+
+static func _paint_old_world(
+	model: MapModel, elevation: FastNoiseLite, moisture: FastNoiseLite
+) -> void:
+	for y in model.height:
+		for x in model.width:
+			var index: int = model.index_of(x, y)
+			if model.terrain[index] == MapModel.Terrain.OCEAN:
+				continue
+			var height_value: float = elevation.get_noise_2d(float(x), float(y))
+			var wet: float = moisture.get_noise_2d(float(x), float(y))
+			model.terrain[index] = terrain_for(height_value, wet)
+
+
+## Old World keeps temperate blobs (wiki: tile-map-and-generation § Terrain by
+## region).
+static func terrain_for(height_value: float, wet: float) -> int:
 	if height_value > 0.42:
 		return MapModel.Terrain.MOUNTAINS
 	if height_value > 0.22:

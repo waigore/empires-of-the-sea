@@ -3837,10 +3837,9 @@ func test_map_phase_sheds_a_rival_famine() -> void:
 	armies.regions.set_region(0, roster)
 	play.army_layer = armies
 	var economy: PlayerEconomy = play.ledger_for(1)
-	# An empty pantry and a thin purse: the plan turn notes the strike every
-	# turn it runs. The purse is read first (issue #1515; DR-20261125-11), so a
-	# bare larder alone is not a famine — a court that can buy its dinner keeps
-	# its army.
+	# An empty pantry and an empty purse: the plan turn notes the strike every
+	# turn it runs, and nothing is left to buy the ration with (#1515; the purse
+	# gate #1522 added, so this case is the famine and not the purse).
 	economy.stockpile = {}
 	economy.treasury = 0
 	economy.workers = WorkerPool.make(2)
