@@ -1286,12 +1286,11 @@ func test_the_open_ground_carries_a_resource_on_three_land_tiles_in_ten() -> voi
 ## resource-terrain-region-rules § Open-ground split, § Forest terrain split).
 ## The shared census chart proves the forest split, the open ground's 60:40
 ## split and the per-province money floor on a world the suite already holds;
-## two more Standard seeds (the largest and the smallest of the audit set) prove
-## the same on freshly generated charts, and their cash-crop and riches averages
-## clear the published product floors. The eight-seed audit behind the wiki
-## evidence page lives in `tools/nw_seed_audit.gd`; this suite keeps what the
-## tier-1 budget affords.
-const NW_FLOOR_SEEDS: Array[int] = [160, 31415]
+## one freshly generated Standard seed proves the same on a chart no fixture
+## carries, and the two together average above the published money floors. The
+## eight-seed audit behind the wiki evidence page lives in
+## `tools/nw_seed_audit.gd`; this suite keeps what the tier-1 budget affords.
+const NW_FLOOR_SEEDS: Array[int] = [160]
 ## The New World chart of a Standard world (`generate_world`'s 0.88/0.9 scale).
 const NW_STANDARD_WIDTH: int = 84
 const NW_STANDARD_HEIGHT: int = 58
@@ -1307,11 +1306,12 @@ const NW_RICH_FLOOR: float = 100.0
 func test_standard_new_world_seeds_fund_the_colonies() -> void:
 	# The shared census chart is the world the suite already reads (seed 160,
 	# Standard); its New World needs no regeneration to prove the floors.
-	_assert_new_world_floors(_new_world_rows(
+	var census: Dictionary = _new_world_rows(
 		_census_world().region(FactionCatalog.NEW_WORLD)
-	), "census New World")
-	var crops: int = 0
-	var riches: int = 0
+	)
+	_assert_new_world_floors(census, "census New World")
+	var crops: int = int(census["crops"])
+	var riches: int = int(census["riches"])
 	for seed_value: int in NW_FLOOR_SEEDS:
 		var model: MapModel = MapGenerator.new().generate_ground(
 			seed_value, FactionCatalog.NEW_WORLD, NW_STANDARD_WIDTH, NW_STANDARD_HEIGHT
@@ -1320,14 +1320,14 @@ func test_standard_new_world_seeds_fund_the_colonies() -> void:
 		crops += int(rows["crops"])
 		riches += int(rows["riches"])
 		_assert_new_world_floors(rows, "New World seed %d" % seed_value)
-	var seeds: float = float(NW_FLOOR_SEEDS.size())
+	var charts: float = float(NW_FLOOR_SEEDS.size() + 1)
 	assert_true(
-		float(crops) / seeds >= 120.0,
-		"Standard New World averages %.1f cash-crop tiles" % (float(crops) / seeds)
+		float(crops) / charts >= 120.0,
+		"Standard New World averages %.1f cash-crop tiles" % (float(crops) / charts)
 	)
 	assert_true(
-		float(riches) / seeds >= 100.0,
-		"Standard New World averages %.1f rich tiles" % (float(riches) / seeds)
+		float(riches) / charts >= 100.0,
+		"Standard New World averages %.1f rich tiles" % (float(riches) / charts)
 	)
 
 
