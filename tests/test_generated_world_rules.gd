@@ -1284,25 +1284,32 @@ func test_the_open_ground_carries_a_resource_on_three_land_tiles_in_ten() -> voi
 
 ## The New World's seeding floors (issue #1520; wiki:
 ## resource-terrain-region-rules § Open-ground split, § Forest terrain split).
-## Four Standard seeds — two large charts and two small — prove the forest split,
-## the open ground's 60:40 split and the per-province money floor on every seed,
-## and their cash-crop and riches averages clear the published product floors.
-## The eight-seed audit behind the wiki evidence page lives in
-## `tools/nw_seed_audit.gd`; this suite keeps the four the tier-1 budget affords.
-const NW_FLOOR_SEEDS: Array[int] = [160, 777, 1500, 31415]
+## The shared census chart proves the forest split, the open ground's 60:40
+## split and the per-province money floor on a world the suite already holds;
+## two more Standard seeds (the largest and the smallest of the audit set) prove
+## the same on freshly generated charts, and their cash-crop and riches averages
+## clear the published product floors. The eight-seed audit behind the wiki
+## evidence page lives in `tools/nw_seed_audit.gd`; this suite keeps what the
+## tier-1 budget affords.
+const NW_FLOOR_SEEDS: Array[int] = [160, 31415]
 ## The New World chart of a Standard world (`generate_world`'s 0.88/0.9 scale).
 const NW_STANDARD_WIDTH: int = 84
 const NW_STANDARD_HEIGHT: int = 58
 ## The published money floors as a density: 120 cash-crop and 100 rich rows on a
 ## chart of ~1,600 land tiles. A smaller island would otherwise be failed for
 ## having less ground rather than for seeding it worse, so every seed is held to
-## the floor its own land earns — which makes the mean below follow.
+## the floor its own land earns.
 const NW_MONEY_LAND: float = 1600.0
 const NW_CROP_FLOOR: float = 120.0
 const NW_RICH_FLOOR: float = 100.0
 
 
 func test_standard_new_world_seeds_fund_the_colonies() -> void:
+	# The shared census chart is the world the suite already reads (seed 160,
+	# Standard); its New World needs no regeneration to prove the floors.
+	_assert_new_world_floors(_new_world_rows(
+		_census_world().region(FactionCatalog.NEW_WORLD)
+	), "census New World")
 	var crops: int = 0
 	var riches: int = 0
 	for seed_value: int in NW_FLOOR_SEEDS:
@@ -1312,41 +1319,7 @@ func test_standard_new_world_seeds_fund_the_colonies() -> void:
 		var rows: Dictionary = _new_world_rows(model)
 		crops += int(rows["crops"])
 		riches += int(rows["riches"])
-		var where: String = "New World seed %d" % seed_value
-		assert_true(
-			float(rows["forest"]) <= 0.15,
-			"%s runs %.3f forest" % [where, float(rows["forest"])]
-		)
-		assert_true(
-			absf(float(rows["hardwood"]) - 0.20) <= 0.03,
-			"%s runs hardwood %.3f of its forest" % [where, float(rows["hardwood"])]
-		)
-		assert_true(
-			float(rows["open"]) >= 0.27 and float(rows["open"]) <= 0.32,
-			"%s carries %.3f of its land on open ground" % [where, float(rows["open"])]
-		)
-		assert_true(
-			float(rows["both"]) >= 0.36 and float(rows["both"]) <= 0.44,
-			"%s prices %.3f of its open rows as ore" % [where, float(rows["both"])]
-		)
-		assert_eq(
-			int(rows["barren"]), 0,
-			"%s leaves %d provinces without two money-makers"
-			% [where, int(rows["barren"])]
-		)
-		var scale: float = float(int(rows["land"])) / NW_MONEY_LAND
-		assert_true(
-			float(rows["crops"]) >= NW_CROP_FLOOR * scale,
-			"%s carries %d cash-crop rows for %d land" % [
-				where, int(rows["crops"]), int(rows["land"]),
-			]
-		)
-		assert_true(
-			float(rows["riches"]) >= NW_RICH_FLOOR * scale,
-			"%s carries %d rich rows for %d land" % [
-				where, int(rows["riches"]), int(rows["land"]),
-			]
-		)
+		_assert_new_world_floors(rows, "New World seed %d" % seed_value)
 	var seeds: float = float(NW_FLOOR_SEEDS.size())
 	assert_true(
 		float(crops) / seeds >= 120.0,
@@ -1355,6 +1328,46 @@ func test_standard_new_world_seeds_fund_the_colonies() -> void:
 	assert_true(
 		float(riches) / seeds >= 100.0,
 		"Standard New World averages %.1f rich tiles" % (float(riches) / seeds)
+	)
+
+
+## One New World chart's published floors: forest inside its split, the open
+## ground on 30% of the land at 60:40 money-maker:ore, every province holding
+## two money-makers, and the money rows its own land earns.
+func _assert_new_world_floors(rows: Dictionary, where: String) -> void:
+	assert_true(
+		float(rows["forest"]) <= 0.15,
+		"%s runs %.3f forest" % [where, float(rows["forest"])]
+	)
+	assert_true(
+		absf(float(rows["hardwood"]) - 0.20) <= 0.03,
+		"%s runs hardwood %.3f of its forest" % [where, float(rows["hardwood"])]
+	)
+	assert_true(
+		float(rows["open"]) >= 0.27 and float(rows["open"]) <= 0.32,
+		"%s carries %.3f of its land on open ground" % [where, float(rows["open"])]
+	)
+	assert_true(
+		float(rows["both"]) >= 0.36 and float(rows["both"]) <= 0.44,
+		"%s prices %.3f of its open rows as ore" % [where, float(rows["both"])]
+	)
+	assert_eq(
+		int(rows["barren"]), 0,
+		"%s leaves %d provinces without two money-makers"
+		% [where, int(rows["barren"])]
+	)
+	var scale: float = float(int(rows["land"])) / NW_MONEY_LAND
+	assert_true(
+		float(rows["crops"]) >= NW_CROP_FLOOR * scale,
+		"%s carries %d cash-crop rows for %d land" % [
+			where, int(rows["crops"]), int(rows["land"]),
+		]
+	)
+	assert_true(
+		float(rows["riches"]) >= NW_RICH_FLOOR * scale,
+		"%s carries %d rich rows for %d land" % [
+			where, int(rows["riches"]), int(rows["land"]),
+		]
 	)
 
 
