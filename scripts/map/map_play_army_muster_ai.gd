@@ -121,8 +121,9 @@ static func plan(
 ## The extra regiments the wall in front of this court asks for (issue #1314):
 ## every Old World province starts behind a wall, and the storm gate prices the
 ## wall plus its battery, so a court musting only its published target never
-## crosses one and its land stays foreign. The reading is the thinnest wall the
-## court does not own against its strongest line, from its own target and
+## crosses one and its land stays foreign. The reading is the wall the court
+## does not own against its strongest line — the enemy's own wall at war, the
+## map-wide thinnest wall at peace (issue #1518) — from its own target and
 ## strength; [method AiArmyReinforce.desired_regiments] raises the guard on it
 ## at war, and the money goal banks a storm-priced chest from it at peace
 ## (issue #1381, [method storm_chest]).
@@ -142,8 +143,15 @@ static func storm_extra(
 		return {}
 	var at_war: bool = MapPlayCourt.at_war(play, faction)
 	var target: int = AiArmyReinforce.guard_regiments(config, at_war)
+	# At war the wall the court actually fights leads the read (issue #1518):
+	# the map-wide thinnest wall priced Spain's wall on a Minor's Wood wall, so
+	# the host stood at 27 strength against a gate that priced Spain's own wall
+	# and refused every march into it. [method MapPlayStormWall.ahead] owns the
+	# read: the enemy's own wall at war, the map-wide wall at peace.
 	return AiStormGate.extra(
-		thinnest_wall(model, faction, MapPlayCampaign.tech_by_faction(play)),
+		MapPlayStormWall.ahead(
+			play, model, faction, MapPlayCampaign.tech_by_faction(play), at_war
+		),
 		float(RegimentCatalog.strength(
 			AiArmyReinforceLine.storm_line(config, economy)
 		)),
@@ -153,9 +161,11 @@ static func storm_extra(
 
 
 ## The storm host the court still has to raise for its money goal (issue
-## #1381): the host the thinnest wall it does not own prices (`AiStormGate.
-## regiments_for`) less the men it already fields — so the bank is the price of
-## the host **still missing**, and every regiment mustered draws it down. A
+## #1381): the host the wall ahead prices (`AiStormGate.
+## regiments_for` — the enemy's own wall at war, the map-wide thinnest wall at
+## peace, issue #1518) less the men it already fields — so the bank is the
+## price of the host **still missing**, and every regiment mustered draws it
+## down. A
 ## chest sized to the whole host and never spent froze the measured run at the
 ## wall's own price while the host stood at its guard (#1381: three crowns
 ## parked at 24,200 ducats and raised not one regiment in 200 turns). The same
@@ -183,8 +193,13 @@ static func storm_chest(
 	))
 	if strength <= 0.0:
 		return 0
+	# The same read the march prices ([method storm_extra]): at war the enemy's
+	# own wall leads (issue #1518), at peace the map-wide thinnest wall stands.
+	var at_war: bool = MapPlayCourt.at_war(play, faction)
 	var want: int = AiStormGate.regiments_for(
-		thinnest_wall(model, faction, MapPlayCampaign.tech_by_faction(play)), strength
+		MapPlayStormWall.ahead(
+			play, model, faction, MapPlayCampaign.tech_by_faction(play), at_war
+		), strength
 	)
 	var missing: int = maxi(want - maxi(own_regiments, 0), 0)
 	if missing <= 0:
@@ -193,7 +208,7 @@ static func storm_chest(
 	# it would raise today (issue #603's reach test, #1381's wall): the wall
 	# prices money alone at peace, so a bank no poorer court could reach would
 	# freeze its economy. A court at war arms for the host the read names.
-	if not MapPlayCourt.at_war(play, faction) \
+	if not at_war \
 			and AiArmyReinforceLine.cheapest_line(economy) < 0:
 		return 0
 	return missing
@@ -208,23 +223,9 @@ static func storm_chest(
 ## ([method FortRules.storm_ceiling]), which no longer sizes every minor's wall
 ## as if it carried siege guns.
 static func thinnest_wall(model: MapModel, faction: int, techs: Dictionary = {}) -> float:
-	if model == null:
-		return 0.0
-	var thinnest: float = 0.0
-	for province: int in model.province_count():
-		if model.province_owner(province) == faction:
-			continue
-		var level: int = FortRules.level_at(model, province)
-		if not FortRules.is_siege(level):
-			continue
-		var threshold: float = FortRules.storm_ceiling(level)
-		if not techs.is_empty():
-			var tech: Variant = techs.get(model.province_owner(province), {})
-			if tech is Dictionary:
-				threshold = FortRules.storm_threshold(tech as Dictionary, level)
-		if thinnest <= 0.0 or threshold < thinnest:
-			thinnest = threshold
-	return thinnest
+	# One wall home (issue #1518): the read lives on [method
+	# MapPlayStormWall.thinnest_wall], the same table the war read prices.
+	return MapPlayStormWall.thinnest_wall(model, faction, techs)
 
 
 ## A rival court raises one line regiment a turn from its own ledger while it
