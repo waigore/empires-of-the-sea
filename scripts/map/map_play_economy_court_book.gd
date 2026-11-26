@@ -133,6 +133,15 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 		# ~450 a turn against a fill of ~200 priced the release bar at a purse
 		# the economy never presents.
 		ladder_floor = maxi(ladder_floor, bank_chest)
+	# The war's army outranks the ladder (issue #1518): at war the money goal's
+	# own reserve is the storm host the enemy's wall prices, and the #1384
+	# invest floor let the ladder burn the very margin the chest was saving —
+	# measured 176-214 ducats a turn at war with the purse pinned under the
+	# 2,200 chest for 195 turns and not one storm in the age. While the war is
+	# open the ladder leaves the army's chest; the standing study keeps
+	# learning below it (issue #490) and the peace-time split stands.
+	if court.at_war:
+		ladder_floor = maxi(ladder_floor, court.floor)
 	var door_floor: int = (
 		invest_floor if court.invest_bank
 		else bank_chest if court.conquest_bank else 0

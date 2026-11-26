@@ -4558,6 +4558,55 @@ func test_the_banked_college_leads_from_the_invest_floor() -> void:
 		assert_eq(String(row["funding"]), "medium")
 
 
+## The war's army outranks the ladder (issue #1518): a court at war under its
+## storm target prices the college ladder against the army's own chest — the
+## #1384 invest floor burned the margin the chest was saving, and the measured
+## purse sat pinned under a 2,200 chest for 195 turns at war with not one
+## storm in the age. The standing study keeps learning below the chest (issue
+## #490); at peace the banked split stands (issue #1384).
+func test_the_wartime_ladder_leaves_the_armys_chest() -> void:
+	var paid_war: Array = _wartime_ladder_purse(_war_state(1, 0), 500)
+	assert_eq(
+		paid_war.size(), 1,
+		"the standing study alone keeps learning under the army's chest"
+	)
+	assert_eq(
+		String((paid_war[0] as Dictionary)["funding"]),
+		AiResearchPlanner.STANDING_FUNDING,
+		"the one paid study is the standing slot"
+	)
+	var paid_peace: Array = _wartime_ladder_purse(null, 2600)
+	assert_true(
+		paid_peace.size() > 1,
+		"at peace the bank's own floor keeps the ladder leading"
+	)
+
+
+## One rival court on the two-province chart, `diplomacy` its footing, the
+## storm read noted on the court's own config and `purse` in the treasury:
+## the college's paid rows for that turn's book.
+func _wartime_ladder_purse(diplomacy: DiplomacyState, purse: int) -> Array:
+	var play: PlaySession = _rival_economy_play()
+	play.diplomacy = diplomacy
+	var config: Variant = play.ensure_ai().court_config(
+		AiControl.KIND_SUBJECT, 1, play.map_seed, play.ai.profiles
+	)
+	(config as AiConfig).storm_read = {"want": 19.0, "extra": 10.0}
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.treasury = purse
+	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.open(
+		play, 1, WorldMarket.with_default_prices()
+	)
+	court.plan_turn()
+	var paid: Array = []
+	for row: Variant in (court.research["assignments"] as Array):
+		var entry: Dictionary = row as Dictionary
+		if String(entry["funding"]) != ResearchFunding.ORDER[0]:
+			paid.append(entry)
+	play.civilian_layer.free()
+	return paid
+
+
 ## Issue #484: while the navy chest is the money-goal reserve, the standing
 ## study must not drip 50 ducats a turn — that income has to reach the yard.
 func test_a_navy_chest_defers_the_standing_study() -> void:
@@ -7451,6 +7500,45 @@ func test_the_storm_bank_at_peace_asks_the_line_first() -> void:
 	assert_eq(
 		chest, config.parameter("army.min_treasury") + host_man,
 		"the storm bank holds the next man of the host"
+	)
+
+
+## The raise keeps the host's own hold (issue #1381): the purse pays this man
+## and still holds the next man of the line the host is sized with — the bar
+## the #1518 one-chest probe measured at 2× the line's price, and the lower
+## bar starved the measured courts into famine (two dead pools, zero income,
+## 180 turns). The published bar stands.
+func test_the_muster_raises_at_the_chest_the_goal_banks() -> void:
+	var config := AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var price: int = AiArmyReinforceLine.storm_price(config, economy)
+	var floor_treasury: int = config.parameter("army.min_treasury")
+	# The chest the goal, the counsel and the ledger read for the storm host:
+	# the muster floor, one man of the line above the army's own floor.
+	var bank: int = 4
+	assert_eq(
+		AiArmyReinforce.muster_floor(config, economy, 1, true, bank),
+		floor_treasury + price,
+		"the money goal's chest is the muster floor's own"
+	)
+	# The raise leaves the next man of the host behind it: the line's price
+	# above a purse that still holds that same price (the hold).
+	var plan: Dictionary = AiArmyReinforce.plan(
+		config, _purse(2 * price), 1, true, 0, -1, 0, {}, -1,
+		-2, false, bank
+	)
+	assert_eq(
+		String(plan["muster"]), AiArmyReinforceLine.storm_line(config, economy),
+		"the purse at the raise bar pays the storm line"
+	)
+	# Below the bar the raise waits — one payment short never musters.
+	assert_eq(
+		String(AiArmyReinforce.plan(
+			config, _purse(2 * price - 1), 1, true, 0, -1, 0,
+			{}, -1, -2, false, bank
+		)["muster"]),
+		"",
+		"a purse under the raise bar raises no one"
 	)
 
 
@@ -19928,6 +20016,51 @@ func test_the_war_wall_leads_the_read_at_war() -> void:
 	play.diplomacy.relation(2, 3).at_war = false
 	var quiet: float = MapPlayStormWall.ahead(play, model, 2, {}, true)
 	assert_eq(float(quiet), wide, "no war, no enemy wall: the map-wide read stands")
+
+
+## The muster prices the wall its war prices (issue #1518): the storm read the
+## pass notes rides the enemy's own wall at war — the map-wide read priced
+## Spain's wall on a Minor's Wood wall, so the storm gate refused every march
+## into it. A peaceful court keeps the map-wide read.
+func test_the_muster_notes_the_war_wall_it_fights() -> void:
+	var play: PlaySession = PlaySession.new()
+	play.world = _walk_world([2, 1, 3])
+	var model: MapModel = play.world.region(0)
+	model.provinces[1].fort_level = 1
+	model.provinces[2].fort_level = 2
+	play.diplomacy = _war_state(2, 3)
+	var economy: PlayerEconomy = play.ensure_ai().economy_for(2)
+	var config: Variant = AiControl.court(play, 2)["config"]
+	var strength: float = float(RegimentCatalog.strength(
+		AiArmyReinforceLine.storm_line(config, economy)
+	))
+	assert_true(strength > 0.0, "the techs open a storm line to size the host on")
+	var techs: Dictionary = MapPlayCampaign.tech_by_faction(play)
+	var war_want: int = AiStormGate.regiments_for(
+		MapPlayStormWall.war_wall(play, model, 2, techs), strength
+	)
+	assert_true(
+		MapPlayStormWall.thinnest_wall(model, 2, techs)
+		< MapPlayStormWall.war_wall(play, model, 2, techs),
+		"the fixture's map-wide wall is thinner than the one the war prices"
+	)
+	assert_eq(
+		MapPlayArmyMusterAi.storm_chest(play, model, 2, 1), maxi(war_want - 1, 0),
+		"at war the chest prices the enemy's own wall"
+	)
+	assert_eq(
+		int(MapPlayArmyMusterAi.storm_extra(play, model, 2, 1)["want"]), war_want,
+		"the pass notes the war wall's want"
+	)
+	play.diplomacy.relation(2, 3).at_war = false
+	var wide_want: int = AiStormGate.regiments_for(
+		MapPlayStormWall.thinnest_wall(model, 2, techs), strength
+	)
+	assert_eq(
+		MapPlayArmyMusterAi.storm_chest(play, model, 2, 1), maxi(wide_want - 1, 0),
+		"at peace the map-wide read stands"
+	)
+	assert_true(wide_want < war_want, "the peace read arms for a thinner wall")
 
 
 ## The one storm gate the two war planners read (issue #1314): an empty open
